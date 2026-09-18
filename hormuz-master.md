@@ -1234,10 +1234,13 @@ export const DEFAULT_CONFIG: Config;
 export function configFor(a: Agent, base: Config): Config;     // applies settings and personality
 
 // rng.ts
+export interface Rng { a: number; b: number; c: number; d: number }   // the whole sfc32 state, plain data
 export function rngFor(masterSeed: string, stream: 'products' | 'events' | 'ai'): Rng;
-export function restoreRng(state: RngState): Rng;
-export function normal(rng: Rng): number;                       // Box-Muller, second value discarded
-export function correlatedNormals(rng: Rng, cholesky: readonly number[][]): number[];
+export function nextUint32(rng: Rng): number;                   // advances rng; integer in [0, 2^32)
+export function nextFloat(rng: Rng): number;                    // advances rng; float in [0, 1)
+export function normal(rng: Rng): number;                       // Phase 3: Box-Muller, second value discarded
+export function correlatedNormals(rng: Rng, cholesky: readonly number[][]): number[];   // Phase 3
+// The generator is its state, so there is no separate save/restore: it serializes and forks like any other data.
 
 // clearing.ts
 export function createNode(name: NodeName, grade: Grade, markerRegion: RegionName): ExchangeNode;
