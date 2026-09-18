@@ -1,7 +1,7 @@
 // Core engine data shapes (spec §4). Everything here is plain data: it saves to JSON and
 // copies with structuredClone. That is why lists are arrays, never Set: JSON turns a Set into {}.
 
-import type { Side } from './enums';
+import type { AgentKind, CargoStatus, Controller, Grade, Personality, Side } from './enums';
 import type { ChokepointName } from '../data/chokepoints';
 import type { NodeName } from '../data/nodes';
 import type { RegionName } from '../data/regions';
@@ -107,4 +107,96 @@ export interface Fill {
   readonly route: Route;
   /** null for spot trades. Written as `| null` rather than optional, so it is always present. */
   readonly dealId: DealId | null;
+}
+
+// ---- Companies (spec §4.7–4.11) --------------------------------------------------------------
+// A company is a Producer, a Refiner or a Trader, told apart by `kind` — another discriminated
+// union. IntegratedMajor joins the union in Phase 3.
+
+/** Barrels held of each grade. Record<Grade, number> forces an entry for every grade. */
+export type Stock = Record<Grade, number>;
+export const emptyStock = (): Stock => ({ LIGHT_SWEET: 0, MEDIUM: 0, HEAVY_SOUR: 0 });
+
+/** Tier 1 refines Light Sweet; Tier 2 adds Medium; Tier 3 refines everything (spec §4.9). */
+export type TechTier = 1 | 2 | 3;
+
+interface CompanyBase {
+  readonly agentId: AgentId;
+  readonly name: string;
+  /** Home region: where a producer's wells or a refiner's plant are. */
+  readonly region: RegionName;
+  readonly controller: Controller;
+  /** AI companies only (spec G8); null for the player. */
+  readonly personality: Personality | null;
+  cash: number;
+  /** Cash held back by today's bids (spec §5 Phase 5b); zero at the end of every tick (invariant 4). */
+  cashReserved: number;
+  creditLimit: number;
+  creditDrawn: number;
+  insolvent: boolean;
+}
+
+export interface Producer extends CompanyBase {
+  readonly kind: typeof AgentKind.PRODUCER;
+  readonly grade: Grade;
+  /** bbl/day. */
+  extractionCapacity: number;
+  fieldMaxCapacity: number;
+  /** $/bbl before the region's labor index. */
+  readonly baseExtractionCost: number;
+  storageCapacity: number;
+  /** Barrels free to sell. */
+  storage: number;
+  /** Barrels locked by today's asks; zero at the end of every tick (invariant 4). */
+  storageEscrow: number;
+}
+
+export interface Refiner extends CompanyBase {
+  readonly kind: typeof AgentKind.REFINER;
+  techTier: TechTier;
+  /** bbl/day. */
+  processingCapacity: number;
+  crudeStorageCapacity: number;
+  crudeStock: Stock;
+  /** Barrels bought and still at sea, counted when sizing new bids (spec §6.2). */
+  inboundBarrels: number;
+}
+
+/** A trader's storage in one office region. */
+export interface HubHolding {
+  capacity: number;
+  stock: Stock;
+  /** Barrels locked by today's asks from this region. */
+  escrow: Stock;
+}
+
+export interface Trader extends CompanyBase {
+  readonly kind: typeof AgentKind.TRADER;
+  /** Regions the trader can buy into and sell from (spec §4.11). */
+  offices: RegionName[];
+  hubs: Partial<Record<RegionName, HubHolding>>;
+  maxRiskLimit: number;
+}
+
+export type Agent = Producer | Refiner | Trader;
+
+// ---- Cargo (spec §4.12) ----------------------------------------------------------------------
+// Created when a trade settles. Phase 4 moves it along its route and delivers it.
+
+export interface Cargo {
+  readonly cargoId: CargoId;
+  readonly ownerId: AgentId;
+  readonly grade: Grade;
+  readonly qty: number;
+  readonly origin: RegionName;
+  readonly destination: RegionName;
+  readonly route: Route;
+  readonly dispatchTick: Tick;
+  readonly dealId: DealId | null;
+  status: CargoStatus;
+}
+
+/** Deterministic cargo IDs: the node and tick that created it, then its position in that settlement. */
+export function makeCargoId(node: NodeName, tick: Tick, seq: number): CargoId {
+  return `${node}-${String(tick).padStart(5, '0')}-${String(seq).padStart(4, '0')}` as CargoId;
 }
