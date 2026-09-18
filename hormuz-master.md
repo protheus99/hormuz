@@ -1002,7 +1002,7 @@ The build proceeds on these. Changing one means updating the sections it names.
 | D4 | One tick is one day; every delivery travels as cargo and arrives no earlier than T+1 |
 | D5 | The buyer pays freight and destination tariff, the seller pays origin tariff, and integrated internal transfers pay neither |
 | D6 | Transport is a lane graph routed with Dijkstra, with chokepoints on edges and capacity-limited pipelines shared across directions; held cargo waits at the entry waypoint (§3.5) |
-| D7 | 22 regions in six continental groups; China's domestic production excluded |
+| D7 | 22 regions in seven continental groups, each with a player-facing display name (`src/data/regions.ts`); China's domestic production excluded |
 | D8 | Product prices follow a mean-reverting log process with seasonality, correlated shocks and weak lagged supply feedback (§7.3) |
 | D9 | The yield table drives decisions; the 3-2-1 crack is reporting only |
 | D10 | Fixed operating costs of $2.00 (producer) and $4.00 (refiner) per bbl/day of capacity make idling a real trade-off |
