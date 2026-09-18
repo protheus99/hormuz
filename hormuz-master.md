@@ -835,7 +835,7 @@ Placeholders for balancing. "× labor" scales with the region's `labor_cost_inde
 | `TENDER_DELAY`, `DEAL_OFFER_INTERVAL` | 3–5 ticks; 7 ticks | Deal offers |
 | `CREDIT_RATE` | 0.03% per tick | Credit line |
 | `REPORT_COST`, `REPORT_LAG`, `REPORT_NOISE` | $25,000, 5 ticks, ±15% | Market reports |
-| `INTEGRATE_THRESHOLD` | Net worth of 3× starting | Integration cards |
+| `INTEGRATE_THRESHOLD`, `INTEGRATE_PLANT_CAPACITY` | Net worth of 3× starting; a 2,500 bbl/day Tier 1 plant | Integration cards (G2) |
 | `CARD_MAX_OPEN`, `CARD_COOLDOWN`, `CARD_DEADLINE` | 3; 14 ticks per card type; 7 ticks | Cards |
 | `PROJECTION_TICKS` | 30 | Impact projections |
 
@@ -1232,7 +1232,8 @@ State is plain data; functions take it as their first argument.
 // config.ts
 export interface Config { LOT_SIZE: number; MIN_MARGIN: number; /* …every constant in §7.4 */ }
 export const DEFAULT_CONFIG: Config;
-export function configFor(a: Agent, base: Config): Config;     // applies settings and personality
+export function withOverrides(base: Config, o: DeepPartial<Config>): Config;   // new frozen config; base untouched
+export function configFor(a: Agent, base: Config): Config;     // Phase 5: applies settings and personality
 
 // rng.ts
 export interface Rng { a: number; b: number; c: number; d: number }   // the whole sfc32 state, plain data
