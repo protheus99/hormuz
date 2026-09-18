@@ -115,3 +115,12 @@ export const DealStatus = {
 } as const;
 export type DealStatus = (typeof DealStatus)[keyof typeof DealStatus];
 export const DEAL_STATUSES: readonly DealStatus[] = Object.values(DealStatus);
+
+/** Costs that leave the system, recorded in the fee ledger (spec §7.1). More kinds arrive with later phases. */
+export const FeeKind = {
+  FREIGHT: 'FREIGHT',
+  ORIGIN_TARIFF: 'ORIGIN_TARIFF',
+  DESTINATION_TARIFF: 'DESTINATION_TARIFF',
+} as const;
+export type FeeKind = (typeof FeeKind)[keyof typeof FeeKind];
+export const FEE_KINDS: readonly FeeKind[] = Object.values(FeeKind);

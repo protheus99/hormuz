@@ -15,6 +15,7 @@ const ENUMS = {
   Controller: [E.Controller, E.CONTROLLERS],
   Personality: [E.Personality, E.PERSONALITIES],
   DealStatus: [E.DealStatus, E.DEAL_STATUSES],
+  FeeKind: [E.FeeKind, E.FEE_KINDS],
 } as const;
 
 describe('enums (spec §4.1)', () => {
