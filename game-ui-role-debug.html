@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hormuz — Role Menu Debug</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background:#f5f5f7; color:#1a1a1e; height:100vh; overflow:hidden;
+  }
+  body { display:flex; flex-direction:column; }
+
+  /* ===== DEBUG BAR (TEMPORARY) ===== */
+  .debug-bar {
+    flex-shrink:0;
+    background: repeating-linear-gradient(135deg, #fff3cd, #fff3cd 10px, #ffe69c 10px, #ffe69c 20px);
+    border-bottom: 2px solid #d4a017;
+    padding: 8px 16px;
+    display:flex;
+    align-items:center;
+    gap: 14px;
+    flex-wrap: wrap;
+    font-size: 12px;
+  }
+  .debug-tag {
+    background:#d4a017; color:#fff; font-weight:800; font-size:10px;
+    padding:3px 8px; border-radius:3px; letter-spacing:0.5px; text-transform:uppercase;
+  }
+  .debug-bar label { font-weight:700; color:#5c4400; }
+  .debug-bar select {
+    padding:5px 10px; border:1px solid #d4a017; border-radius:4px;
+    font-size:12px; font-weight:600; background:#fff; color:#1a1a1e; cursor:pointer;
+  }
+  .debug-note { color:#7a5c00; font-size:11px; margin-left:auto; }
+  .legend { display:flex; align-items:center; gap:6px; font-size:11px; color:#5c4400; }
+  .legend-dot { width:9px; height:9px; border-radius:50%; display:inline-block; }
+  .legend-dot.action { background:#0066cc; }
+  .legend-dot.report { background:#aaa; }
+
+  /* ===== GAME MAP ===== */
+  .game-view {
+    flex:1;
+    background: linear-gradient(135deg,#f9f9f9 0%, #f0f0f0 100%);
+    border-bottom:1px solid #d0d0d0;
+    display:flex; align-items:center; justify-content:center;
+    color:#999; font-size:14px; min-height:220px; transition: all .3s ease;
+  }
+  .game-view.hidden { display:none; }
+
+  /* ===== CONTENT PANEL ===== */
+  .content-panel {
+    height:350px; background:#fff; border-top:1px solid #d0d0d0; border-bottom:1px solid #d0d0d0;
+    overflow-y:auto; overflow-x:hidden; display:none; box-shadow: inset 0 2px 4px rgba(0,0,0,.04);
+    transition: all .3s ease;
+  }
+  .content-panel.active { display:flex; flex-direction:column; }
+  .content-panel.expanded { height:auto; flex:1; }
+
+  .panel-header {
+    background: linear-gradient(135deg,#f9f9f9 0%, #f0f0f0 100%);
+    border-bottom:1px solid #d0d0d0; padding:16px 24px; position:sticky; top:0;
+    display:flex; justify-content:space-between; align-items:center; flex-shrink:0;
+  }
+  .panel-header h2 { font-size:15px; font-weight:700; color:#0066cc; letter-spacing:.5px; }
+  .panel-header .type-chip {
+    font-size:9px; font-weight:800; padding:3px 8px; border-radius:3px; margin-left:10px;
+    text-transform:uppercase; letter-spacing:.5px; vertical-align:middle;
+  }
+  .type-chip.action { background:#dbeeff; color:#0052a3; }
+  .type-chip.report { background:#eee; color:#666; }
+  .panel-content { padding:20px 24px; overflow-y:auto; flex:1; }
+  .close-btn { cursor:pointer; color:#999; font-size:18px; font-weight:bold; }
+  .close-btn:hover { color:#0066cc; }
+
+  .card {
+    background:#f9f9f9; border:1px solid #d0d0d0; border-radius:6px; padding:16px; margin-bottom:16px;
+  }
+  .card:hover { border-color:#0066cc; background:#fff; box-shadow:0 2px 8px rgba(0,102,204,.1); }
+  .card-title { font-size:12px; font-weight:700; color:#666; text-transform:uppercase; letter-spacing:.5px; margin-bottom:10px; }
+  .card-row { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:15px; }
+  .metric { display:flex; flex-direction:column; gap:4px; }
+  .metric-label { font-size:11px; color:#666; text-transform:uppercase; letter-spacing:.3px; }
+  .metric-value { font-size:16px; font-weight:700; color:#0066cc; }
+  .metric-value.positive { color:#28a745; }
+  .metric-value.negative { color:#dc3545; }
+  .metric-value.warning { color:#ff8c00; }
+  .section-title { font-size:11px; font-weight:700; color:#999; text-transform:uppercase; letter-spacing:.5px; margin:20px 0 12px; }
+  .progress-bar { background:#e0e0e0; height:6px; border-radius:3px; overflow:hidden; margin:8px 0; }
+  .progress-fill { height:100%; background:linear-gradient(90deg,#0066cc,#3399ff); border-radius:3px; }
+  .progress-text { font-size:11px; color:#666; display:flex; justify-content:space-between; }
+  .status-badge { display:inline-block; font-size:10px; font-weight:600; padding:4px 10px; border-radius:3px; text-transform:uppercase; }
+  .status-good { background:#d4edda; color:#155724; }
+  .status-warning { background:#fff3cd; color:#856404; }
+  .alert-box { background:#fff5f5; border-left:3px solid #dc3545; padding:12px 16px; border-radius:4px; margin-bottom:12px; font-size:12px; color:#721c24; }
+  .alert-box.warning { background:#fffbf0; border-left-color:#ff8c00; color:#7a4b00; }
+  .list-item { background:#f9f9f9; border:1px solid #d0d0d0; border-radius:4px; padding:12px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
+  .list-item-title { font-weight:600; color:#1a1a1e; font-size:12px; }
+  .list-item-detail { font-size:11px; color:#999; }
+  .list-item-value { font-weight:600; color:#0066cc; font-size:13px; }
+  .btn-small { background:#0066cc; color:#fff; border:none; padding:6px 12px; border-radius:3px; font-size:10px; font-weight:600; cursor:pointer; text-transform:uppercase; }
+  .btn-small:hover { background:#0052a3; }
+  .btn-small.ghost { background:#fff; color:#0066cc; border:1px solid #0066cc; }
+
+  .content-panel::-webkit-scrollbar { width:8px; }
+  .content-panel::-webkit-scrollbar-track { background:#f0f0f0; }
+  .content-panel::-webkit-scrollbar-thumb { background:#ccc; border-radius:4px; }
+
+  /* ===== TOOLBAR ===== */
+  .toolbar {
+    background:#fff; border-top:1px solid #d0d0d0; border-bottom:2px solid #0066cc;
+    padding:12px 20px; display:flex; justify-content:space-between; align-items:center;
+    gap:8px; flex-wrap:wrap; box-shadow:0 -2px 8px rgba(0,0,0,.08); min-height:60px;
+  }
+  .toolbar-section { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+  .toolbar-section.status { margin-left:auto; gap:15px; }
+
+  .toolbar-icon {
+    width:44px; height:44px; background:#f0f0f0; border:1px solid #d0d0d0; border-radius:4px;
+    cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:18px;
+    transition: all .2s; position:relative; font-family:inherit; border-top:3px solid #d0d0d0;
+  }
+  .toolbar-icon:hover { background:#fff; border-color:#0066cc; box-shadow:0 2px 8px rgba(0,102,204,.15); }
+  .toolbar-icon.active { background:#0066cc; color:#fff; border-color:#0066cc; }
+  /* action vs reporting visual distinction */
+  .toolbar-icon.action { border-top-color:#0066cc; }
+  .toolbar-icon.report { border-top-color:#c9c9c9; }
+
+  .toolbar-divider {
+    width:1px; align-self:stretch; background:#d0d0d0; margin:2px 6px;
+  }
+
+  .status-item { display:flex; flex-direction:column; gap:2px; padding:0 8px; border-right:1px solid #d0d0d0; font-size:12px; }
+  .status-item:last-child { border-right:none; padding-right:0; }
+  .status-label { font-size:9px; color:#999; text-transform:uppercase; letter-spacing:.3px; }
+  .status-value { font-size:13px; font-weight:600; color:#0066cc; }
+  .status-value.positive { color:#28a745; }
+  .speed-dial { display:flex; gap:4px; align-items:center; }
+  .speed-button { width:24px; height:24px; border-radius:50%; background:#f0f0f0; border:1px solid #d0d0d0; cursor:pointer; font-size:10px; font-weight:600; color:#666; display:flex; align-items:center; justify-content:center; }
+  .speed-button.active { background:#0066cc; border-color:#0066cc; color:#fff; }
+</style>
+</head>
+<body>
+
+  <!-- ===== DEBUG BAR (TEMPORARY — REMOVE BEFORE PRODUCTION) ===== -->
+  <div class="debug-bar">
+    <span class="debug-tag">Debug</span>
+    <label for="roleSelect">Agent type:</label>
+    <select id="roleSelect" onchange="switchRole()">
+      <option value="producer">Producer</option>
+      <option value="manufacturer">Manufacturer (Refiner)</option>
+      <option value="trader">Trader</option>
+    </select>
+    <div class="legend">
+      <span class="legend-dot action"></span> Action (first)
+      <span class="legend-dot report"></span> Reporting (last)
+    </div>
+    <span class="debug-note">Temporary tool for previewing role-specific menu ordering — not part of production UI</span>
+  </div>
+
+  <!-- GAME MAP -->
+  <div class="game-view" id="gameView">🗺️ WORLD MAP — Click a menu option below</div>
+
+  <!-- CONTENT PANEL -->
+  <div class="content-panel" id="contentPanel"></div>
+
+  <!-- TOOLBAR -->
+  <div class="toolbar">
+    <div class="toolbar-section" id="toolbarMenus"><!-- built by JS --></div>
+    <div class="toolbar-section status">
+      <div class="status-item"><span class="status-label">Cash</span><span class="status-value">$12.4M</span></div>
+      <div class="status-item"><span class="status-label">P&L</span><span class="status-value positive">+$94K</span></div>
+      <div class="status-item"><span class="status-label">Date</span><span class="status-value">Day 52/180</span></div>
+      <div class="status-item">
+        <span class="status-label">Speed</span>
+        <div class="speed-dial">
+          <button class="speed-button" onclick="setSpeed(this)">⏸</button>
+          <button class="speed-button active" onclick="setSpeed(this)">1×</button>
+          <button class="speed-button" onclick="setSpeed(this)">3×</button>
+          <button class="speed-button" onclick="setSpeed(this)">7×</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* ---------- Menu definitions ---------- */
+const MENU_DEFS = {
+  concessions: { icon:'📜', label:'Concessions', group:'action', content: () => `
+    <div class="section-title">Owned Concessions</div>
+    <div class="list-item"><div><div class="list-item-title">Permian Light Sweet #1</div><div class="list-item-detail">Acquired Day 10 | Producing 6,100 bbl/day</div></div><button class="btn-small ghost">Details</button></div>
+    <div class="list-item"><div><div class="list-item-title">Guyana Heavy Sour #1</div><div class="list-item-detail">Acquired Day 25 | Developing (53%)</div></div><button class="btn-small ghost">Details</button></div>
+    <div class="section-title">Available to Buy</div>
+    <div class="list-item"><div><div class="list-item-title">Permian Light Sweet #2</div><div class="list-item-detail">Est. 5,200 bbl/day | 2 slots left</div></div><button class="btn-small">Buy $5.2M</button></div>
+    <div class="list-item"><div><div class="list-item-title">West Africa Medium #1</div><div class="list-item-detail">Est. 4,800 bbl/day | 3 slots left</div></div><button class="btn-small">Buy $4.8M</button></div>
+  `},
+  wells: { icon:'⛏', label:'Wells', group:'action', content: () => `
+    <div class="section-title">Active Well Projects</div>
+    <div class="card"><div class="card-title">Drill Capacity — Permian</div>
+      <div class="card-row"><div class="metric"><div class="metric-label">Progress</div>
+        <div style="width:150px;"><div class="progress-bar"><div class="progress-fill" style="width:32%;"></div></div>
+        <div class="progress-text"><span>32%</span><span>31 days left</span></div></div></div>
+        <div class="metric"><div class="metric-label">Adds</div><div class="metric-value">+1,000 bbl/day</div></div></div>
+    </div>
+    <div class="section-title">Available Actions</div>
+    <div class="list-item"><div><div class="list-item-title">Drill Capacity (+1,000 bbl/day)</div><div class="list-item-detail">45 days | $2.1M</div></div><button class="btn-small">Start</button></div>
+    <div class="list-item"><div><div class="list-item-title">Expand Storage (5K bbl)</div><div class="list-item-detail">20 days | $750K</div></div><button class="btn-small">Start</button></div>
+    <div class="list-item"><div><div class="list-item-title">Close Well — Guyana #1</div><div class="list-item-detail">Saves fixed costs | 5 days</div></div><button class="btn-small ghost">Close</button></div>
+  `},
+  refinery: { icon:'🏭', label:'Refinery', group:'action', content: () => `
+    <div class="section-title">Active Projects</div>
+    <div class="card"><div class="card-title">Tier 2 Upgrade</div>
+      <div class="card-row"><div class="metric"><div class="metric-label">Progress</div>
+        <div style="width:150px;"><div class="progress-bar"><div class="progress-fill" style="width:53%;"></div></div>
+        <div class="progress-text"><span>53%</span><span>32 days left</span></div></div></div>
+        <div class="metric"><div class="metric-label">Running At</div><div class="metric-value warning">60% capacity</div></div></div>
+    </div>
+    <div class="section-title">Available Actions</div>
+    <div class="list-item"><div><div class="list-item-title">Add Processing Unit</div><div class="list-item-detail">90 days | $3.4M</div></div><button class="btn-small">Start</button></div>
+    <div class="list-item"><div><div class="list-item-title">Schedule Maintenance</div><div class="list-item-detail">5 days | Resets breakdown risk</div></div><button class="btn-small">Schedule</button></div>
+    <div class="list-item"><div><div class="list-item-title">Set Utilization Rate</div><div class="list-item-detail">Current: 85%</div></div><button class="btn-small ghost">Adjust</button></div>
+  `},
+  yield_slate: { icon:'⚖', label:'Product Slate', group:'action', content: () => `
+    <div class="section-title">Baseline Yield Table (per barrel)</div>
+    <div class="list-item"><div><div class="list-item-title">Light Sweet</div><div class="list-item-detail">Gasoline 60% · Diesel 40% · Fuel Oil 0%</div></div></div>
+    <div class="list-item"><div><div class="list-item-title">Medium</div><div class="list-item-detail">Gasoline 50% · Diesel 42% · Fuel Oil 8%</div></div></div>
+    <div class="list-item"><div><div class="list-item-title">Heavy Sour</div><div class="list-item-detail">Gasoline 38% · Diesel 44% · Fuel Oil 18%</div></div></div>
+
+    <div class="section-title">Adjust Slate — Medium Crude <span style="text-transform:none;font-weight:400;color:#999;">(Tier 2: ±10% flex)</span></div>
+    <div class="card">
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <div>
+          <div class="card-row" style="margin-bottom:4px;"><span class="metric-label">Gasoline</span><span id="slateGas" class="metric-value">50%</span></div>
+          <input type="range" min="40" max="60" value="50" id="rangeGas" style="width:100%;" oninput="updateSlate()">
+        </div>
+        <div>
+          <div class="card-row" style="margin-bottom:4px;"><span class="metric-label">Diesel</span><span id="slateDiesel" class="metric-value">42%</span></div>
+          <input type="range" min="32" max="52" value="42" id="rangeDiesel" style="width:100%;" oninput="updateSlate()">
+        </div>
+        <div>
+          <div class="card-row" style="margin-bottom:4px;"><span class="metric-label">Fuel Oil</span><span id="slateFuel" class="metric-value">8%</span></div>
+          <input type="range" min="0" max="18" value="8" id="rangeFuel" style="width:100%;" oninput="updateSlate()">
+        </div>
+        <div class="card-row" style="border-top:1px solid #d0d0d0; padding-top:10px;">
+          <div class="metric"><div class="metric-label">Total</div><div class="metric-value" id="slateTotal">100%</div></div>
+          <button class="btn-small" id="applySlateBtn" onclick="alert('Slate applied — effective next day.')">Apply Slate</button>
+        </div>
+      </div>
+    </div>
+    <div class="section-title">Why shift it</div>
+    <div class="alert-box" style="background:#f0f7ff; border-left-color:#0066cc; color:#0052a3;">
+      Diesel is trading $4.30 above its seasonal average right now. Shifting +5% toward Diesel could add roughly $2.1K/day at current volumes.
+    </div>
+  `},
+  market_access: { icon:'🎫', label:'Market Access', group:'action', content: () => `
+    <div class="section-title">Owned Licenses</div>
+    <div class="list-item"><div><div class="list-item-title">Coastal Asia</div><div class="list-item-detail">Acquired Day 15 | Active</div></div><button class="btn-small ghost">Sell (65%)</button></div>
+    <div class="list-item"><div><div class="list-item-title">Rotterdam Hub</div><div class="list-item-detail">Acquired Day 30 | Active</div></div><button class="btn-small ghost">Sell (65%)</button></div>
+    <div class="section-title">Available Licenses</div>
+    <div class="list-item"><div><div class="list-item-title">Singapore Hub</div><div class="list-item-detail">3 slots left</div></div><button class="btn-small">Buy $1.8M</button></div>
+    <div class="list-item"><div><div class="list-item-title">Gulf Coast US</div><div class="list-item-detail">4 slots left</div></div><button class="btn-small">Buy $2.1M</button></div>
+  `},
+  map: { icon:'🗺', label:'Map', group:'report', content: (role) => {
+    const titles = {
+      producer: 'Concession Regions',
+      manufacturer: 'Crude Source Regions',
+      trader: 'Regional Price Differentials'
+    };
+    const rows = {
+      producer: [
+        ['Permian Basin','Light Sweet | 2 concessions owned'],
+        ['Middle East','Heavy Sour | 1 concession owned'],
+        ['West Africa','Medium | Available'],
+        ['Guyana','Heavy Sour | 1 developing']
+      ],
+      manufacturer: [
+        ['Permian Basin','Light Sweet | $72.30 delivered'],
+        ['Middle East','Heavy Sour | $61.90 delivered'],
+        ['West Africa','Medium | $68.40 delivered'],
+      ],
+      trader: [
+        ['Coastal Asia ↔ Rotterdam','Spread: +$3.10/bbl | Contango'],
+        ['Gulf Coast ↔ Singapore','Spread: +$1.40/bbl | Flat'],
+        ['Middle East ↔ Coastal Asia','Spread: -$0.60/bbl | Backwardation'],
+      ]
+    };
+    return `<div class="section-title">${titles[role]}</div>` + rows[role].map(r =>
+      `<div class="list-item"><div><div class="list-item-title">${r[0]}</div><div class="list-item-detail">${r[1]}</div></div><button class="btn-small ghost">Zoom</button></div>`
+    ).join('');
+  }},
+  markets: { icon:'📊', label:'Markets', group:'report', content: (role) => {
+    if (role === 'producer') return `
+      <div class="section-title">Your Sell-Side Netback</div>
+      <div class="list-item"><div><div class="list-item-title">NYMEX (Light Sweet)</div><div class="list-item-detail">Your volume: 5,800 bbl/day</div></div><div class="list-item-value">$72.30</div></div>
+      <div class="list-item"><div><div class="list-item-title">DME (Heavy Sour)</div><div class="list-item-detail">Your volume: 4,200 bbl/day</div></div><div class="list-item-value">$62.80</div></div>
+    `;
+    if (role === 'manufacturer') return `
+      <div class="section-title">Feedstock (Buy)</div>
+      <div class="list-item"><div><div class="list-item-title">NC (Medium Crude)</div><div class="list-item-detail">Daily volume 800K bbl</div></div><div class="list-item-value">$70.15</div></div>
+      <div class="section-title">Refined Products (Sell)</div>
+      <div class="list-item"><div><div class="list-item-title">Diesel</div><div class="list-item-detail">Margin +$23.50/bbl</div></div><div class="list-item-value">$95.80</div></div>
+    `;
+    return `
+      <div class="section-title">Exchange Spreads</div>
+      <div class="list-item"><div><div class="list-item-title">NYMEX vs DME</div><div class="list-item-detail">Light Sweet vs Heavy Sour</div></div><div class="list-item-value">$9.50</div></div>
+      <div class="list-item"><div><div class="list-item-title">30d vs Spot (NYMEX)</div><div class="list-item-detail">Contango</div></div><div class="list-item-value positive">+$1.80</div></div>
+    `;
+  }},
+  shipping: { icon:'🚢', label:'Shipping', group: (role) => role === 'trader' ? 'action' : 'report', content: (role) => {
+    if (role === 'trader') return `
+      <div class="section-title">Chartered Tankers</div>
+      <div class="list-item"><div><div class="list-item-title">VLCC — Coastal Asia → Rotterdam</div><div class="list-item-detail">12,000 bbl floating | Day 6 of 14</div></div><button class="btn-small ghost">Release</button></div>
+      <div class="section-title">Available Actions</div>
+      <div class="list-item"><div><div class="list-item-title">Charter New Tanker</div><div class="list-item-detail">Suezmax | $1.90/bbl freight</div></div><button class="btn-small">Charter</button></div>
+      <div class="list-item"><div><div class="list-item-title">Lease Storage — Singapore</div><div class="list-item-detail">10K bbl capacity | $0.08/bbl/day</div></div><button class="btn-small">Lease</button></div>
+    `;
+    return `
+      <div class="section-title">Active Shipments</div>
+      <div class="card"><div class="card-title">${role==='producer' ? 'Permian → Singapore' : 'West Africa → Refinery'}</div>
+        <div class="card-row"><div class="metric"><div class="metric-label">Volume</div><div class="metric-value">5,800 bbl</div></div>
+        <div class="metric"><div class="metric-label">ETA</div><div class="metric-value">Day 58</div></div>
+        <span class="status-badge status-good">On Track</span></div></div>
+      <div class="section-title">⚠ Chokepoint Status</div>
+      <div class="alert-box warning">Hormuz Strait: TENSION. Freight surcharge +2%.</div>
+    `;
+  }},
+  messages: { icon:'💬', label:'Messages', group:'report', content: () => `
+    <div class="section-title">⚠ Active Alerts</div>
+    <div class="alert-box">Storage at 18 days (above 15-day target).</div>
+    <div class="alert-box warning">Hormuz chokepoint: OPEN → TENSION. Freight +2%.</div>
+    <div class="section-title">📬 Recent Events</div>
+    <div class="card"><div class="card-title">Day 51: Pipeline Maintenance</div><div style="font-size:12px;color:#666;">Scheduled maintenance, Permian pipeline. -15% production for 2 days.</div></div>
+    <div class="card"><div class="card-title">Day 48: Market Rumor</div><div style="font-size:12px;color:#666;">Speculation of Middle East supply disruption. Light Sweet peaked at $74.20.</div></div>
+  `},
+  production: { icon:'📦', label:'Production', group:'report', content: () => `
+    <div class="section-title">Current Extraction</div>
+    <div class="list-item"><div><div class="list-item-title">Light Sweet — Permian</div><div class="list-item-detail">Extraction rate: 85%</div></div><div class="list-item-value positive">6,100 bbl/day</div></div>
+    <div class="list-item"><div><div class="list-item-title">Heavy Sour — Guyana</div><div class="list-item-detail">Status: Developing</div></div><div class="list-item-value">4,200 bbl/day</div></div>
+    <div class="section-title">Storage</div>
+    <div class="card"><div class="card-title">Light Sweet Wellhead Storage</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:72%;"></div></div>
+      <div class="progress-text"><span>10,800 bbl (18 days)</span><span>Target: 10–15 days</span></div></div>
+  `},
+  products: { icon:'⚗', label:'Products', group:'report', content: () => `
+    <div class="section-title">Refined Output</div>
+    <div class="list-item"><div><div class="list-item-title">Diesel</div><div class="list-item-detail">Yield: 42% of throughput</div></div><div class="list-item-value positive">$23.50/bbl margin</div></div>
+    <div class="list-item"><div><div class="list-item-title">Gasoline</div><div class="list-item-detail">Yield: 35% of throughput</div></div><div class="list-item-value positive">$19.80/bbl margin</div></div>
+    <div class="section-title">Feedstock Inventory</div>
+    <div class="card"><div class="card-title">Medium Crude Stock</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:58%;"></div></div>
+      <div class="progress-text"><span>7 days of supply</span><span>Target: 5–10 days</span></div></div>
+  `},
+  positions: { icon:'📈', label:'Positions', group:'report', content: () => `
+    <div class="section-title">Open Positions</div>
+    <div class="list-item"><div><div class="list-item-title">Coastal Asia Spread Trade</div><div class="list-item-detail">15,200 bbl held | Bought at $68.40</div></div><div class="list-item-value positive">+$48K unrealized</div></div>
+    <div class="list-item"><div><div class="list-item-title">Rotterdam Floating Storage</div><div class="list-item-detail">12,000 bbl | Waiting for backwardation</div></div><div class="list-item-value">Holding</div></div>
+    <div class="section-title">Closed (Last 7 Days)</div>
+    <div class="list-item"><div><div class="list-item-title">Gulf Coast → Singapore</div><div class="list-item-detail">Closed Day 49</div></div><div class="list-item-value positive">+$22K realized</div></div>
+  `},
+  corporation: { icon:'🏢', label:'Corporation', group:'report', content: (role) => {
+    const asset = {
+      producer: ['Concession Value', '$38.4M'],
+      manufacturer: ['Refinery Asset Value', '$29.1M'],
+      trader: ['Owned Licenses Value', '$3.9M']
+    };
+    return `
+      <div class="section-title">Financial Overview</div>
+      <div class="list-item"><div><div class="list-item-title">Net Worth</div></div><div class="list-item-value positive">$145.2M</div></div>
+      <div class="list-item"><div><div class="list-item-title">Daily P&L</div></div><div class="list-item-value positive">+$94K</div></div>
+      <div class="list-item"><div><div class="list-item-title">Cash on Hand</div></div><div class="list-item-value">$12.4M</div></div>
+      <div class="section-title">Resources</div>
+      <div class="list-item"><div><div class="list-item-title">${asset[role][0]}</div></div><div class="list-item-value">${asset[role][1]}</div></div>
+      <div class="list-item"><div><div class="list-item-title">Credit Available</div></div><div class="list-item-value">$18.6M</div></div>
+    `;
+  }}
+};
+
+/* ---------- Role → ordered menu list (actions first, reporting last) ---------- */
+const ROLE_MENUS = {
+  producer:     ['concessions','wells','map','markets','shipping','messages','production','corporation'],
+  manufacturer: ['refinery','yield_slate','map','markets','shipping','messages','products','corporation'],
+  trader:       ['market_access','shipping','map','markets','messages','positions','corporation']
+};
+
+let currentRole = 'producer';
+
+function groupOf(id, role) {
+  const def = MENU_DEFS[id];
+  return typeof def.group === 'function' ? def.group(role) : def.group;
+}
+
+function buildToolbar() {
+  const menus = ROLE_MENUS[currentRole];
+  let html = '';
+  let dividerPlaced = false;
+  menus.forEach(id => {
+    const def = MENU_DEFS[id];
+    const group = groupOf(id, currentRole);
+    if (group === 'report' && !dividerPlaced) {
+      html += `<div class="toolbar-divider"></div>`;
+      dividerPlaced = true;
+    }
+    html += `<button class="toolbar-icon ${group}" onclick="openContent('${id}')" title="${def.label} — ${group === 'action' ? 'Action' : 'Reporting'}">${def.icon}</button>`;
+  });
+  document.getElementById('toolbarMenus').innerHTML = html;
+}
+
+function openContent(id) {
+  const def = MENU_DEFS[id];
+  const group = groupOf(id, currentRole);
+  const panel = document.getElementById('contentPanel');
+  const gameView = document.getElementById('gameView');
+  panel.innerHTML = `
+    <div class="panel-header">
+      <h2>${def.icon} ${def.label}<span class="type-chip ${group}">${group === 'action' ? 'Action' : 'Reporting'}</span></h2>
+      <span class="close-btn" onclick="goToMap()">✕</span>
+    </div>
+    <div class="panel-content">${def.content(currentRole)}</div>
+  `;
+  panel.classList.add('active','expanded');
+  gameView.classList.add('hidden');
+  document.querySelectorAll('.toolbar-icon').forEach(b => b.classList.remove('active'));
+  event.target.closest('.toolbar-icon').classList.add('active');
+}
+
+function goToMap() {
+  document.getElementById('contentPanel').classList.remove('active','expanded');
+  document.getElementById('gameView').classList.remove('hidden');
+  document.querySelectorAll('.toolbar-icon').forEach(b => b.classList.remove('active'));
+}
+
+function switchRole() {
+  currentRole = document.getElementById('roleSelect').value;
+  const labels = { producer:'Producer', manufacturer:'Manufacturer', trader:'Trader' };
+  document.getElementById('gameView').innerHTML = `🗺️ WORLD MAP (${labels[currentRole]} view) — Click a menu option below`;
+  buildToolbar();
+  goToMap();
+}
+
+function updateSlate() {
+  const g = +document.getElementById('rangeGas').value;
+  const d = +document.getElementById('rangeDiesel').value;
+  const f = +document.getElementById('rangeFuel').value;
+  document.getElementById('slateGas').textContent = g + '%';
+  document.getElementById('slateDiesel').textContent = d + '%';
+  document.getElementById('slateFuel').textContent = f + '%';
+  const total = g + d + f;
+  const totalEl = document.getElementById('slateTotal');
+  const btn = document.getElementById('applySlateBtn');
+  totalEl.textContent = total + '%';
+  if (total === 100) {
+    totalEl.classList.remove('negative'); totalEl.classList.add('positive');
+    btn.disabled = false; btn.style.opacity = 1;
+  } else {
+    totalEl.classList.remove('positive'); totalEl.classList.add('negative');
+    btn.disabled = true; btn.style.opacity = 0.4;
+  }
+}
+
+function setSpeed(btn) {
+  document.querySelectorAll('.speed-button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+window.addEventListener('load', () => {
+  buildToolbar();
+  goToMap();
+});
+</script>
+</body>
+</html>

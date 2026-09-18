@@ -1,0 +1,71 @@
+# Context Transfer Protocol: Project GEMS (Global Energy Market Simulator)
+
+### System Overview
+Project GEMS is a Python-based, object-oriented, discrete-time Agent-Based Model (ABM) designed to simulate the second-by-second microeconomic price discovery and physical supply-chain logistics of the global crude oil market. 
+
+We have established a complete Minimum Viable Product (MVP) structural blueprint. Do not use top-down static formulas; prices and global trade movements emerge entirely from the friction between autonomous agents interacting with localized electronic Limit Order Books (LOB).
+
+---
+
+### 1. The Core Abstractions & Simplifications
+To ensure clean, performance-optimized, and highly debuggable Python code, we agreed on the following architectural simplifications:
+* **Time-Step (Tick) Synchronicity:** The model operates on discrete ticks. Within a single tick, physical operations (extraction, refining, logistics transport) execute concurrently. Financial workflows (order placement, priority queue matching) resolve sequentially within individual exchange nodes.
+* **Chemical Grade Tiers:** Instead of real-world chemical complexities (API gravity/sulfur ratios), oil is categorized into three strict, universally accepted tiers: `Light_Sweet` (Premium), `Medium` (Standard), and `Heavy_Sour` (Discounted).
+* **The Exchange Nodes:** Three core public clearinghouses manage independent priority queues using Python's `heapq` module:
+  * **NYMEX Node:** Trades `Light_Sweet` crude (e.g., U.S. West Texas Intermediate proxy).
+  * **ICE Node:** Trades `Medium` crude (e.g., North Sea Brent proxy).
+  * **DME Node:** Trades `Heavy_Sour` crude (e.g., Middle East/Canadian heavy proxy).
+
+---
+
+### 2. Expanded Class Definitions & Attributes
+
+#### A. GeographicRegion (The Environmental Modifier)
+Binds actors to localized macroeconomic constraints.
+* Attributes: `region_name` (str), `labor_cost_index` (float - wage multiplier, e.g., 1.40 for North Sea, 0.75 for Middle East), `exploitable_grades` (list of str - geological filter), `infrastructure_tariff` (float - local tax per barrel traded).
+
+#### B. Producer (The Extraction Layer - Independent Companies or States)
+* Attributes: `producer_id` (str), `region` (GeographicRegion), `oil_grade` (str), `extraction_capacity` (float), `base_extraction_cost` (float), `storage_capacity` (float), `current_storage` (float), `cash_reserves` (float).
+* Cost Logic: $\text{Actual Extraction Cost} = \text{base\_extraction\_cost} \times \text{region.labor\_cost\_index}$.
+* Structural Rules: If `current_storage` reaches 100%, extraction capacity halts to 0. 
+
+#### C. Manufacturer (The Refining Layer / Factories)
+* Attributes: `manufacturer_id` (str), `region` (GeographicRegion), `factory_count` (int), `processing_capacity` (float), `tech_tier` (int - Tier 1 processes Light only; Tier 3 processes all grades), `product_yield` (dict - e.g., Gasoline vs Diesel ratios), `crude_storage_capacity` (float), `current_crude_stock` (float), `cash_reserves` (float).
+* Operating Logic: Bidding intensity inside the public exchange is governed by the dynamic calculation of the **3-2-1 Crack Spread Margin**.
+
+#### D. Trader & Speculator (Financial Intermediaries)
+* Attributes: `trader_id` (str), `max_risk_limit` (float), `net_open_position` (int), `cash_reserves` (float).
+* Core Archetypes Covered: *Paper Speculators* (provide order book liquidity but must exit positions before expiry tick) and *Physical Arbitrageurs* (lease/own logistics assets to exploit spatial price spreads).
+
+#### E. LogisticsAsset (The Physical Transport Layer)
+* Attributes: `asset_type` ("Pipeline" or "Tanker"), `capacity_limit` (float), `freight_cost_rate` (float), `transit_timer` (int).
+* Structural Rules: Tankers physically isolate crude from the global system inside a "transit limbo" array until `transit_timer == 0`.
+
+---
+
+### 3. Special Feature: Rules of Vertically Integrated Agents
+Unlike pure-play entities, integrated majors (e.g., parent conglomerates owning both extraction and refining subsidiaries) operate under unique internal overriding conditions:
+* **Rule 1: The Private Ledger:** Before open market cycles begin, the parent matches its own upstream extraction directly against its downstream refinery vacuum. This clears internally at cost, completely bypassing public exchange clearing houses, matching spreads, and regional broker commissions.
+* **Rule 2: Tariff Exemption:** Internal routing via private company pipelines strips the regional `infrastructure_tariff` to $0.00$.
+* **Rule 3: Asymmetric Public Spillover:** Unbalanced integrated positions fall back into open markets:
+  * *Overproduction Surplus* results in an automatic **Limit Ask Order** submitted to the public exchange.
+  * *Underproduction Deficit* forces the agent to throw aggressive **Market Bids** onto the public exchange to prevent refinery starvation.
+
+---
+
+### 4. Established Test Entities Portfolio
+The following mock entities have been constructed to stress-test the model:
+* `Boreal_Shale` (Independent Producer: US Permian, high-volume Light Sweet).
+* `Aegis_Offshore` (Independent Producer: North Sea, high labor cost Medium crude).
+* `Metro_Refine` (Independent Manufacturer: Coastal Asia, low-wage, Tech_Tier 1).
+* `Australis_Integrated` (Integrated Major: North Sea, structurally configured as an Overproduction Spillover Seller).
+* `Helios_Integrated` (Integrated Major: Middle East, structurally configured as an Underproduction Spillover Buyer).
+
+---
+
+### Current Implementation State & Immediate Next Steps
+The object-oriented structural skeletons for the `ExchangeNode` order heaps, `Producer`, `Manufacturer`, and `IntegratedConglomerate` private ledgers have been written and mathematically verified.
+
+When resuming this session, please assist me with:
+1. Writing the complete **Order Submission Logic loop** to push independent and spillover orders onto the active `ExchangeNode` min/max heaps.
+2. Coding the complete **Per-Tick Global Execution Sequence** orchestrating extraction, internal clearing, refining, logistics countdowns, and matching order logic sequentially.

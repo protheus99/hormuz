@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hormuz — Game UI Final (Light Theme)</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    html, body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f5f5f7;
+      color: #1a1a1e;
+      height: 100vh;
+      overflow: hidden;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* GAME MAP (TOP, FILLS AVAILABLE SPACE) */
+    .game-view {
+      flex: 1;
+      background: linear-gradient(135deg, #f9f9f9 0%, #f0f0f0 100%);
+      border-bottom: 1px solid #d0d0d0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #999;
+      font-size: 14px;
+      overflow: hidden;
+      min-height: 300px;
+      transition: all 0.3s ease;
+    }
+
+    .game-view.hidden {
+      display: none;
+    }
+
+    /* CONTENT PANEL (MIDDLE, SCROLLABLE) */
+    .content-panel {
+      height: 350px;
+      background: #fff;
+      border-top: 1px solid #d0d0d0;
+      border-bottom: 1px solid #d0d0d0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      display: none;
+      z-index: 50;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.04);
+      transition: all 0.3s ease;
+    }
+
+    .content-panel.active {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .content-panel.expanded {
+      height: auto;
+      flex: 1;
+    }
+
+    .panel-header {
+      background: linear-gradient(135deg, #f9f9f9 0%, #f0f0f0 100%);
+      border-bottom: 1px solid #d0d0d0;
+      padding: 16px 24px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .panel-header h2 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #0066cc;
+      letter-spacing: 0.5px;
+    }
+
+    .panel-content {
+      padding: 20px 24px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .close-btn {
+      cursor: pointer;
+      color: #999;
+      font-size: 18px;
+      font-weight: bold;
+      transition: color 0.2s;
+    }
+
+    .close-btn:hover {
+      color: #0066cc;
+    }
+
+    .card {
+      background: #f9f9f9;
+      border: 1px solid #d0d0d0;
+      border-radius: 6px;
+      padding: 16px;
+      margin-bottom: 16px;
+      transition: all 0.2s;
+    }
+
+    .card:hover {
+      border-color: #0066cc;
+      background: #ffffff;
+      box-shadow: 0 2px 8px rgba(0, 102, 204, 0.1);
+    }
+
+    .card-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 10px;
+    }
+
+    .card-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+
+    .metric {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .metric-label {
+      font-size: 11px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .metric-value {
+      font-size: 16px;
+      font-weight: 700;
+      color: #0066cc;
+    }
+
+    .metric-value.positive {
+      color: #28a745;
+    }
+
+    .metric-value.negative {
+      color: #dc3545;
+    }
+
+    .metric-value.warning {
+      color: #ff8c00;
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: #999;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin: 20px 0 12px 0;
+      padding-left: 4px;
+    }
+
+    .progress-bar {
+      background: #e0e0e0;
+      height: 6px;
+      border-radius: 3px;
+      overflow: hidden;
+      margin: 8px 0;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #0066cc 0%, #3399ff 100%);
+      border-radius: 3px;
+    }
+
+    .progress-text {
+      font-size: 11px;
+      color: #666;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .status-badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 3px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .status-good {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .status-warning {
+      background: #fff3cd;
+      color: #856404;
+    }
+
+    .alert-box {
+      background: #fff5f5;
+      border-left: 3px solid #dc3545;
+      padding: 12px 16px;
+      border-radius: 4px;
+      margin-bottom: 12px;
+      font-size: 12px;
+      color: #721c24;
+    }
+
+    .alert-box.warning {
+      background: #fffbf0;
+      border-left-color: #ff8c00;
+      color: #7a4b00;
+    }
+
+    .list-item {
+      background: #f9f9f9;
+      border: 1px solid #d0d0d0;
+      border-radius: 4px;
+      padding: 12px;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .list-item-title {
+      font-weight: 600;
+      color: #1a1a1e;
+      font-size: 12px;
+    }
+
+    .list-item-detail {
+      font-size: 11px;
+      color: #999;
+    }
+
+    .list-item-value {
+      font-weight: 600;
+      color: #0066cc;
+      font-size: 13px;
+    }
+
+    .btn-small {
+      background: #0066cc;
+      color: #fff;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      transition: all 0.2s;
+    }
+
+    .btn-small:hover {
+      background: #0052a3;
+    }
+
+    /* SCROLLBAR STYLING */
+    .content-panel::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .content-panel::-webkit-scrollbar-track {
+      background: #f0f0f0;
+    }
+
+    .content-panel::-webkit-scrollbar-thumb {
+      background: #ccc;
+      border-radius: 4px;
+    }
+
+    .content-panel::-webkit-scrollbar-thumb:hover {
+      background: #999;
+    }
+
+    /* TOOLBAR (PINNED BOTTOM, NEVER SCROLLS) */
+    .toolbar {
+      background: #fff;
+      border-top: 1px solid #d0d0d0;
+      border-bottom: 2px solid #0066cc;
+      padding: 12px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
+      z-index: 100;
+      min-height: 60px;
+    }
+
+    .toolbar-section {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .toolbar-section.status {
+      margin-left: auto;
+      gap: 15px;
+    }
+
+    .toolbar-icon {
+      width: 44px;
+      height: 44px;
+      background: #f0f0f0;
+      border: 1px solid #d0d0d0;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      transition: all 0.2s;
+      position: relative;
+      padding: 0;
+      font-family: inherit;
+    }
+
+    .toolbar-icon:hover {
+      background: #fff;
+      border-color: #0066cc;
+      box-shadow: 0 2px 8px rgba(0, 102, 204, 0.15);
+    }
+
+    .toolbar-icon.active {
+      background: #0066cc;
+      color: #fff;
+      border-color: #0066cc;
+    }
+
+    .toolbar-badge {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      background: #dc3545;
+      color: #fff;
+      font-size: 9px;
+      font-weight: 700;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid #fff;
+    }
+
+    .status-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: 0 8px;
+      border-right: 1px solid #d0d0d0;
+      font-size: 12px;
+    }
+
+    .status-item:last-child {
+      border-right: none;
+      padding-right: 0;
+    }
+
+    .status-label {
+      font-size: 9px;
+      color: #999;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .status-value {
+      font-size: 13px;
+      font-weight: 600;
+      color: #0066cc;
+    }
+
+    .status-value.positive {
+      color: #28a745;
+    }
+
+    .speed-dial {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+
+    .speed-button {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #f0f0f0;
+      border: 1px solid #d0d0d0;
+      cursor: pointer;
+      font-size: 10px;
+      font-weight: 600;
+      color: #666;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .speed-button:hover {
+      border-color: #0066cc;
+      color: #0066cc;
+    }
+
+    .speed-button.active {
+      background: #0066cc;
+      border-color: #0066cc;
+      color: #fff;
+    }
+
+    /* RESPONSIVE */
+    @media (max-width: 768px) {
+      .toolbar {
+        padding: 10px 12px;
+        min-height: 50px;
+      }
+
+      .toolbar-icon {
+        width: 36px;
+        height: 36px;
+        font-size: 16px;
+      }
+
+      .status-item {
+        padding: 0 4px;
+        font-size: 10px;
+      }
+
+      .status-label {
+        font-size: 8px;
+      }
+
+      .status-value {
+        font-size: 11px;
+      }
+
+      .panel-content {
+        padding: 16px;
+      }
+
+      .card {
+        padding: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- GAME MAP (TOP) -->
+  <div class="game-view" id="gameView">
+    🗺️ WORLD MAP — Click menu options to view data
+  </div>
+
+  <!-- CONTENT PANEL (MIDDLE) -->
+  <div class="content-panel" id="contentPanel">
+    <!-- Content inserted here based on menu click -->
+  </div>
+
+  <!-- TOOLBAR (BOTTOM - PINNED) -->
+  <div class="toolbar">
+    <div class="toolbar-section">
+      <!-- Map -->
+      <button class="toolbar-icon" onclick="openContent('map')" title="Map">
+        🗺
+      </button>
+
+      <!-- Construction -->
+      <button class="toolbar-icon" onclick="openContent('construction')" title="Construction">
+        🏗
+      </button>
+
+      <!-- Markets -->
+      <button class="toolbar-icon" onclick="openContent('markets')" title="Markets">
+        📊
+      </button>
+
+      <!-- Shipping -->
+      <button class="toolbar-icon" onclick="openContent('shipping')" title="Shipping">
+        🚢
+      </button>
+
+      <!-- Concessions -->
+      <button class="toolbar-icon" onclick="openContent('concessions')" title="Concessions">
+        📜
+      </button>
+
+      <!-- Messages -->
+      <button class="toolbar-icon" onclick="openContent('messages')" title="Messages">
+        💬
+        <div class="toolbar-badge">2</div>
+      </button>
+
+      <!-- Products -->
+      <button class="toolbar-icon" onclick="openContent('products')" title="Products">
+        📦
+      </button>
+
+      <!-- Corporation -->
+      <button class="toolbar-icon" onclick="openContent('corporation')" title="Corporation">
+        🏢
+      </button>
+    </div>
+
+    <!-- STATUS BAR (RIGHT) -->
+    <div class="toolbar-section status">
+      <div class="status-item">
+        <span class="status-label">Cash</span>
+        <span class="status-value">$12.4M</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">P&L</span>
+        <span class="status-value positive">+$94K</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">Date</span>
+        <span class="status-value">Day 52/180</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">Speed</span>
+        <div class="speed-dial">
+          <button class="speed-button" onclick="setSpeed(this, 'pause')" title="Pause">⏸</button>
+          <button class="speed-button active" onclick="setSpeed(this, '1x')" title="1× Speed">1×</button>
+          <button class="speed-button" onclick="setSpeed(this, '3x')" title="3× Speed">3×</button>
+          <button class="speed-button" onclick="setSpeed(this, '7x')" title="7× Speed">7×</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const content = {
+      map: `
+        <div class="panel-header">
+          <h2>🗺 World Map</h2>
+          <span class="close-btn" onclick="goToMap()">✕</span>
+        </div>
+        <div class="panel-content">
+          <div class="section-title">Regions</div>
+          <div class="list-item">
+            <div>
+              <div class="list-item-title">Permian Basin</div>
+              <div class="list-item-detail">Light Sweet Crude | 2 concessions</div>
+            </div>
+            <button class="btn-small">Zoom</button>
+          </div>
+          <div class="list-item">
+            <div>
+              <div class="list-item-title">Middle East</div>
+              <div class="list-item-detail">Heavy Sour Crude | 1 concession</div>
+            </div>
+            <button class="btn-small">Zoom</button>
+          </div>
+          <div class="list-item">
+            <div>
+              <div class="list-item-title">West Africa</div>
+              <div class="list-item-detail">Medium Crude | Available</div>
+            </div>
+            <button class="btn-small">Zoom</button>
+          </div>
+          <div class="list-item">
+            <div>
+              <div class="list-item-title">Guyana</div>
+              <div class="list-item-detail">Heavy Sour Crude | 1 concession (developing)</div>
+            </div>
+            <button class="btn-small">Zoom</button>
+          </div>
+        </div>
+      `,
+      construction: `
+        <div class="panel-header">
+          <h2>🏗 Construction</h2>
+          <span class="close-btn" onclick="goToMap()">✕</span>
+        </div>
+        <div class="panel-content">
+          <div class="section-title">Active Projects</div>
+          <div class="card">
+            <div class="card-title">Tier 2 Refinery Upgrade</div>
+            <div class="card-row">
+              <div class="metric">
+                <div class="metric-label">Progress</div>
+                <div style="width: 150px;">
+                  <div class="progress-bar">
+                    <div class="progress-fill" style="width: 53%;"></div>
+                  </div>
+                  <div class="progress-text">
+                    <span>53%</span>
+                    <span>32 days left</span>
+                  </div>
+                </div>
+              </div>
+              <div class="metric">
+                <div class="metric-label">Daily Cost</div>
+                <div class="metric-value negative">$12K</div>
+              </div>
+            </div>
+          </div>
+          <div class="section-title">Available Infrastructure</div>
+          <div class="list-item">
+            <div>
+              <div class="list-item-title">Storage Expansion (5K bbl)</div>
+              <div class="list-item-detail">Timeline: 20 days | Cost: $750K</div>
+            </div>
+            <button class="btn-small">Build</button>
+          </div>
+          <div class="list-item">
+            <div>
+              <div class="list-item-title">Drill Capacity (+1000 bbl/day)</div>
+              <div class="list-item-detail">Timeline: 45 days | Cost: $2.1M</div>
+            </div>
+            <button class="btn-small">Build</button>
+          </div>
+        </div>
+      `,
+      markets: `
+        <div class="panel-header">
+          <h2>📊 Markets</h2>
+          <span class="close-btn" onclick="goToMap()">✕</span>
+        </div>
+        <div class="panel-content">
+          <div class="section-title">Crude Markets</div>
+          <div class="list-item">
+            <div>
+              <div class="list-item-title">NYMEX (Light Sweet)</div>
+              <div class="list-item-detail">Daily volume: 1.2M bbl | Spread: 0.05</div>
+            </div>
+            <div class="list-item-value">$72.30</div>
+          </div>
+          <div class="list-item">
+            <div>
+              <div class="list-item-title">NC (Medium Crude)</div>
+              <div class="list-item-detail">Daily volume: 800K bbl | Spread: 0.03</div>
+            </div>
+            <div class="list-item-value">$70.15</div>
+          </div>
+          <div class="list-item">
+            <div>
+              <div class="list-item-title">DME (Heavy Sour)</div>
+              <div class="list-item-detail">Daily volume: 2.1M bbl | Spread: 0.06</div>
+            </div>
+            <div class="list-item-value">$62.80</div>
+          </div>
+        </div>
+      `,
+      shipping: `
+        <div class="panel-header">
+          <h2>🚢 Shipping & Logistics</h2>
+          <span class="close-btn" onclick="goToMap()">✕</span>
+        </div>
+        <div class="panel-content">
+          <div class="section-title">Active Shipments</div>
+          <div class="card">
+            <div class="card-title">Permian → Singapore</div>
+            <div class="card-row">
+              <div class="metric">
+                <div class="metric-label">Volume</div>
+                <div class="metric-value">5,800 bbl</div>
+              </div>
+              <div class="metric">
+                <div class="metric-label">ETA</div>
+                <div class="metric-value">Day 58</div>
+              </div>
+              <span class="status-badge status-good">On Track</span>
+            </div>
+          </div>
+          <div class="section-title">⚠ Chokepoint Issues</div>
+          <div class="alert-box warning">
+            Hormuz Strait: TENSION status. Freight surcharge +2% applied.
+          </div>
+          <div class="list-item">
+            <div>
+              <div class="list-item-title">Suez Canal</div>
+              <div class="list-item-detail">Status: OPEN | Base rate: $1.50/bbl</div>
+            </div>
+            <span class="status-badge status-good">✓</span>
+          </div>
+        </div>
+      `,
+      concessions: `
+        <div class="panel-header">
+          <h2>📜 Concessions & Permits</h2>
+          <span class="close-btn" onclick="goToMap()">✕</span>
+        </div>
+        <div class="panel-content">
+          <div class="section-title">Owned Concessions</div>
+          <div class="list-item">
+            <div>
+              <div class="list-item-title">Permian Light Sweet #1</div>
+              <div class="list-item-detail">Acquired Day 10 | Production: 6,100 bbl/day</div>
+            </div>
+            <button class="btn-small">Details</button>
+          </div>
+          <div class="list-item">
+            <div>
+              <div class="list-item-title">Guyana Heavy Sour #1</div>
+              <div class="list-item-detail">Acquired Day 25 | Status: Developing (53% complete)</div>
+            </div>
+            <button class="btn-small">Details</button>
+          </div>
+          <div class="section-title">Available Permits</div>
+          <div class="list-item">
+            <div>
+              <div class="list-item-title">Permian Light Sweet #2</div>
+              <div class="list-item-detail">Est. 5,200 bbl/day | 2 slots available</div>
+            </div>
+            <button class="btn-small">Buy ($5.2M)</button>
+          </div>
+          <div class="list-item">
+            <div>
+              <div class="list-item-title">West Africa Medium #1</div>
+              <div class="list-item-detail">Est. 4,800 bbl/day | 3 slots available</div>
+            </div>
+            <button class="btn-small">Buy ($4.8M)</button>
+          </div>
+        </div>
+      `,
+      messages: `
+        <div class="panel-header">
+          <h2>💬 Messages & Alerts</h2>
+          <span class="close-btn" onclick="goToMap()">✕</span>
+        </div>
+        <div class="panel-content">
+          <div class="section-title">⚠ Active Alerts</div>
+          <div class="alert-box">
+            Storage at 18 days (above 15-day target). Consider selling.
+          </div>
+          <div class="alert-box warning">
+            Hormuz chokepoint: OPEN → TENSION. Freight +2%.
+          </div>
+          <div class="section-title">📬 Random Events</div>
+          <div class="card">
+            <div class="card-title">Day 51: Pipeline Maintenance</div>
+            <div style="font-size: 12px; color: #666; line-height: 1.5;">
+              Scheduled maintenance on Permian pipeline. Expected impact: -15% production for 2 days. Cost: $50K.
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Day 48: Market Rumor</div>
+            <div style="font-size: 12px; color: #666; line-height: 1.5;">
+              Speculation of supply disruption in Middle East. Light Sweet prices peaked at $74.20.
+            </div>
+          </div>
+        </div>
+      `,
+      products: `
+        <div class="panel-header">
+          <h2>📦 Products</h2>
+          <span class="close-btn" onclick="goToMap()">✕</span>
+        </div>
+        <div class="panel-content">
+          <div class="section-title">Current Production</div>
+          <div class="list-item">
+            <div>
+              <div class="list-item-title">Light Sweet Crude</div>
+              <div class="list-item-detail">Source: Permian | Extraction: 85%</div>
+            </div>
+            <div class="list-item-value positive">6,100 bbl/day</div>
+          </div>
+          <div class="list-item">
+            <div>
+              <div class="list-item-title">Heavy Sour Crude</div>
+              <div class="list-item-detail">Source: Guyana | Status: Developing</div>
+            </div>
+            <div class="list-item-value">4,200 bbl/day</div>
+          </div>
+          <div class="section-title">Inventory</div>
+          <div class="card">
+            <div class="card-title">Light Sweet Storage</div>
+            <div style="margin: 10px 0;">
+              <div class="progress-bar">
+                <div class="progress-fill" style="width: 72%;"></div>
+              </div>
+              <div class="progress-text">
+                <span>10,800 bbl (18 days)</span>
+                <span>Target: 10–15 days</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      `,
+      corporation: `
+        <div class="panel-header">
+          <h2>🏢 Corporation Status</h2>
+          <span class="close-btn" onclick="goToMap()">✕</span>
+        </div>
+        <div class="panel-content">
+          <div class="section-title">Financial Overview</div>
+          <div class="list-item">
+            <div>
+              <div class="list-item-title">Net Worth</div>
+              <div class="list-item-detail">Total assets and liabilities</div>
+            </div>
+            <div class="list-item-value positive">$145.2M</div>
+          </div>
+          <div class="list-item">
+            <div>
+              <div class="list-item-title">Daily P&L</div>
+              <div class="list-item-detail">Revenue minus costs</div>
+            </div>
+            <div class="list-item-value positive">+$94K</div>
+          </div>
+          <div class="list-item">
+            <div>
+              <div class="list-item-title">Cash on Hand</div>
+              <div class="list-item-detail">Immediate liquidity</div>
+            </div>
+            <div class="list-item-value">$12.4M</div>
+          </div>
+          <div class="section-title">Resources</div>
+          <div class="list-item">
+            <div>
+              <div class="list-item-title">Total Production Capacity</div>
+              <div class="list-item-detail">All operating concessions</div>
+            </div>
+            <div class="list-item-value">10,300 bbl/day</div>
+          </div>
+          <div class="list-item">
+            <div>
+              <div class="list-item-title">Credit Available</div>
+              <div class="list-item-detail">Remaining credit line</div>
+            </div>
+            <div class="list-item-value">$18.6M</div>
+          </div>
+        </div>
+      `
+    };
+
+    function openContent(type) {
+      const panel = document.getElementById('contentPanel');
+      const gameView = document.getElementById('gameView');
+      
+      panel.innerHTML = content[type];
+      panel.classList.add('active');
+      panel.classList.add('expanded');
+      gameView.classList.add('hidden');
+      
+      // Update toolbar buttons
+      document.querySelectorAll('.toolbar-icon').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      event.target.classList.add('active');
+    }
+
+    function goToMap() {
+      const panel = document.getElementById('contentPanel');
+      const gameView = document.getElementById('gameView');
+      
+      panel.classList.remove('active');
+      panel.classList.remove('expanded');
+      gameView.classList.remove('hidden');
+      
+      // Clear active states
+      document.querySelectorAll('.toolbar-icon').forEach(btn => {
+        btn.classList.remove('active');
+      });
+    }
+
+    function setSpeed(btn, speed) {
+      document.querySelectorAll('.speed-button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    }
+
+    // Start on map
+    window.addEventListener('load', () => {
+      document.querySelector('.toolbar-icon').classList.add('active');
+    });
+  </script>
+</body>
+</html>
