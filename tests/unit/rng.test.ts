@@ -88,7 +88,7 @@ describe('rng (spec G10)', () => {
 });
 
 describe('normal draws (spec G10 rule 2, §7.3)', () => {
-  const sample = (f: () => number, n: number) => Array.from({ length: n }, f);
+  const sample = <T,>(f: () => T, n: number): T[] => Array.from({ length: n }, f);
   const mean = (xs: number[]) => xs.reduce((s, x) => s + x, 0) / xs.length;
   const sd = (xs: number[]) => { const m = mean(xs); return Math.sqrt(mean(xs.map((x) => (x - m) ** 2))); };
   const corr = (xs: number[], ys: number[]) => {
