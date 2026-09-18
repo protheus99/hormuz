@@ -597,6 +597,8 @@ Rerouting half a deal (a card's Maybe) splits it into two half-volume deals with
 - `deal_ids`
 - `available_cash = cash − cash_reserved`
 
+**Who trades what.** Producers only sell crude, from their own region and grade. Refiners only buy it, delivered to their own plant, in grades their tier can process. Traders do both, selling from and buying into their office regions. `placeOrder` enforces these rules before any escrow is taken.
+
 ### 4.8 Producer
 
 `grade`, `extraction_capacity`, `peak_capacity`, `field_max_capacity` (2 × starting capacity), `decline_rate` (from the region's class), `base_extraction_cost`, `storage_capacity`, `storage`, `storage_escrow`, `extraction_rate` (0–1, default 1), `shut_in`, `ramp_ticks_remaining`.
@@ -1117,8 +1119,10 @@ src/
     transport.ts   lane graph, routing, cargo movement
     routes.ts      RouteProvider interface; StubRouteProvider for Phase 1 and unit tests
     clearing.ts    ExchangeNode, batch clearing, markers (§8)
+    companies.ts   building companies, placement rules (§3.4), accepted grades, available cash
+    settlement.ts  escrow at order placement, settling fills into cargo, end-of-day release
     deals.ts       signing, delivery, penalties, cancel, split
-    economics.ts   retail sink, yields, FeeLedger (§7)
+    economics.ts   FeeLedger (§7.1); retail sink and yields from Phase 3
     agents.ts      decision rules and default operations (§6)
     world.ts       step(), phases, invariants, fork
     metrics.ts     recorders, CSV, canonical serializer
@@ -1208,6 +1212,8 @@ Scripts: `dev` (vite), `build` (vite build), `test` (vitest run), `typecheck` (t
 | `engine/routes.ts` | model |
 | `engine/clearing.ts`, `engine/deals.ts` | model, config, routes — only the `RouteProvider` interface, never the lane graph |
 | `engine/economics.ts` | model, config, rng |
+| `engine/companies.ts` | model, data |
+| `engine/settlement.ts` | model, companies, economics, data |
 | `engine/agents.ts` | model, config, economics |
 | `engine/world.ts` | all of the above |
 | `engine/metrics.ts` | model |
