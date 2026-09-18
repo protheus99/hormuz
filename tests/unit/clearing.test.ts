@@ -1,33 +1,40 @@
 import { describe, expect, it } from 'vitest';
-import { clear, createNode, submit, type ClearContext } from '../../src/engine/clearing';
-import { asAgentId, makeOrderId, type Ask, type Bid, type ChokepointName, type NodeName, type RegionName } from '../../src/engine/model';
+import { clear, createNode, previousClose, submit, updateMarker, type ClearContext, type ExchangeNode } from '../../src/engine/clearing';
+import { DEFAULT_CONFIG } from '../../src/engine/config';
+import {
+  asAgentId, asDealId, makeOrderId, type Ask, type Bid, type ChokepointName, type Fill, type NodeName, type RegionName,
+} from '../../src/engine/model';
 import { StubRouteProvider } from '../../src/engine/routes';
 
 // Stub network. Destination tariffs come from the real region data: Coastal_Asia 1.00, South_Asia 1.20.
+// DME's marker region is Middle_East.
 const ctx = (): ClearContext => ({
   tick: 5,
+  config: DEFAULT_CONFIG,
   routes: new StubRouteProvider([
     { origin: 'Middle_East', destination: 'Coastal_Asia', freight: 9.8, transit: 16, chokepoints: ['HORMUZ'] },
+    { origin: 'Middle_East', destination: 'Coastal_Asia', freight: 10.9, transit: 16, capacityPerTick: 6000 },
     { origin: 'Middle_East', destination: 'South_Asia', freight: 3.0, transit: 6, chokepoints: ['HORMUZ'] },
     { origin: 'West_Africa', destination: 'Coastal_Asia', freight: 11.0, transit: 24 },
     { origin: 'Russia_Far_East', destination: 'Coastal_Asia', freight: 1.15, transit: 6 },
+    { origin: 'Gulf_of_Oman', destination: 'Coastal_Asia', freight: 9.0, transit: 15 },
+    { origin: 'Gulf_of_Oman', destination: 'Middle_East', freight: 0.8, transit: 2 },
   ]),
 });
 
 // Builders: agent index and sequence make the order ID, so ties are predictable.
 const ask = (agent: number, price: number, qty: number, origin: RegionName, node: NodeName = 'DME'): Ask => ({
-  orderId: makeOrderId(agent, 1), agentId: asAgentId(`seller-${agent}`), node, side: 'ASK',
+  orderId: makeOrderId(agent, 1), agentId: asAgentId(`co-${agent}`), node, side: 'ASK',
   limitPrice: price, qty, qtyRemaining: qty, originRegion: origin,
 });
 const bid = (agent: number, price: number, qty: number, dest: RegionName, avoid: ChokepointName[] = [], node: NodeName = 'DME'): Bid => ({
-  orderId: makeOrderId(agent, 1), agentId: asAgentId(`buyer-${agent}`), node, side: 'BID',
+  orderId: makeOrderId(agent, 2), agentId: asAgentId(`co-${agent}`), node, side: 'BID',
   limitPrice: price, qty, qtyRemaining: qty, deliveryRegion: dest, avoidChokepoints: avoid,
 });
 
-function clearBook(orders: (Ask | Bid)[]) {
-  const node = createNode('DME');
-  for (const o of orders) submit(node, o);
-  return { node, fills: clear(node, ctx()) };
+function clearBook(orders: (Ask | Bid)[], node: ExchangeNode = createNode('DME'), context: ClearContext = ctx()) {
+  for (const o of orders) submit(node, o, DEFAULT_CONFIG);
+  return { node, fills: clear(node, context) };
 }
 
 describe('batch clearing (spec §8)', () => {
@@ -80,8 +87,8 @@ describe('batch clearing (spec §8)', () => {
     expect(fills[0]?.landedPrice).toBeCloseTo(72, 10);
   });
 
-  it('skips pairs with no usable route, such as a bid that avoids the only route', () => {
-    const { fills } = clearBook([bid(9, 90, 5000, 'Coastal_Asia', ['HORMUZ']), ask(1, 58, 5000, 'Middle_East')]);
+  it('skips pairs with no usable route', () => {
+    const { fills } = clearBook([bid(9, 90, 5000, 'South_Asia', ['HORMUZ']), ask(1, 58, 5000, 'Middle_East')]);
     expect(fills).toEqual([]);
   });
 
@@ -121,10 +128,100 @@ describe('batch clearing (spec §8)', () => {
     expect(node.orders).toEqual([]);
     expect(node.fills).toEqual([]);
   });
+});
 
-  it('refuses orders for another node or with no quantity', () => {
+describe('pipeline capacity and lots (spec §8, rule 5)', () => {
+  it('shares a pipeline among buyers and stops when it is full', () => {
+    // Both buyers avoid Hormuz, so both need the 6,000-barrel pipeline route.
+    const first = bid(8, 80, 5000, 'Coastal_Asia', ['HORMUZ']);
+    const second = bid(9, 79, 5000, 'Coastal_Asia', ['HORMUZ']);
+    const { fills } = clearBook([first, second, ask(1, 58, 10_000, 'Middle_East')]);
+    expect(fills.map((f) => [f.buyerId, f.qty])).toEqual([[first.agentId, 5000], [second.agentId, 1000]]);
+  });
+
+  it('fills whole lots only, leaving a spare part-lot of capacity unused', () => {
+    // A pipeline of 4,500 barrels a day can carry four whole lots; the last 500 barrels go unused.
+    const narrow: ClearContext = {
+      ...ctx(),
+      routes: new StubRouteProvider([
+        { origin: 'Middle_East', destination: 'Coastal_Asia', freight: 10.9, transit: 16, capacityPerTick: 4500 },
+      ]),
+    };
+    const { fills } = clearBook([bid(9, 80, 10_000, 'Coastal_Asia'), ask(1, 58, 10_000, 'Middle_East')], createNode('DME'), narrow);
+    expect(fills.map((f) => f.qty)).toEqual([4000]);
+  });
+
+  it('refuses orders that are not whole lots, for another node, or empty', () => {
     const node = createNode('DME');
-    expect(() => submit(node, ask(1, 70, 5000, 'North_Sea', 'NC'))).toThrow(/NC, not DME/);
-    expect(() => submit(node, ask(1, 58, 0, 'Middle_East'))).toThrow(/invalid quantity/);
+    expect(() => submit(node, ask(1, 58, 1500, 'Middle_East'), DEFAULT_CONFIG)).toThrow(/whole number of 1000-barrel lots/);
+    expect(() => submit(node, ask(1, 70, 5000, 'North_Sea', 'NC'), DEFAULT_CONFIG)).toThrow(/NC, not DME/);
+    expect(() => submit(node, ask(1, 58, 0, 'Middle_East'), DEFAULT_CONFIG)).toThrow(/invalid quantity/);
+  });
+});
+
+describe('self-trade prevention (spec §8, rule 2)', () => {
+  it('never matches a company with itself, even when the trade would be profitable', () => {
+    const { fills } = clearBook([bid(4, 90, 5000, 'Coastal_Asia'), ask(4, 58, 5000, 'Middle_East')]);
+    expect(fills).toEqual([]);
+  });
+
+  it('still matches that company with others', () => {
+    const own = ask(4, 58, 5000, 'Middle_East');
+    const rival = ask(5, 60, 5000, 'Middle_East');
+    const { fills } = clearBook([bid(4, 90, 5000, 'Coastal_Asia'), own, rival]);
+    expect(fills.map((f) => f.sellerId)).toEqual([rival.agentId]);
+  });
+});
+
+describe('marker price and previous close (spec §3.3, §8 rule 7)', () => {
+  it('publishes the volume-weighted price of the day’s fills, converted to the marker region', () => {
+    // Gulf fill: 5,000 at FOB 58.60 (surplus 1.20), already in the marker region.
+    // Oman fill: pairs with the 69.80 bid at surplus 0.80, so FOB 59.40, plus 0.80 freight = 60.20.
+    // Average = (58.60 + 60.20) / 2 = 59.40.
+    const { node } = clearBook([
+      bid(8, 70, 5000, 'Coastal_Asia'),
+      bid(9, 69.8, 5000, 'Coastal_Asia'),
+      ask(1, 58, 5000, 'Middle_East'),
+      ask(2, 59, 5000, 'Gulf_of_Oman'),
+    ]);
+    expect(node.fills).toHaveLength(2);
+    expect(node.markerPrice).toBeCloseTo(59.4, 10);
+  });
+
+  it('keeps yesterday’s marker on a day with no trades', () => {
+    const node = createNode('DME');
+    clearBook([bid(9, 40, 5000, 'Coastal_Asia'), ask(1, 58, 5000, 'Middle_East')], node);
+    expect(node.markerPrice).toBe(62);
+  });
+
+  it('leaves deal deliveries out of the marker, because deals are priced from it', () => {
+    const node = createNode('DME');
+    const dealFill: Fill = {
+      tick: 5, node: 'DME', buyerId: asAgentId('a'), sellerId: asAgentId('b'), qty: 9000,
+      fobPrice: 10, freight: 0, destinationTariff: 0, landedPrice: 10,
+      originRegion: 'Middle_East', deliveryRegion: 'Middle_East',
+      route: { edges: [], totalFreight: 0, totalTransit: 1, chokepoints: [] }, dealId: asDealId('d-1'),
+    };
+    updateMarker(node, [dealFill], ctx());
+    expect(node.markerPrice).toBe(62);
+  });
+
+  it('records each origin’s close and keeps the last close for origins that did not trade', () => {
+    const node = createNode('DME');
+    clearBook([bid(9, 70, 5000, 'Coastal_Asia'), ask(1, 58, 5000, 'Middle_East')], node);
+    clearBook([bid(9, 71, 5000, 'Coastal_Asia'), ask(2, 60, 5000, 'Russia_Far_East')], node);
+    expect(node.lastFobByOrigin.Middle_East).toBeCloseTo(58.6, 10);                     // from day one
+    expect(node.lastFobByOrigin.Russia_Far_East).toBeCloseTo(60 + (71 - 62.15) / 2, 10); // from day two
+  });
+
+  it('quotes each origin delivered to a destination, cheapest first', () => {
+    const node = createNode('DME');
+    node.lastFobByOrigin = { Middle_East: 58, West_Africa: 60, Russia_Far_East: 69 };
+    const quotes = previousClose(node, 'Coastal_Asia', ctx());
+    expect(quotes.map((q) => [q.origin, Number(q.landed.toFixed(2))])).toEqual([
+      ['Middle_East', 68.8], ['Russia_Far_East', 71.15], ['West_Africa', 72],
+    ]);
+    const avoiding = previousClose(node, 'Coastal_Asia', ctx(), ['HORMUZ']);
+    expect(avoiding[0]).toMatchObject({ origin: 'Middle_East', freight: 10.9 });   // the pipeline route
   });
 });

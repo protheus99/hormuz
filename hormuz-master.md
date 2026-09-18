@@ -847,11 +847,11 @@ Each node clears **once per day** in Phase 5c, as a batch.
 
 1. **Collection.** Every company's orders for the day are gathered. Submission order has no effect on the result.
 2. **Candidate pairs.** For each bid and each ask from different companies, find the route from the ask's origin to the bid's delivery region that avoids the bid's `avoid_chokepoints`. If a usable route exists, `landed = ask + route freight + destination tariff` and `surplus = bid − landed`. Only pairs with `surplus ≥ 0` are candidates.
-3. **Matching.** Take candidates in descending surplus, breaking ties by lower landed cost, then bid `order_id`, then ask `order_id`. Fill `min(bid remaining, ask remaining, pipeline capacity remaining on the route)`, then continue down the list, skipping pairs whose orders or route capacity are exhausted.
+3. **Matching.** Take candidates in descending surplus, breaking ties by lower landed cost, then bid `order_id`, then ask `order_id`. Fill `min(bid remaining, ask remaining, pipeline capacity remaining on the route)`, rounded down to whole lots, then continue down the list, skipping pairs whose orders or route capacity are exhausted. Capacity is claimed on the buyer's behalf, since the buyer ships the cargo.
 4. **Price.** The trade prints at the midpoint: `fob = ask + surplus ÷ 2`. The buyer pays `fob + freight + tariff`, which is at most its bid; the seller receives `fob`, which is at least its ask.
 5. **Pipeline capacity.** Deal cargo has already claimed capacity in Phase 5a. Capacity reserved by a company is usable only by that company; spot trades share the rest.
 6. **Expiry.** Unfilled remainders expire at the end of Phase 5c, and all escrow is released.
-7. **Marker and close.** The node updates its marker price from the day's fills (§3.3) and records `last_fob_by_origin` as the previous close for tomorrow's decisions.
+7. **Marker and close.** The node updates its marker price from the day's fills (§3.3) and records the previous close in `last_fob_by_origin`: each origin's volume-weighted FOB on the last day it traded. Origins that did not trade today keep their earlier close.
 
 Greedy surplus-first matching is not the mathematical optimum for this routing problem, but it is deterministic, independent of submission order, and fast: a node sees at most a few hundred orders a day.
 
@@ -1247,8 +1247,9 @@ export function correlatedNormals(rng: Rng, cholesky: readonly number[][]): numb
 // The generator is its state, so there is no separate save/restore: it serializes and forks like any other data.
 
 // clearing.ts
-export function createNode(name: NodeName, grade: Grade, markerRegion: RegionName): ExchangeNode;
-export function submit(node: ExchangeNode, order: Order): void;
+export interface ClearContext { readonly routes: RouteProvider; readonly tick: Tick; readonly config: Config }
+export function createNode(name: NodeName): ExchangeNode;                              // grade and marker from data/nodes.ts
+export function submit(node: ExchangeNode, order: Order, config: Config): void;        // rejects part-lots
 export function clear(node: ExchangeNode, ctx: ClearContext): Fill[];                  // §8
 export function previousClose(node: ExchangeNode, dest: RegionName, ctx: ClearContext): Quote[];
 export function updateMarker(node: ExchangeNode, fills: readonly Fill[], ctx: ClearContext): void;
