@@ -462,7 +462,7 @@ Routes are the **lowest generalized-cost path** through usable edges:
 
 `generalized_cost = Σ freight + CARRY_RATE × Σ (transit_ticks + chokepoint delay)`
 
-Routes are recomputed with Dijkstra at the start of each tick and cached for all pairs, once per chokepoint-avoidance set.
+Routes are recomputed with Dijkstra at the start of each tick and cached for all pairs, once per chokepoint-avoidance set. Delivery inside one region has no freight and still takes one tick.
 
 #### Maritime waypoints
 
@@ -1115,6 +1115,7 @@ src/
     rng.ts         sfc32, streams, Box-Muller
     heap.ts        binary heap for Dijkstra
     transport.ts   lane graph, routing, cargo movement
+    routes.ts      RouteProvider interface; StubRouteProvider for Phase 1 and unit tests
     clearing.ts    ExchangeNode, batch clearing, markers (§8)
     deals.ts       signing, delivery, penalties, cancel, split
     economics.ts   retail sink, yields, FeeLedger (§7)
@@ -1204,7 +1205,8 @@ Scripts: `dev` (vite), `build` (vite build), `test` (vitest run), `typecheck` (t
 | `engine/model.ts` | enums, `data/` |
 | `engine/config.ts` | model |
 | `engine/transport.ts` | model, config, heap |
-| `engine/clearing.ts`, `engine/deals.ts` | model, config — routes only through `RouteProvider` |
+| `engine/routes.ts` | model |
+| `engine/clearing.ts`, `engine/deals.ts` | model, config, routes — only the `RouteProvider` interface, never the lane graph |
 | `engine/economics.ts` | model, config, rng |
 | `engine/agents.ts` | model, config, economics |
 | `engine/world.ts` | all of the above |

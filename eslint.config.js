@@ -33,6 +33,12 @@ export default defineConfig(
   { ignores: ['dist/', 'node_modules/', 'coverage/', 'archive/'] },
   js.configs.recommended,
   tseslint.configs.recommended,
+  {
+    rules: {
+      // A parameter an implementation must accept but does not need is named with a leading underscore.
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+    },
+  },
 
   boundary('engine', [GAME, AI, CONTENT, WEB, CLI]),
   boundary('data', ['**/engine/*', '!**/engine/enums', '!**/engine/enums.js', '!**/engine/enums.ts', GAME, AI, CONTENT, WEB, CLI]),
