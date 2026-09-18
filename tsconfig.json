@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+
+    // strict turns on every core safety check at once.
+    "strict": true,
+    // arr[i] and map lookups are typed "T | undefined", so a missing element must be handled.
+    "noUncheckedIndexedAccess": true,
+    // An optional property can be left out, but not set to undefined explicitly.
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    // Every case in a switch must break or return; the company dispatch (spec §4.1) relies on this.
+    "noFallthroughCasesInSwitch": true,
+
+    // Each file must compile on its own, which is how Vite and Vitest build it.
+    "isolatedModules": true,
+    // Type-only imports must say "import type", so they vanish cleanly from the output.
+    "verbatimModuleSyntax": true,
+    // Bans TypeScript features that generate code, such as enum; we use const objects instead (spec §4.1).
+    "erasableSyntaxOnly": true,
+
+    // tsc only checks types here; Vite does the building.
+    "noEmit": true,
+    "skipLibCheck": true
+  },
+  "include": ["src", "tests", "web", "vite.config.ts", "vitest.config.ts"]
+}

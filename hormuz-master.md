@@ -1143,9 +1143,11 @@ engine/   imports only engine/ and data/ — never game/, ai/, content/, web/, n
 data/     imports engine/enums.ts only
 game/     imports engine/, data/, ai/, content/
 ai/       imports engine/ types and data/
-web/      imports game/ types only
+web/      imports game/ only (the GameSession API) — never engine/, data/, ai/ or content/
 cli/      imports game/ and node:*
 ```
+
+`eslint.config.js` implements this table, and `tests/lint-rules.test.ts` proves each rule fires.
 
 World data stays in TypeScript so region, node and chokepoint names are derived union types; JSON loading arrives only with modding (§13).
 
@@ -1156,11 +1158,11 @@ World data stays in TypeScript so region, node and chokepoint names are derived 
 | Runtime | Node 22 LTS or newer | CLI and tests only; the engine is runtime-agnostic |
 | Language | TypeScript 5.8+ | 5.8 is the floor for `erasableSyntaxOnly` |
 | Package manager | npm | Ships with Node, so there is nothing extra to install |
-| Repository | Single package with path aliases | Boundaries come from lint, not workspaces |
+| Repository | Single package, relative imports | Boundaries come from lint, not workspaces |
 | Build | Vite | Library build, web app and dev server from one config |
 | Test | Vitest, plus `fast-check` for properties | Shares Vite's config |
 | CLI execution | `tsx` | |
-| Lint | ESLint 9 flat config | Module boundaries and banned globals |
+| Lint | ESLint 9+ flat config with typescript-eslint | Module boundaries and banned globals. Boundaries use `@typescript-eslint/no-restricted-imports`, which can allow type-only imports (needed for ai/) |
 | Runtime dependencies | None | D26 |
 
 ```jsonc
