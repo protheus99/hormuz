@@ -1214,7 +1214,7 @@ Scripts: `dev` (vite), `build` (vite build), `test` (vitest run), `typecheck` (t
 | `engine/economics.ts` | model, config, rng |
 | `engine/companies.ts` | model, data |
 | `engine/settlement.ts` | model, companies, economics, data |
-| `engine/agents.ts` | model, config, economics |
+| `engine/agents.ts` | model, config, companies, economics |
 | `engine/world.ts` | all of the above |
 | `engine/metrics.ts` | model |
 
@@ -1285,7 +1285,7 @@ export function productValue(grade: Grade, prices: Readonly<Record<Product, numb
 export function decideOrders(a: Agent, view: MarketView, cfg: Config): Order[];        // §6.1–6.4
 export function defaultOperations(a: Agent, w: World, cfg: Config): void;             // §6.5
 export function extract(p: Producer, region: Region, cfg: Config): ExtractResult;
-export function refine(r: Refiner, sink: RetailSink, cfg: Config): RefineResult;
+export function refine(r: Refiner, sink: RetailSink, ledger: FeeLedger, tick: Tick): RefineResult;   // best margin first; opex to the ledger
 export function effectiveUtilization(r: Refiner): number;
 export function integrate(w: World, id: AgentId): IntegratedMajor;
 

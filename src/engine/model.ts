@@ -160,6 +160,18 @@ export interface Refiner extends CompanyBase {
   crudeStock: Stock;
   /** Barrels bought and still at sea, counted when sizing new bids (spec §6.2). */
   inboundBarrels: number;
+  /** 0–1, set each day by the crack-spread throttle (spec §6.5). */
+  utilization: number;
+  /** 0–1, a ceiling set by cards; the throttle never runs above it. */
+  utilizationCap: number;
+  /** False while shut down by the owner. */
+  online: boolean;
+  /** Days left on a breakdown; the plant refines nothing until it reaches 0. */
+  outageTicksRemaining: number;
+  /** Days left on tier-upgrade works, and the share of capacity usable meanwhile (spec §4.9). */
+  worksTicksRemaining: number;
+  worksFactor: number;
+  daysSinceMaintenance: number;
 }
 
 /** A trader's storage in one office region. */

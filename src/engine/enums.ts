@@ -121,6 +121,7 @@ export const FeeKind = {
   FREIGHT: 'FREIGHT',
   ORIGIN_TARIFF: 'ORIGIN_TARIFF',
   DESTINATION_TARIFF: 'DESTINATION_TARIFF',
+  REFINING_OPEX: 'REFINING_OPEX',
 } as const;
 export type FeeKind = (typeof FeeKind)[keyof typeof FeeKind];
 export const FEE_KINDS: readonly FeeKind[] = Object.values(FeeKind);

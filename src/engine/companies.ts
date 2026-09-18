@@ -97,6 +97,13 @@ export function createRefiner(s: RefinerSpec): Refiner {
     crudeStorageCapacity: s.crudeStorageCapacity,
     crudeStock,
     inboundBarrels: 0,
+    utilization: 1,
+    utilizationCap: 1,
+    online: true,
+    outageTicksRemaining: 0,
+    worksTicksRemaining: 0,
+    worksFactor: 1,
+    daysSinceMaintenance: 0,
   };
 }
 
