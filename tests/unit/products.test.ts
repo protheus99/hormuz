@@ -83,9 +83,14 @@ describe('retail sink (spec §4.13)', () => {
     expect(a).not.toEqual(c);
   });
 
-  it('rounds each deviation to 1e-9 (spec G10 rule 3)', () => {
+  it('rounds each deviation to 1e-9, and each price and fair value to 1e-6 (spec G10 rule 3)', () => {
+    const onGrid = (x: number, step: number) => expect(Math.round(x / step)).toBeCloseTo(x / step, 3);
     for (const s of run(createRetailSink('seed-1', DEFAULT_CONFIG), 30)) {
-      for (const p of PRODUCTS) expect(Math.round(s.deviations[p] * 1e9)).toBeCloseTo(s.deviations[p] * 1e9, 3);
+      for (const p of PRODUCTS) {
+        onGrid(s.deviations[p], 1e-9);
+        onGrid(s.prices[p], 1e-6);
+        onGrid(s.fairValues[p], 1e-6);
+      }
     }
   });
 
@@ -112,7 +117,7 @@ describe('supply feedback (spec §7.3)', () => {
 
   it('raises fair values about 1% when output runs 10% below normal', () => {
     const path = run(createRetailSink('seed-1', noNoise), 10, noNoise, BASELINE * 0.9);
-    expect(path.at(-1)?.fairValues.DIESEL).toBeCloseTo(100 * 0.9 ** -0.1, 9);   // ≈ 101.06
+    expect(path.at(-1)?.fairValues.DIESEL).toBeCloseTo(100 * 0.9 ** -0.1, 5);   // ≈ 101.06
   });
 
   it('stays within its bounds when refining collapses', () => {

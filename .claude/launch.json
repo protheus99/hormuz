@@ -12,6 +12,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 5173
+    },
+    {
+      "name": "golden-browser",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "golden:browser"],
+      "port": 5174
     }
   ]
 }

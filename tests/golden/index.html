@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Golden replay</title>
+  <style>body { font: 14px/1.5 system-ui, sans-serif; margin: 24px; background: #fff; color: #222; } code { font-size: 15px; }</style>
+</head>
+<body>
+  <!-- Runs the golden replay in a browser, to check its hash matches Node's (spec §14.1, Phase 3).
+       Start with `npm run golden:browser`; the page shows the hash and puts it in the title. -->
+  <p>Running the golden replay…</p>
+  <script type="module">
+    import { runGoldenReplay } from './replay.ts';
+    const started = performance.now();
+    const run = runGoldenReplay();
+    const ms = Math.round(performance.now() - started);
+    document.body.innerHTML = `<p>Final: <code id="final">${run.final}</code></p>
+      <p>Day 1: <code id="day1">${run.daily[0]}</code></p>
+      <p>Day 30: <code id="day30">${run.daily[29]}</code></p>
+      <p>${run.summary.fills} fills, ${run.summary.refined.toLocaleString()} barrels refined, ${ms} ms in ${navigator.userAgent}</p>`;
+    document.title = `golden ${run.final}`;
+  </script>
+</body>
+</html>

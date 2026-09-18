@@ -18,7 +18,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "check": "npm run lint && npm run typecheck && npm test",
-    "sim": "tsx src/cli/main.ts"
+    "sim": "tsx src/cli/main.ts",
+    "golden:browser": "vite tests/golden --port 5174 --strictPort"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

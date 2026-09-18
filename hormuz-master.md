@@ -325,7 +325,7 @@ Scenarios are data, built from seven **goal types**: net worth, profit over a wi
 
 1. **PRNG:** `sfc32`, one stream per purpose (`products`, `events`, `ai`), each seeded by hashing `(master_seed, stream_name)`. Its state is four 32-bit integers, trivial to save.
 2. **Normal draws:** Box-Muller, discarding the second value rather than caching it, so there is no hidden state to serialize.
-3. **Quantization:** the product-price deviation `x(p, t)` (§7.3) is rounded to 1e-9 each tick, so last-bit differences between JavaScript engines cannot compound.
+3. **Quantization:** the product-price deviation `x(p, t)` (§7.3) is rounded to 1e-9 each tick, and every published product price and fair value to 1e-6 $/bbl, so last-bit differences between JavaScript engines cannot compound. Rounding `x` alone is not enough: `exp` and `sin` can still differ in the last bit of a price, and revenue multiplies that bit by thousands of barrels — the Phase 3 golden replay caught Chrome and Node disagreeing this way.
 4. **Iteration order:** `Map`, never plain objects, wherever iteration order can affect the simulation.
 
 Lint bans `Math.random`, `Date.now` and `new Date()` inside the engine, and a golden-replay test hashes the S0 metrics stream so any nondeterminism fails immediately.
@@ -767,7 +767,7 @@ When refineries throttle or go offline, product prices drift up; when they run h
 **Deviation process:**
 
 - `x(p, t) = ln(price(p, t) ÷ fair_value(p, t))`
-- `x(p, t + 1) = (1 − θ) × x(p, t) + σ(p) × ε(p, t)`, quantized to 1e-9 (G10)
+- `x(p, t + 1) = (1 − θ) × x(p, t) + σ(p) × ε(p, t)`, quantized to 1e-9 (G10); prices and fair values are rounded to 1e-6
 - `price(p, t + 1) = clamp(fair_value(p, t + 1) × exp(x(p, t + 1)), PRICE_FLOOR × base(p), PRICE_CEILING × base(p))`
 
 The shocks `ε` are standard normal draws correlated across products through a Cholesky factor of the matrix below, drawn from the `products` stream. Because product prices have their own stream, adding or removing companies never changes the product-price path.
@@ -1353,6 +1353,8 @@ tests/
 **Advisor properties:** **projection honesty** — in a calm world, the forked forecast matches the actual 30-day outcome within 5%; **no leak** — changing the future event schedule never changes a projection.
 
 **Canonical serializer.** `JSON.stringify` turns a `Map` into `{}`, so `canonical()` writes `Map` entries as arrays in insertion order, sorts plain-object keys, and fixes numbers to the quantization precision. The golden hash and save/load both use it, so they cannot drift apart.
+
+**Browser parity.** `npm run golden:browser` serves `tests/golden/index.html`, which runs the same replay in a browser and shows its hash; it must equal the Node hash recorded in `tests/golden/golden.test.ts`. It is a manual check for now; automating it in CI (headless Chromium, Firefox and WebKit) belongs with the release work in Phase 13.
 
 **Performance is a test.** `perf/` asserts that a 365-tick S0 run finishes within one second and that three projections finish within half a second, so a regression fails CI instead of surfacing as a slow game.
 

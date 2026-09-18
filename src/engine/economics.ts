@@ -119,7 +119,7 @@ export function updatePrices(sink: RetailSink, baselineOutput: number, config: C
     const base = sink.bases[p];
     sink.deviations[p] = x;
     sink.fairValues[p] = fair;
-    sink.prices[p] = clamp(fair * Math.exp(x), cfg.PRICE_FLOOR * base, cfg.PRICE_CEILING * base);
+    sink.prices[p] = roundPrice(clamp(fair * Math.exp(x), cfg.PRICE_FLOOR * base, cfg.PRICE_CEILING * base));
     sink.expectedPrices[p] = cfg.LAMBDA * sink.prices[p] + (1 - cfg.LAMBDA) * sink.expectedPrices[p];
   });
 }
@@ -145,7 +145,7 @@ export function sellToSink(sink: RetailSink, grade: Grade, barrels: number): num
 function fairValue(p: Product, tick: Tick, bases: ProductPrices, supply: number, cfg: ProductPriceConfig): number {
   const dayOfYear = (cfg.START_DAY_OF_YEAR + tick) % 365;
   const season = 1 + cfg.AMPLITUDE[p] * Math.sin((2 * Math.PI * (dayOfYear - cfg.PHASE[p])) / 365);
-  return bases[p] * season * supply;
+  return roundPrice(bases[p] * season * supply);
 }
 
 /** 1 until the window fills; then output below the baseline lifts prices, weakly and within bounds. */
@@ -164,6 +164,16 @@ function correlationMatrix(cfg: ProductPriceConfig): number[][] {
 /** Rounds to 1e-9 so last-bit differences between JavaScript engines cannot compound (spec G10 rule 3). */
 function quantize(x: number): number {
   return Math.round(x * 1e9) / 1e9;
+}
+
+/**
+ * Rounds a published price to 1e-6 $/bbl (spec G10 rule 3). Math.exp and Math.sin may differ in
+ * the last bit between JavaScript engines — the golden replay caught Chrome and Node disagreeing
+ * on one gasoline price — and revenue multiplies that bit by thousands of barrels. Everything
+ * computed from a rounded price is plain arithmetic, which is exact everywhere.
+ */
+function roundPrice(x: number): number {
+  return Math.round(x * 1e6) / 1e6;
 }
 
 function clamp(x: number, lo: number, hi: number): number {
