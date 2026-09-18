@@ -50,6 +50,56 @@ export function nextFloat(rng: Rng): number {
   return nextUint32(rng) / 4294967296;
 }
 
+/**
+ * Advances the generator by exactly two draws and returns one standard normal value (mean 0,
+ * standard deviation 1), using the Box-Muller transform. Box-Muller makes normals in pairs; the
+ * second is thrown away rather than cached, so the generator's state stays four integers (G10 rule 2).
+ * Math.log and Math.cos are not bit-identical across JavaScript engines, which is why the price
+ * process rounds its state every tick (G10 rule 3).
+ */
+export function normal(rng: Rng): number {
+  const u1 = 1 - nextFloat(rng);          // in (0, 1], so the logarithm is never of zero
+  const u2 = nextFloat(rng);
+  return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+}
+
+/**
+ * Normal values that move together (spec §7.3). `cholesky` is the lower-triangular factor L of a
+ * correlation matrix (see `cholesky()`); multiplying independent normals by L gives draws with
+ * exactly those correlations. Always consumes two draws per row.
+ */
+export function correlatedNormals(rng: Rng, cholesky: readonly (readonly number[])[]): number[] {
+  const independent = cholesky.map(() => normal(rng));
+  return cholesky.map((row) => row.reduce((sum, weight, j) => sum + weight * (independent[j] ?? 0), 0));
+}
+
+/**
+ * The Cholesky factor L of a symmetric positive-definite matrix M, such that L × Lᵀ = M.
+ * Used once per game to turn the product correlation table into weights for correlatedNormals.
+ * Throws if the matrix is not a valid correlation matrix, rather than returning NaN weights.
+ */
+export function cholesky(matrix: readonly (readonly number[])[]): number[][] {
+  const n = matrix.length;
+  const L: number[][] = matrix.map(() => new Array<number>(n).fill(0));
+  const at = (m: readonly (readonly number[])[], i: number, j: number): number => m[i]?.[j] ?? 0;
+  for (let i = 0; i < n; i++) {
+    if (matrix[i]?.length !== n) throw new Error('cholesky needs a square matrix');
+    for (let j = 0; j <= i; j++) {
+      if (at(matrix, i, j) !== at(matrix, j, i)) throw new Error('cholesky needs a symmetric matrix');
+      let sum = at(matrix, i, j);
+      for (let k = 0; k < j; k++) sum -= at(L, i, k) * at(L, j, k);
+      const row = L[i] as number[];
+      if (i === j) {
+        if (sum <= 0) throw new Error('cholesky needs a positive-definite matrix');
+        row[j] = Math.sqrt(sum);
+      } else {
+        row[j] = sum / at(L, j, j);
+      }
+    }
+  }
+  return L;
+}
+
 // cyrb128: turns a string into four well-mixed 32-bit integers to seed sfc32. Public domain, by bryc.
 function cyrb128(str: string): [number, number, number, number] {
   let h1 = 1779033703;

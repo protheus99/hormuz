@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { nextFloat, nextUint32, rngFor, type Rng } from '../../src/engine/rng';
+import { cholesky, correlatedNormals, nextFloat, nextUint32, normal, rngFor, type Rng } from '../../src/engine/rng';
 
 const draw = (rng: Rng, n: number): number[] => Array.from({ length: n }, () => nextUint32(rng));
 
@@ -84,5 +84,60 @@ describe('rng (spec G10)', () => {
       sum += x;
     }
     expect(sum / 100_000).toBeCloseTo(0.5, 2);
+  });
+});
+
+describe('normal draws (spec G10 rule 2, §7.3)', () => {
+  const sample = (f: () => number, n: number) => Array.from({ length: n }, f);
+  const mean = (xs: number[]) => xs.reduce((s, x) => s + x, 0) / xs.length;
+  const sd = (xs: number[]) => { const m = mean(xs); return Math.sqrt(mean(xs.map((x) => (x - m) ** 2))); };
+  const corr = (xs: number[], ys: number[]) => {
+    const mx = mean(xs), my = mean(ys);
+    return mean(xs.map((x, i) => (x - mx) * ((ys[i] ?? 0) - my))) / (sd(xs) * sd(ys));
+  };
+
+  it('uses exactly two raw draws per normal, keeping no hidden state', () => {
+    const a = rngFor('seed-1', 'products');
+    const b = rngFor('seed-1', 'products');
+    normal(a);
+    draw(b, 2);
+    expect(a).toEqual(b);
+  });
+
+  it('has mean 0 and standard deviation 1', () => {
+    const rng = rngFor('seed-1', 'products');
+    const xs = sample(() => normal(rng), 100_000);
+    expect(mean(xs)).toBeCloseTo(0, 1);
+    expect(sd(xs)).toBeCloseTo(1, 1);
+    expect(xs.every(Number.isFinite)).toBe(true);
+  });
+
+  it('factors the product correlation matrix so that L × Lᵀ gives it back', () => {
+    const m = [[1, 0.7, 0.4], [0.7, 1, 0.5], [0.4, 0.5, 1]];
+    const L = cholesky(m);
+    for (let i = 0; i < 3; i++) {
+      for (let j = 0; j < 3; j++) {
+        const product = [0, 1, 2].reduce((s, k) => s + (L[i]?.[k] ?? 0) * (L[j]?.[k] ?? 0), 0);
+        expect(product).toBeCloseTo(m[i]?.[j] ?? NaN, 12);
+      }
+    }
+    expect(L[0]?.[1]).toBe(0);  // lower triangular
+  });
+
+  it('rejects matrices that are not valid correlations', () => {
+    expect(() => cholesky([[1, 0.5], [0.4, 1]])).toThrow(/symmetric/);
+    expect(() => cholesky([[1, 2], [2, 1]])).toThrow(/positive-definite/);
+    expect(() => cholesky([[1, 0]])).toThrow(/square/);
+  });
+
+  it('produces draws with the requested correlations', () => {
+    const rng = rngFor('seed-1', 'products');
+    const L = cholesky([[1, 0.7, 0.4], [0.7, 1, 0.5], [0.4, 0.5, 1]]);
+    const rows = sample(() => correlatedNormals(rng, L), 50_000);
+    const col = (k: number) => rows.map((r) => r[k] ?? NaN);
+    expect(corr(col(0), col(1))).toBeCloseTo(0.7, 1);
+    expect(corr(col(0), col(2))).toBeCloseTo(0.4, 1);
+    expect(corr(col(1), col(2))).toBeCloseTo(0.5, 1);
+    expect(sd(col(2))).toBeCloseTo(1, 1);
   });
 });

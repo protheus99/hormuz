@@ -1250,6 +1250,7 @@ export function nextUint32(rng: Rng): number;                   // advances rng;
 export function nextFloat(rng: Rng): number;                    // advances rng; float in [0, 1)
 export function normal(rng: Rng): number;                       // Phase 3: Box-Muller, second value discarded
 export function correlatedNormals(rng: Rng, cholesky: readonly number[][]): number[];   // Phase 3
+export function cholesky(matrix: readonly number[][]): number[][];   // Phase 3: factor of the §7.3 correlation table, computed once
 // The generator is its state, so there is no separate save/restore: it serializes and forks like any other data.
 
 // clearing.ts
