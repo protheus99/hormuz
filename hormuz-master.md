@@ -638,7 +638,7 @@ A trader bids delivered to, and asks FOB from, its office regions and leased-sto
 
 ### 4.13 RetailSink
 
-Holds product prices (`GASOLINE`, `DIESEL`, `FUEL_OIL`) and buys all refined output at the current price. Attributes: `prices`, `fair_values`, `deviations`, `expected_prices`, `output_history`, and its `products` RNG stream. It advances prices once per tick (§7.3), applies scheduled shocks, and returns revenue for refined output. Product prices have no regional differences.
+Holds product prices (`GASOLINE`, `DIESEL`, `FUEL_OIL`) and buys all refined output at the current price. Attributes: `prices`, `fair_values`, `deviations`, `expected_prices`, `bases` (the anchors that persistent shocks move), `output_history`, `output_today`, and its `products` RNG stream. It advances prices once per tick (§7.3), applies scheduled shocks, and returns revenue for refined output. Product prices have no regional differences. The §7.3 parameters live in `Config.PRODUCT_PRICES`, so tests and presets can override them.
 
 ### 4.14 World
 
@@ -1275,9 +1275,11 @@ export function cancelDeal(w: World, id: DealId, by: AgentId): FeeEntry;
 export function splitDeal(w: World, id: DealId, avoid: readonly ChokepointName[]): [Deal, Deal];
 
 // economics.ts
-export function updatePrices(sink: RetailSink, tick: Tick, outputHistory: readonly number[]): void;
+export function createRetailSink(seed: string, config: Config): RetailSink;          // tick 0, prices at fair value
+export function updatePrices(sink: RetailSink, baselineOutput: number, config: Config): void;   // closes today's output into history, advances one tick
 export function applyShock(sink: RetailSink, p: Product, pct: number, persistent: boolean): void;
-export function productValue(grade: Grade, expected: ReadonlyMap<Product, number>): number;
+export function sellToSink(sink: RetailSink, grade: Grade, barrels: number): number;  // revenue at today's prices; counts output
+export function productValue(grade: Grade, prices: Readonly<Record<Product, number>>): number;
 
 // agents.ts
 export function decideOrders(a: Agent, view: MarketView, cfg: Config): Order[];        // §6.1–6.4

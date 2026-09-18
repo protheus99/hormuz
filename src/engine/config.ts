@@ -4,11 +4,34 @@
 // Rates and shares are fractions, so 25% is written 0.25.
 // All values are placeholders to be tuned in Phases 7 and 12.
 
-import type { DeclineClass } from './enums';
+import type { DeclineClass, Product } from './enums';
 
 export interface Range {
   readonly min: number;
   readonly max: number;
+}
+
+/** Settings for the retail product-price process (spec §7.3). */
+export interface ProductPriceConfig {
+  readonly BASE: Readonly<Record<Product, number>>;        // $/bbl, the long-run anchor
+  readonly SIGMA: Readonly<Record<Product, number>>;       // daily volatility of the log price
+  readonly AMPLITUDE: Readonly<Record<Product, number>>;   // seasonal swing, as a share of base
+  readonly PHASE: Readonly<Record<Product, number>>;       // days; shifts the seasonal peak
+  readonly THETA: number;                                  // share of a deviation that fades each day
+  readonly CORRELATION: {                                  // between the three products' daily shocks
+    readonly GASOLINE_DIESEL: number;
+    readonly GASOLINE_FUEL_OIL: number;
+    readonly DIESEL_FUEL_OIL: number;
+  };
+  readonly BETA: number;                                   // how strongly refinery output moves fair value
+  readonly SUPPLY_WINDOW: number;                          // ticks of output averaged
+  readonly BASE_UTILIZATION: number;                       // output treated as normal
+  readonly SUPPLY_MIN: number;                             // bounds on the supply factor
+  readonly SUPPLY_MAX: number;
+  readonly PRICE_FLOOR: number;                            // hard bounds, as multiples of base
+  readonly PRICE_CEILING: number;
+  readonly LAMBDA: number;                                 // expectation smoothing
+  readonly START_DAY_OF_YEAR: number;                      // 0 = tick 0 falls on January 1
 }
 
 export interface Config {
@@ -92,6 +115,9 @@ export interface Config {
   readonly REPORT_LAG: number;             // ticks old
   readonly REPORT_NOISE: number;           // ± share of the true value
   readonly INTEGRATE_THRESHOLD: number;    // net worth as a multiple of starting net worth
+
+  // Product prices (spec §7.3)
+  readonly PRODUCT_PRICES: ProductPriceConfig;
 
   // Cards (spec G4.1, G4.5)
   readonly CARD_MAX_OPEN: number;
@@ -185,6 +211,24 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
   REPORT_LAG: 5,
   REPORT_NOISE: 0.15,
   INTEGRATE_THRESHOLD: 3,
+
+  PRODUCT_PRICES: {
+    BASE: { GASOLINE: 95, DIESEL: 100, FUEL_OIL: 55 },
+    SIGMA: { GASOLINE: 0.012, DIESEL: 0.010, FUEL_OIL: 0.015 },
+    AMPLITUDE: { GASOLINE: 0.04, DIESEL: 0.03, FUEL_OIL: 0 },
+    PHASE: { GASOLINE: 105, DIESEL: 289, FUEL_OIL: 0 },
+    THETA: 0.05,
+    CORRELATION: { GASOLINE_DIESEL: 0.70, GASOLINE_FUEL_OIL: 0.40, DIESEL_FUEL_OIL: 0.50 },
+    BETA: 0.10,
+    SUPPLY_WINDOW: 7,
+    BASE_UTILIZATION: 0.85,
+    SUPPLY_MIN: 0.90,
+    SUPPLY_MAX: 1.15,
+    PRICE_FLOOR: 0.70,
+    PRICE_CEILING: 1.40,
+    LAMBDA: 0.10,
+    START_DAY_OF_YEAR: 0,
+  },
 
   CARD_MAX_OPEN: 3,
   CARD_COOLDOWN: 14,
