@@ -36,7 +36,7 @@ export default defineConfig(
   {
     rules: {
       // A parameter an implementation must accept but does not need is named with a leading underscore.
-      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', ignoreRestSiblings: true }],
     },
   },
 

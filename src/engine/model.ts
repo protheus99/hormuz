@@ -110,8 +110,10 @@ export interface Fill {
 }
 
 // ---- Companies (spec §4.7–4.11) --------------------------------------------------------------
-// A company is a Producer, a Refiner or a Trader, told apart by `kind` — another discriminated
-// union. IntegratedMajor joins the union in Phase 3.
+// A company is a Producer, a Refiner, an IntegratedMajor or a Trader, told apart by `kind` —
+// another discriminated union. The physical assets are separate interfaces: a Producer *is* a
+// company with a well, a Refiner a company with a plant, and an IntegratedMajor a company that
+// owns one of each (spec §4.10). Code that only cares about the asset takes WellState or PlantState.
 
 /** Barrels held of each grade. Record<Grade, number> forces an entry for every grade. */
 export type Stock = Record<Grade, number>;
@@ -136,8 +138,8 @@ interface CompanyBase {
   insolvent: boolean;
 }
 
-export interface Producer extends CompanyBase {
-  readonly kind: typeof AgentKind.PRODUCER;
+/** Wells and their storage (spec §4.8). */
+export interface WellState {
   readonly grade: Grade;
   /** bbl/day. */
   extractionCapacity: number;
@@ -151,8 +153,8 @@ export interface Producer extends CompanyBase {
   storageEscrow: number;
 }
 
-export interface Refiner extends CompanyBase {
-  readonly kind: typeof AgentKind.REFINER;
+/** A refinery and its crude tanks (spec §4.9). */
+export interface PlantState {
   techTier: TechTier;
   /** bbl/day. */
   processingCapacity: number;
@@ -174,6 +176,21 @@ export interface Refiner extends CompanyBase {
   daysSinceMaintenance: number;
 }
 
+export interface Producer extends CompanyBase, WellState {
+  readonly kind: typeof AgentKind.PRODUCER;
+}
+
+export interface Refiner extends CompanyBase, PlantState {
+  readonly kind: typeof AgentKind.REFINER;
+}
+
+/** A producer that also owns a refinery in the same region, with one shared wallet (spec §4.10). */
+export interface IntegratedMajor extends CompanyBase {
+  readonly kind: typeof AgentKind.INTEGRATED;
+  well: WellState;
+  plant: PlantState;
+}
+
 /** A trader's storage in one office region. */
 export interface HubHolding {
   capacity: number;
@@ -190,7 +207,7 @@ export interface Trader extends CompanyBase {
   maxRiskLimit: number;
 }
 
-export type Agent = Producer | Refiner | Trader;
+export type Agent = Producer | Refiner | IntegratedMajor | Trader;
 
 // ---- Cargo (spec §4.12) ----------------------------------------------------------------------
 // Created when a trade settles. Phase 4 moves it along its route and delivers it.

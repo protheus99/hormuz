@@ -619,7 +619,7 @@ Rerouting half a deal (a card's Maybe) splits it into two half-volume deals with
 
 ### 4.10 IntegratedMajor
 
-Owns one `Producer` and one `Refiner` in the same region, with cash held at the parent. Phase 2 moves crude from well to plant at cost, with no tariff or freight, up to accepted grades and free storage; the rest is traded under §6.3. A company becomes integrated at game start (AI portfolio) or mid-game when a producer completes the "Build a refinery" card: its producer record becomes one subsidiary and a new refiner record is created for the other. Refiners never become integrated.
+Owns one well (`WellState`) and one plant (`PlantState`) in the same region, with cash held at the parent; a `Producer` is a company with a well and a `Refiner` a company with a plant, so the same code runs all three. Phase 2 moves crude from well to plant at cost, with no tariff or freight, up to accepted grades and free storage; the rest is traded under §6.3. A company becomes integrated at game start (AI portfolio) or mid-game when a producer completes the "Build a refinery" card: its producer record becomes one subsidiary and a new refiner record is created for the other. Refiners never become integrated.
 
 ### 4.11 Trader
 
@@ -1119,7 +1119,7 @@ src/
     transport.ts   lane graph, routing, cargo movement
     routes.ts      RouteProvider interface; StubRouteProvider for Phase 1 and unit tests
     clearing.ts    ExchangeNode, batch clearing, markers (§8)
-    companies.ts   building companies, placement rules (§3.4), accepted grades, available cash
+    companies.ts   building companies, placement rules (§3.4), integration, accepted grades, available cash
     settlement.ts  escrow at order placement, settling fills into cargo, end-of-day release
     deals.ts       signing, delivery, penalties, cancel, split
     economics.ts   FeeLedger (§7.1); retail sink and yields from Phase 3
@@ -1285,9 +1285,11 @@ export function productValue(grade: Grade, prices: Readonly<Record<Product, numb
 export function decideOrders(a: Agent, view: MarketView, cfg: Config): Order[];        // §6.1–6.4
 export function defaultOperations(a: Agent, w: World, cfg: Config): void;             // §6.5
 export function extract(p: Producer, region: Region, cfg: Config): ExtractResult;
-export function refine(r: Refiner, sink: RetailSink, ledger: FeeLedger, tick: Tick): RefineResult;   // best margin first; opex to the ledger
+export function refine(r: Refiner | IntegratedMajor, sink: RetailSink, ledger: FeeLedger, tick: Tick): RefineResult;   // best margin first; opex to the ledger
 export function effectiveUtilization(r: Refiner): number;
-export function integrate(w: World, id: AgentId): IntegratedMajor;
+export function internalTransfer(m: IntegratedMajor): number;                        // Phase 2 of the tick; barrels moved, no cash
+// companies.ts
+export function integrate(p: Producer, plant: PlantSpec): IntegratedMajor;          // wells, cash and id carry over; the card pays and picks the plant
 
 // world.ts
 export function createWorld(s: WorldSettings): World;

@@ -9,7 +9,8 @@ import { AgentKind, Controller, Grade, Personality, RegionRole } from './enums';
 import { REGIONS } from '../data/regions';
 import {
   asAgentId, emptyStock,
-  type Agent, type HubHolding, type Producer, type RegionName, type Refiner, type Stock, type TechTier, type Trader,
+  type Agent, type HubHolding, type IntegratedMajor, type PlantState, type Producer, type RegionName, type Refiner,
+  type Stock, type TechTier, type Trader, type WellState,
 } from './model';
 
 /** Grades a refinery of this tier can process (spec §4.9). */
@@ -26,6 +27,20 @@ export function availableCash(agent: Agent): number {
   return agent.cash - agent.cashReserved;
 }
 
+/** The company's wells, if it has any. */
+export function wellOf(agent: Agent): WellState | undefined {
+  if (agent.kind === 'PRODUCER') return agent;
+  if (agent.kind === 'INTEGRATED') return agent.well;
+  return undefined;
+}
+
+/** The company's refinery, if it has one. */
+export function plantOf(agent: Agent): PlantState | undefined {
+  if (agent.kind === 'REFINER') return agent;
+  if (agent.kind === 'INTEGRATED') return agent.plant;
+  return undefined;
+}
+
 /** Fields every company is created with; the player's company passes controller HUMAN. */
 interface CompanySpec {
   readonly id: string;
@@ -36,7 +51,8 @@ interface CompanySpec {
   readonly personality?: Personality;
 }
 
-export interface ProducerSpec extends CompanySpec {
+/** A producer's wells and storage. */
+export interface WellSpec {
   readonly grade: Grade;
   readonly extractionCapacity: number;
   readonly baseExtractionCost: number;
@@ -45,11 +61,19 @@ export interface ProducerSpec extends CompanySpec {
   readonly storage?: number;
 }
 
-export interface RefinerSpec extends CompanySpec {
+/** A refinery and its crude tanks. */
+export interface PlantSpec {
   readonly techTier: TechTier;
   readonly processingCapacity: number;
   readonly crudeStorageCapacity: number;
   readonly crudeStock?: Partial<Stock>;
+}
+
+export interface ProducerSpec extends CompanySpec, WellSpec {}
+export interface RefinerSpec extends CompanySpec, PlantSpec {}
+export interface IntegratedSpec extends CompanySpec {
+  readonly well: WellSpec;
+  readonly plant: PlantSpec;
 }
 
 export interface TraderSpec extends CompanySpec {
@@ -58,43 +82,78 @@ export interface TraderSpec extends CompanySpec {
   readonly maxRiskLimit: number;
 }
 
-export function createProducer(s: ProducerSpec): Producer {
-  const region = REGIONS[s.region];
-  if (!hasRole(s.region, RegionRole.PRODUCTION)) fail(s, `${s.region} has no production role`);
-  if (!(region.exploitableGrades as readonly Grade[]).includes(s.grade)) fail(s, `${s.region} cannot produce ${s.grade}`);
-  const storage = s.storage ?? 0.25 * s.storageCapacity;
-  requireNonNegative(s, { cash: s.cash, extractionCapacity: s.extractionCapacity, baseExtractionCost: s.baseExtractionCost, storage });
-  if (storage > s.storageCapacity) fail(s, `storage ${storage} exceeds capacity ${s.storageCapacity}`);
+/**
+ * Regions where no new refinery may be built, so integration is closed there (spec G2, §10.3).
+ * A big Gulf refinery would let Gulf crude leave as product during a Hormuz closure and defuse
+ * the flagship scenario. Refineries that start there in a portfolio are allowed.
+ */
+export const CLOSED_TO_NEW_REFINING: readonly RegionName[] = ['Middle_East'];
 
+export function createProducer(s: ProducerSpec): Producer {
+  requireNonNegative(s, { cash: s.cash });
+  return { ...base(s), kind: AgentKind.PRODUCER, ...buildWell(s, s.region, s) };
+}
+
+export function createRefiner(s: RefinerSpec): Refiner {
+  requireNonNegative(s, { cash: s.cash });
+  return { ...base(s), kind: AgentKind.REFINER, ...buildPlant(s, s.region, s) };
+}
+
+/** An integrated major that exists from the start, as in an AI portfolio (spec §10). */
+export function createIntegrated(s: IntegratedSpec): IntegratedMajor {
+  requireNonNegative(s, { cash: s.cash });
+  return { ...base(s), kind: AgentKind.INTEGRATED, well: buildWell(s, s.region, s.well), plant: buildPlant(s, s.region, s.plant) };
+}
+
+/**
+ * A producer becomes integrated when its new refinery is finished (spec §4.10, G2): the wells,
+ * cash and identity carry over, and the new plant joins them in the same region. The card that
+ * starts the build (Phase 9) pays for it and chooses the plant; this only checks it is allowed.
+ * Must run between ticks, when nothing is held in escrow.
+ */
+export function integrate(p: Producer, plant: PlantSpec): IntegratedMajor {
+  const spec = { id: p.agentId, name: p.name, region: p.region, cash: p.cash };
+  if (CLOSED_TO_NEW_REFINING.includes(p.region)) fail(spec, `no new refineries may be built in ${p.region} (spec §10.3)`);
+  if (p.storageEscrow !== 0 || p.cashReserved !== 0) fail(spec, 'integration must happen between ticks, with no escrow held');
+  const { kind, grade, extractionCapacity, fieldMaxCapacity, baseExtractionCost, storageCapacity, storage, storageEscrow, ...company } = p;
   return {
-    ...base(s),
-    kind: AgentKind.PRODUCER,
-    grade: s.grade,
-    extractionCapacity: s.extractionCapacity,
-    fieldMaxCapacity: 2 * s.extractionCapacity,
-    baseExtractionCost: s.baseExtractionCost,
-    storageCapacity: s.storageCapacity,
+    ...company,
+    kind: AgentKind.INTEGRATED,
+    well: { grade, extractionCapacity, fieldMaxCapacity, baseExtractionCost, storageCapacity, storage, storageEscrow },
+    plant: buildPlant(spec, p.region, plant),
+  };
+}
+
+function buildWell(owner: CompanySpec, region: RegionName, w: WellSpec): WellState {
+  if (!hasRole(region, RegionRole.PRODUCTION)) fail(owner, `${region} has no production role`);
+  if (!(REGIONS[region].exploitableGrades as readonly Grade[]).includes(w.grade)) fail(owner, `${region} cannot produce ${w.grade}`);
+  const storage = w.storage ?? 0.25 * w.storageCapacity;
+  requireNonNegative(owner, { extractionCapacity: w.extractionCapacity, baseExtractionCost: w.baseExtractionCost, storage });
+  if (storage > w.storageCapacity) fail(owner, `storage ${storage} exceeds capacity ${w.storageCapacity}`);
+  return {
+    grade: w.grade,
+    extractionCapacity: w.extractionCapacity,
+    fieldMaxCapacity: 2 * w.extractionCapacity,
+    baseExtractionCost: w.baseExtractionCost,
+    storageCapacity: w.storageCapacity,
     storage,
     storageEscrow: 0,
   };
 }
 
-export function createRefiner(s: RefinerSpec): Refiner {
-  if (!hasRole(s.region, RegionRole.REFINING)) fail(s, `${s.region} has no refining role`);
-  const crudeStock: Stock = { ...emptyStock(), ...s.crudeStock };
-  const accepted = acceptedGrades(s.techTier);
+function buildPlant(owner: CompanySpec, region: RegionName, pl: PlantSpec): PlantState {
+  if (!hasRole(region, RegionRole.REFINING)) fail(owner, `${region} has no refining role`);
+  const crudeStock: Stock = { ...emptyStock(), ...pl.crudeStock };
+  const accepted = acceptedGrades(pl.techTier);
   for (const [grade, qty] of Object.entries(crudeStock) as [Grade, number][]) {
-    if (qty > 0 && !accepted.includes(grade)) fail(s, `a Tier ${s.techTier} refinery cannot hold ${grade}`);
+    if (qty > 0 && !accepted.includes(grade)) fail(owner, `a Tier ${pl.techTier} refinery cannot hold ${grade}`);
   }
-  requireNonNegative(s, { cash: s.cash, processingCapacity: s.processingCapacity, ...crudeStock });
-  if (total(crudeStock) > s.crudeStorageCapacity) fail(s, 'crude stock exceeds storage capacity');
-
+  requireNonNegative(owner, { processingCapacity: pl.processingCapacity, ...crudeStock });
+  if (total(crudeStock) > pl.crudeStorageCapacity) fail(owner, 'crude stock exceeds storage capacity');
   return {
-    ...base(s),
-    kind: AgentKind.REFINER,
-    techTier: s.techTier,
-    processingCapacity: s.processingCapacity,
-    crudeStorageCapacity: s.crudeStorageCapacity,
+    techTier: pl.techTier,
+    processingCapacity: pl.processingCapacity,
+    crudeStorageCapacity: pl.crudeStorageCapacity,
     crudeStock,
     inboundBarrels: 0,
     utilization: 1,

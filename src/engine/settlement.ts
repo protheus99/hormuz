@@ -11,12 +11,14 @@
 // the same decimals in a different sequence can leave a residue like 1e-10, and invariant 4
 // requires exactly zero.
 
-import { availableCash, acceptedGrades } from './companies';
+import { availableCash, acceptedGrades, plantOf, wellOf } from './companies';
 import { CargoStatus, FeeKind } from './enums';
 import { recordFee, type FeeLedger } from './economics';
 import { NODES } from '../data/nodes';
 import { REGIONS } from '../data/regions';
-import { makeCargoId, type Agent, type AgentId, type Cargo, type Fill, type Order, type RegionName } from './model';
+import {
+  makeCargoId, type Agent, type AgentId, type Cargo, type Fill, type Order, type PlantState, type RegionName, type WellState,
+} from './model';
 import type { Grade } from './enums';
 
 /** Checks an order against its company and locks what it promises (spec §8 rule 6's counterpart: escrow at submission). */
@@ -64,7 +66,8 @@ export function settleFills(fills: readonly Fill[], agents: ReadonlyMap<AgentId,
     recordFee(ledger, { tick: f.tick, agentId: buyer.agentId, kind: FeeKind.FREIGHT, amount: freight });
     recordFee(ledger, { tick: f.tick, agentId: seller.agentId, kind: FeeKind.ORIGIN_TARIFF, amount: originTariff });
 
-    if (buyer.kind === 'REFINER') buyer.inboundBarrels += f.qty;
+    const plant = plantOf(buyer);
+    if (plant) plant.inboundBarrels += f.qty;
     cargo.push({
       cargoId: makeCargoId(f.node, f.tick, i),
       ownerId: buyer.agentId,
@@ -85,9 +88,10 @@ export function settleFills(fills: readonly Fill[], agents: ReadonlyMap<AgentId,
 export function releaseEscrow(agents: Iterable<Agent>): void {
   for (const agent of agents) {
     agent.cashReserved = 0;
-    if (agent.kind === 'PRODUCER') {
-      agent.storage += agent.storageEscrow;
-      agent.storageEscrow = 0;
+    const well = wellOf(agent);
+    if (well) {
+      well.storage += well.storageEscrow;
+      well.storageEscrow = 0;
     } else if (agent.kind === 'TRADER') {
       for (const hub of Object.values(agent.hubs)) {
         for (const grade of Object.keys(hub.escrow) as Grade[]) {
@@ -108,14 +112,16 @@ interface StockSlot {
 
 function sellableStock(agent: Agent, region: RegionName, grade: Grade): StockSlot {
   switch (agent.kind) {
-    case 'PRODUCER': {
-      if (region !== agent.region || grade !== agent.grade) {
-        throw new Error(`${agent.name} produces ${agent.grade} in ${agent.region}, not ${grade} in ${region}`);
+    case 'PRODUCER':
+    case 'INTEGRATED': {
+      const well = wellOf(agent) as WellState;
+      if (region !== agent.region || grade !== well.grade) {
+        throw new Error(`${agent.name} produces ${well.grade} in ${agent.region}, not ${grade} in ${region}`);
       }
       return {
-        available: agent.storage,
-        lock: (qty) => { agent.storage -= qty; agent.storageEscrow += qty; },
-        ship: (qty) => { takeFromEscrow(agent.name, agent.storageEscrow, qty); agent.storageEscrow -= qty; },
+        available: well.storage,
+        lock: (qty) => { well.storage -= qty; well.storageEscrow += qty; },
+        ship: (qty) => { takeFromEscrow(agent.name, well.storageEscrow, qty); well.storageEscrow -= qty; },
       };
     }
     case 'TRADER': {
@@ -135,16 +141,23 @@ function sellableStock(agent: Agent, region: RegionName, grade: Grade): StockSlo
 function checkBuyer(agent: Agent, deliveryRegion: RegionName, grade: Grade): void {
   switch (agent.kind) {
     case 'REFINER':
+    case 'INTEGRATED': {
+      const plant = plantOf(agent) as PlantState;
       if (deliveryRegion !== agent.region) throw new Error(`${agent.name} can only take delivery at its refinery in ${agent.region}`);
-      if (!acceptedGrades(agent.techTier).includes(grade)) throw new Error(`${agent.name} is Tier ${agent.techTier} and cannot refine ${grade}`);
+      if (!acceptedGrades(plant.techTier).includes(grade)) throw new Error(`${agent.name} is Tier ${plant.techTier} and cannot refine ${grade}`);
       return;
+    }
     case 'TRADER':
       if (agent.hubs[deliveryRegion] === undefined) throw new Error(`${agent.name} has no office in ${deliveryRegion}`);
       return;
     case 'PRODUCER':
       throw new Error(`${agent.name} is a producer; producers sell crude but do not buy it`);
+    default:
+      // A void function would silently accept a missing case; this line fails to compile instead.
+      return agent satisfies never;
   }
 }
+
 
 function takeFromEscrow(name: string, escrowed: number, qty: number): void {
   if (escrowed < qty) throw new Error(`${name} ships ${qty} barrels but only ${escrowed} are in escrow`);
