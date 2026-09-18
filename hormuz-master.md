@@ -1199,7 +1199,8 @@ Scripts: `dev` (vite), `build` (vite build), `test` (vitest run), `typecheck` (t
 |---|---|
 | `engine/enums.ts`, `engine/rng.ts`, `engine/heap.ts` | — |
 | `data/regions.ts` | enums |
-| `data/lanes.ts`, `data/portfolios.ts` | enums, regions |
+| `data/nodes.ts`, `data/chokepoints.ts` | enums, regions |
+| `data/lanes.ts`, `data/portfolios.ts` | enums, regions, nodes, chokepoints |
 | `engine/model.ts` | enums, `data/` |
 | `engine/config.ts` | model |
 | `engine/transport.ts` | model, config, heap |
@@ -1215,7 +1216,7 @@ Scripts: `dev` (vite), `build` (vite build), `test` (vitest run), `typecheck` (t
 
 ```ts
 export interface RouteProvider {
-  route(origin: RegionName, destination: RegionName, avoid?: ReadonlySet<ChokepointName>): Route | null;
+  route(origin: RegionName, destination: RegionName, avoid?: readonly ChokepointName[]): Route | null;
   capacityLeft(route: Route, agentId: AgentId): number;
   reserve(route: Route, qty: number, agentId: AgentId): number;   // barrels actually reserved
 }
@@ -1252,7 +1253,7 @@ export function updateMarker(node: ExchangeNode, fills: readonly Fill[], ctx: Cl
 // transport.ts
 export function buildLaneGraph(): LaneGraph;
 export function asRouteProvider(g: LaneGraph): RouteProvider;
-export function rebuildCache(g: LaneGraph, avoidSets: readonly ReadonlySet<ChokepointName>[]): void;
+export function rebuildCache(g: LaneGraph, avoidSets: readonly (readonly ChokepointName[])[]): void;
 export function advanceCargo(c: Cargo, g: LaneGraph): CargoAdvance;                    // MOVING | HELD | ARRIVED
 
 // deals.ts
@@ -1260,7 +1261,7 @@ export function priceDeal(w: World, terms: DealTerms): number;
 export function signDeal(w: World, terms: DealTerms): Deal;
 export function deliverDeals(w: World): DealDelivery[];                                // Phase 5a
 export function cancelDeal(w: World, id: DealId, by: AgentId): FeeEntry;
-export function splitDeal(w: World, id: DealId, avoid: ReadonlySet<ChokepointName>): [Deal, Deal];
+export function splitDeal(w: World, id: DealId, avoid: readonly ChokepointName[]): [Deal, Deal];
 
 // economics.ts
 export function updatePrices(sink: RetailSink, tick: Tick, outputHistory: readonly number[]): void;
