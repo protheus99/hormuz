@@ -2,7 +2,7 @@
 //
 // The core portfolio (§10.1) drives Phases 1–6 and the engine tests: eight companies with a
 // deliberate 28% surplus of production over refining, because it exists to exercise the engine,
-// not to model a realistic market. The global portfolio (§10.2) arrives in Phase 7.
+// not to model a realistic market. The global portfolio (§10.2) is the default world for games.
 
 import type { Grade, Personality } from '../engine/enums';
 import type { RegionName } from './regions';
@@ -26,7 +26,7 @@ export interface PlantData {
   readonly techTier: 1 | 2 | 3;
   readonly processingCapacity: number;
   readonly crudeStorageCapacity: number;
-  /** Starting stock: half the tanks, of a grade the plant refines (see the note below). */
+  /** Starting stock, of a grade the plant refines. */
   readonly startingStock: Readonly<Partial<Record<Grade, number>>>;
 }
 
@@ -81,4 +81,55 @@ export const CORE_PORTFOLIO: readonly PortfolioEntry[] = [
       { region: 'Middle_East', capacity: 17_000 },
     ],
   },
+];
+
+// ─── Global portfolio (spec §10.2; the default world for games) ──────────────────────────────
+
+/** §10.2 defaults: 3 days of producer storage, starting 25% full; producers start with $2.0M. */
+const producer = (id: string, region: RegionName, grade: Grade, capacity: number, cost: number): PortfolioEntry => ({
+  kind: 'PRODUCER', id, name: id.replace(/_/g, ' '), region, cash: 2_000_000,
+  well: { grade, extractionCapacity: capacity, baseExtractionCost: cost, storageCapacity: 3 * capacity },
+});
+
+/**
+ * §10.2 defaults: 10 days of tanks, starting with 5 days of stock of the grade the tier is built
+ * for (Tier 1 light, Tier 2 medium, Tier 3 heavy); refiners start with $3.0M.
+ */
+const refiner = (id: string, region: RegionName, techTier: 1 | 2 | 3, capacity: number): PortfolioEntry => ({
+  kind: 'REFINER', id, name: id.replace(/_/g, ' '), region, cash: 3_000_000,
+  plant: {
+    techTier, processingCapacity: capacity, crudeStorageCapacity: 10 * capacity,
+    startingStock: { [techTier === 1 ? 'LIGHT_SWEET' : techTier === 2 ? 'MEDIUM' : 'HEAVY_SOUR']: 5 * capacity },
+  },
+});
+
+/**
+ * The core eight plus the 23 companies of §10.2: 88,500 bbl/day of production against 99,000 of
+ * refining, a 5.2% surplus at BASE_UTILIZATION (§10.3).
+ */
+export const GLOBAL_PORTFOLIO: readonly PortfolioEntry[] = [
+  ...CORE_PORTFOLIO,
+  refiner('Marshaven_Refining', 'US_Gulf_Coast', 3, 10_000),
+  producer('Tarvale_Sands', 'Western_Canada', 'HEAVY_SOUR', 5_000, 30),
+  producer('Campeche_Energia', 'Mexico_Gulf', 'HEAVY_SOUR', 4_000, 20),
+  refiner('Veracruz_Refining', 'Mexico_Gulf', 1, 5_000),
+  producer('Orinoco_Heavy', 'Venezuela_Orinoco', 'HEAVY_SOUR', 3_000, 18),
+  producer('Andes_Crudo', 'Colombia_Andean', 'MEDIUM', 2_500, 25),
+  producer('Demerara_Offshore', 'Guyana_Suriname', 'LIGHT_SWEET', 4_000, 28),
+  producer('Atlantica_Presalt', 'Brazil_Presalt', 'MEDIUM', 7_000, 26),
+  refiner('Ilhavera_Refining', 'Brazil_Presalt', 2, 6_000),
+  producer('Patagonia_Shale', 'Argentina_Vaca_Muerta', 'LIGHT_SWEET', 2_500, 30),
+  refiner('Levant_Refining', 'Southern_Europe', 2, 7_000),
+  producer('Volga_Export', 'Russia_West', 'MEDIUM', 9_000, 15),
+  refiner('Baltic_Refining', 'Russia_West', 2, 8_000),
+  producer('Amur_Pacific', 'Russia_Far_East', 'MEDIUM', 3_000, 22),
+  producer('Steppe_Caspian', 'Caspian', 'LIGHT_SWEET', 4_000, 18),
+  producer('Sahara_Light', 'North_Africa', 'LIGHT_SWEET', 3_500, 16),
+  producer('Guinea_Deepwater', 'West_Africa', 'LIGHT_SWEET', 6_000, 27),
+  producer('Dhofar_Oil', 'Gulf_of_Oman', 'MEDIUM', 2_500, 14),
+  producer('Borneo_Petro', 'Southeast_Asia', 'LIGHT_SWEET', 2_000, 24),
+  refiner('Seralang_Refining', 'Southeast_Asia', 2, 7_000),
+  refiner('Huanghai_Petrochem', 'Coastal_Asia', 2, 11_000),
+  refiner('Malabar_Refining', 'South_Asia', 3, 9_000),
+  refiner('Rannvar_Refining', 'South_Asia', 3, 8_000),
 ];
