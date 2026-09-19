@@ -8,7 +8,7 @@ import type { RegionName } from '../data/regions';
 import { plantOf, wellOf } from '../engine/companies';
 import type { ChokepointStatus, Grade, Product } from '../engine/enums';
 import type { AgentId, CompanySettings, DealId } from '../engine/model';
-import type { World } from '../engine/world';
+import { netWorth, type World } from '../engine/world';
 import type { Alert } from './alerts';
 import type { Card, CardType } from './cards/types';
 
@@ -45,6 +45,10 @@ export interface OwnCompanyView {
   readonly creditLimit: number;
   readonly creditDrawn: number;
   readonly insolvent: boolean;
+  /** Cash + inventory at markers + depreciated capital assets − credit drawn (spec G6). */
+  readonly netWorth: number;
+  /** Capital projects under way. */
+  readonly projects: readonly { readonly kind: string; readonly daysLeft: number; readonly dailyCost: number; readonly paused: boolean }[];
   readonly well: null | { readonly grade: Grade; readonly capacity: number; readonly storage: number; readonly storageCapacity: number; readonly outputRate: number; readonly shutIn: boolean };
   readonly plant: null | {
     readonly techTier: number; readonly capacity: number; readonly runRate: number; readonly online: boolean;
@@ -92,6 +96,8 @@ export function buildPlayerView(
   const company: OwnCompanyView = {
     id: me.agentId, name: me.name, kind: me.kind, region: me.region, settings: { ...me.settings },
     cash: me.cash, creditLimit: me.creditLimit, creditDrawn: me.creditDrawn, insolvent: me.insolvent,
+    netWorth: netWorth(w, me),
+    projects: w.projects.filter((p) => p.agentId === playerId).map((p) => ({ kind: p.kind, daysLeft: p.ticksLeft, dailyCost: p.dailyCost, paused: p.heldUntil > w.tick })),
     well: well ? {
       grade: well.grade, capacity: well.extractionCapacity, storage: well.storage, storageCapacity: well.storageCapacity,
       outputRate: well.extractionRate, shutIn: well.shutIn,

@@ -127,7 +127,8 @@ describe('trader cards', () => {
       const r = await s.advance(150);
       for (const c of r.newCards) seen.add(c.type);
     }
-    expect(seen.size).toBeGreaterThanOrEqual(3);
+    // Cards whose orders would not fill are dropped, so a calm start shows fewer (Phase 12 tunes this).
+    expect(seen.size).toBeGreaterThanOrEqual(2);
   });
 });
 

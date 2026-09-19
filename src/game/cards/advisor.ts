@@ -141,7 +141,11 @@ function raiseFor(w: World, state: AdvisorState, me: Agent): Card[] {
     // Merging (spec G4.1): a situation with an open card's cause updates that card instead.
     const same = state.cards.find((c) => c.agentId === me.agentId && c.key === s.key);
     const card = buildCard(w, state, me, def, s, ctx, same?.id ?? null);
-    if (card === null) continue;
+    if (card === null) {
+      // Not worth showing today; look again after the cooldown rather than re-projecting daily.
+      state.cooldowns[cooldownKey(me.agentId, def.type)] = w.tick + w.config.CARD_COOLDOWN;
+      continue;
+    }
     if (same) {
       state.cards[state.cards.indexOf(same)] = card;
       continue;
@@ -165,6 +169,11 @@ function buildCard(w: World, state: AdvisorState, me: Agent, def: CardDef, s: Si
   if (maybe && (maybe.actions.length > 0 || maybe.effect !== undefined)) specs.push(['MAYBE', maybe]);
   specs.push(['NO', { actions: [] }]);
   const impacts = projectOptions(w, me.agentId, specs.map(([, o]) => o.actions));
+  // A raised card offering only market orders that would not fill is not a decision (spec G4.7).
+  // Other options can pay off beyond the projection (a well takes months), so they always show.
+  const ordersOnly = specs.every(([, o]) => o.effect === undefined && o.actions.every((a) => a.kind === 'STANDING_ORDER'));
+  const none = impacts[impacts.length - 1] ?? null;
+  if (def.raised && ordersOnly && impacts.slice(0, -1).every((i) => sameImpact(i, none))) return null;
   const text = cardText(def.type, s.data);
   const options: CardOption[] = specs.map(([choice, o], i) => option(w, me, state, choice, choice === 'YES' ? text.yes : choice === 'MAYBE' ? text.maybe : text.no, o, impacts[i] ?? null));
   const opportunity = !def.raised;
@@ -174,6 +183,13 @@ function buildCard(w: World, state: AdvisorState, me: Agent, def: CardDef, s: Si
     details: details(s), options, raisedTick: w.tick,
     deadline: opportunity ? null : w.tick + w.config.CARD_DEADLINE, opportunity,
   };
+}
+
+/** Whether two options would look the same on the card. */
+function sameImpact(a: CardOption['impact'], b: CardOption['impact']): boolean {
+  if (a === null || b === null) return false;
+  return a.cash === b.cash && Math.abs(a.profit - b.profit) < 500 && a.risk === b.risk
+    && Math.abs(a.supply.value - b.supply.value) <= 0.01 * Math.max(1, Math.abs(b.supply.value));
 }
 
 function option(w: World, me: Agent, state: AdvisorState, choice: Choice, label: string, o: OptionSpec, impact: CardOption['impact']): CardOption {
