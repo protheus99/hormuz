@@ -1,7 +1,7 @@
 # HORMUZ MASTER PLAN
 ## Game Design, Engine Specification & Build Plan
 
-**Status:** In build — engine Phases 0–5 complete, Phase 6 next. This is the single source of truth for the Hormuz game and its market engine (GEMS, the Global Energy Market Simulator). It supersedes all earlier GEMS specifications and prototypes.
+**Status:** In build — engine Phases 0–6 complete, Phase 7 (global portfolio and balancing) next. This is the single source of truth for the Hormuz game and its market engine (GEMS, the Global Energy Market Simulator). It supersedes all earlier GEMS specifications and prototypes.
 **Build:** TypeScript. `src/engine/` in Phases 1–7, then `src/game/` and `web/` in Phases 8–13 (§14).
 
 Anything not written here is out of scope. Every number in this document — labor indices, tariffs, transit times, freight rates, capacities, costs, scenario targets — is an **illustrative placeholder** to be tuned for play, not market data. There are no open decisions (§12).
