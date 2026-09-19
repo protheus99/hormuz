@@ -1144,7 +1144,8 @@ src/
     settlement.ts  escrow at order placement, settling fills into cargo, end-of-day release
     deals.ts       signing, delivery, penalties, cancel, split
     economics.ts   FeeLedger (§7.1); retail sink and yields from Phase 3
-    agents.ts      decision rules and default operations (§6)
+    agents.ts      physical operations: extraction, decline, refining, internal transfer (§4.8–4.10)
+    rules.ts       the daily decision rules and MarketView (§6)
     world.ts       step(), phases, invariants, fork
     metrics.ts     recorders, CSV, canonical serializer
   data/            regions, lanes, portfolios (TypeScript `as const`)
@@ -1237,6 +1238,7 @@ Scripts: `dev` (vite), `build` (vite build), `test` (vitest run), `typecheck` (t
 | `engine/companies.ts` | model, data |
 | `engine/settlement.ts` | model, companies, economics, data |
 | `engine/agents.ts` | model, config, companies, economics |
+| `engine/rules.ts` | model, config, agents, clearing, companies, economics, routes (the interface), data |
 | `engine/world.ts` | all of the above |
 | `engine/metrics.ts` | model |
 
@@ -1310,8 +1312,10 @@ export function applyShock(sink: RetailSink, p: Product, pct: number, persistent
 export function sellToSink(sink: RetailSink, grade: Grade, barrels: number): number;  // revenue at today's prices; counts output
 export function productValue(grade: Grade, prices: Readonly<Record<Product, number>>): number;
 
+// rules.ts
+export function decideOrders(a: Agent, index: number, view: MarketView, cfg: Config): Order[];   // §6.1–6.4; index gives stable order IDs
+
 // agents.ts
-export function decideOrders(a: Agent, view: MarketView, cfg: Config): Order[];        // §6.1–6.4
 export function defaultOperations(a: Agent, w: World, cfg: Config): void;             // §6.5
 export function extract(p: Producer | IntegratedMajor, ledger: FeeLedger, tick: Tick, cfg: Config): ExtractResult;   // cost to the ledger
 export function applyDecline(p: Producer | IntegratedMajor, cfg: Config): void;
