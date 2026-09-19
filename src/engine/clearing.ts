@@ -11,7 +11,7 @@ import { NODES } from '../data/nodes';
 import { REGION_NAMES, REGIONS } from '../data/regions';
 import {
   isAsk, isBid,
-  type Ask, type Bid, type ChokepointName, type Fill, type NodeName, type Order, type RegionName, type Route, type Tick,
+  type AgentId, type Ask, type Bid, type ChokepointName, type Fill, type NodeName, type Order, type RegionName, type Route, type Tick,
 } from './model';
 import type { RouteProvider } from './routes';
 
@@ -81,6 +81,8 @@ interface Candidate {
   readonly landed: number;
   /** bid − landed: the value the trade creates, split evenly between buyer and seller. */
   readonly surplus: number;
+  /** Whose pipeline space the cargo uses: the buyer's, or the seller's reservation (spec G4.4). */
+  readonly shipper: AgentId;
 }
 
 /** Clears the node for today (spec §8) and returns the fills. */
@@ -107,9 +109,9 @@ export function clear(node: ExchangeNode, ctx: ClearContext): Fill[] {
   // An index loop, because a pair whose route fills up is re-queued further down the list.
   for (let i = 0; i < candidates.length; i++) {
     const c = candidates[i] as Candidate;
-    // Rule 3 and 5: limited by both orders and by the route's spare capacity today. The buyer
-    // ships the cargo (it pays freight), so the buyer's share of reserved capacity applies.
-    const capacity = ctx.routes.capacityLeft(c.route, c.bid.agentId);
+    // Rule 3 and 5: limited by both orders and by the route's spare capacity today, counted
+    // against whichever side's pipeline space the pair ships on.
+    const capacity = ctx.routes.capacityLeft(c.route, c.shipper);
     const ordersAllow = Math.min(c.bid.qtyRemaining, c.ask.qtyRemaining);
     const qty = Math.floor(Math.min(ordersAllow, capacity) / lot) * lot;   // whole lots only
 
@@ -121,7 +123,7 @@ export function clear(node: ExchangeNode, ctx: ClearContext): Fill[] {
       continue;
     }
 
-    ctx.routes.reserve(c.route, qty, c.bid.agentId);
+    ctx.routes.reserve(c.route, qty, c.shipper);
     c.bid.qtyRemaining -= qty;
     c.ask.qtyRemaining -= qty;
     if (routeBinds) requeue(candidates, i, c, ctx);
@@ -164,14 +166,25 @@ export function clear(node: ExchangeNode, ctx: ClearContext): Fill[] {
   return fills;
 }
 
-/** Prices a bid-ask pair on the best route open to the buyer; null if no route or no surplus. */
+/**
+ * Prices a bid-ask pair on the best route open to the buyer; null if no route or no surplus. The
+ * buyer ships the cargo (it pays freight), but a seller that has reserved pipeline space can carry
+ * what it sells in it (the "Closure risk on exports" card): the pair uses whichever side has more
+ * room. Without reservations both sides see the same shared pool, so the buyer's route stands.
+ */
 function candidateFor(bid: Bid, ask: Ask, ctx: ClearContext): Candidate | null {
-  const route = ctx.routes.route(ask.originRegion, bid.deliveryRegion, bid.avoidChokepoints, bid.agentId);
+  let route = ctx.routes.route(ask.originRegion, bid.deliveryRegion, bid.avoidChokepoints, bid.agentId);
+  let shipper = bid.agentId;
+  const sellers = ctx.routes.route(ask.originRegion, bid.deliveryRegion, bid.avoidChokepoints, ask.agentId);
+  if (sellers !== null && (route === null || ctx.routes.capacityLeft(sellers, ask.agentId) > ctx.routes.capacityLeft(route, bid.agentId))) {
+    route = sellers;
+    shipper = ask.agentId;
+  }
   if (route === null) return null;
   const tariff = REGIONS[bid.deliveryRegion].infrastructureTariff;
   const landed = ask.limitPrice + route.totalFreight + tariff;
   const surplus = bid.limitPrice - landed;
-  return surplus >= 0 ? { bid, ask, route, tariff, landed, surplus } : null;
+  return surplus >= 0 ? { bid, ask, route, tariff, landed, surplus, shipper } : null;
 }
 
 function byRank(a: Candidate, b: Candidate): number {

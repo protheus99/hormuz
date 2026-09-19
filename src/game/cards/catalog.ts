@@ -305,9 +305,10 @@ export const CATALOG: readonly CardDef[] = [
     detect: ({ w, me }) => {
       const bypasses = w.graph.edges.filter((e) => e.capacity !== null && String(e.id).startsWith('bypass_') && (e.a === me.region || e.b === me.region));
       if (bypasses.length === 0) return null;
-      const route = findRoute(w.graph, me.region, 'Coastal_Asia');
-      const strait = route?.chokepoints.find((c) => w.graph.chokepoints[c].status === 'TENSION');
-      if (strait === undefined) return null;
+      // The bypass pipelines go around Hormuz. Once it is tense the cheapest route may already use
+      // them, so the strait is checked directly rather than through today's route.
+      const strait: ChokepointName = 'HORMUZ';
+      if (w.graph.chokepoints[strait].status !== 'TENSION') return null;
       const edge = bypasses.reduce((a, b) => ((a.capacity ?? 0) >= (b.capacity ?? 0) ? a : b));
       if ((edge.reserved[me.agentId] ?? 0) > 0) return null;
       const well = wellOf(me);

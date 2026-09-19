@@ -100,8 +100,8 @@ export const SCENARIOS: readonly ScenarioData[] = [
       ] },
       { tick: 90, engine: { tick: 90, kind: 'PRODUCT_SHOCK', product: 'GASOLINE', pct: -0.12, persistent: true }, news: { headline: 'Gasoline prices slide on weak demand', body: 'Refiners pay less for light crude.' } },
     ],
-    goalText: 'End the year with three and a half times the net worth you started with.',
-    goal: [{ kind: 'NET_WORTH', times: 3.5 }],
+    goalText: 'End the year with 3.6 times the net worth you started with.',
+    goal: [{ kind: 'NET_WORTH', times: 3.6 }],
     milestones: [
       { label: 'Lock in a deal before day 90', condition: { kind: 'OWN', what: 'DEAL', atLeast: 1, by: 90 }, reward: { cash: 500_000 } },
       { label: 'Stay solvent all year', condition: { kind: 'SOLVENT' }, reward: { report: true } },
@@ -110,9 +110,13 @@ export const SCENARIOS: readonly ScenarioData[] = [
   {
     id: 'P3', title: 'Gulf Giant', tutorial: false, level: 'HARD', playType: 'PRODUCER', region: 'Middle_East', lengthDays: 365, difficulty: 'NORMAL', randomEvents: false,
     blurb: 'You pump crude in the Persian Gulf. Trouble is brewing in the Strait of Hormuz.',
-    script: [hormuzCycle(40, 35)],
-    goalText: 'Keep at least 40% of your exports flowing while Hormuz is closed, and grow faster than Qasr Petroleum.',
-    goal: [{ kind: 'EXPORT_SHARE', chokepoint: 'HORMUZ', atLeast: 0.4 }, { kind: 'AHEAD_OF', rival: 'Qasr_Petroleum' }],
+    script: [
+      { tick: 5, engine: { tick: 5, kind: 'PIPELINE_CAPACITY', edgeId: 'bypass_red_sea', capacity: 1_500 }, news: { headline: 'Repairs cut flows on the pipelines around Hormuz', body: 'Both bypass pipelines run at a fraction of their capacity this year.' } },
+      { tick: 5, engine: { tick: 5, kind: 'PIPELINE_CAPACITY', edgeId: 'bypass_oman', capacity: 500 } },
+      hormuzCycle(40, 35),
+    ],
+    goalText: 'Keep at least half your output flowing while Hormuz is closed, and earn more per barrel of capacity than Qasr Petroleum.',
+    goal: [{ kind: 'EXPORT_SHARE', chokepoint: 'HORMUZ', atLeast: 0.5 }, { kind: 'AHEAD_OF', rival: 'Qasr_Petroleum' }],
     milestones: [
       { label: 'Reserve bypass pipeline space', condition: { kind: 'OWN', what: 'RESERVATION', atLeast: 1 }, reward: { cash: 500_000 } },
       { label: 'Sign a deal', condition: { kind: 'OWN', what: 'DEAL', atLeast: 1 }, reward: { report: true } },
@@ -203,7 +207,7 @@ export const SCENARIOS: readonly ScenarioData[] = [
     id: 'FINALE', title: 'The Strait', tutorial: false, level: 'HARD', playType: null, region: null, lengthDays: 1095, difficulty: 'NORMAL', randomEvents: true,
     blurb: 'Three years. A full Hormuz crisis, another strait in trouble without warning, and everything else the market throws at you.',
     script: [hormuzCycle(400, 40)],
-    goalText: 'Finish first among companies of your type, by growth in net worth.',
+    goalText: 'Finish first among companies of your type: most profit per barrel of capacity (traders: most growth).',
     goal: [{ kind: 'RANK_FIRST' }],
     milestones: [
       { label: 'Stay solvent for three years', condition: { kind: 'SOLVENT' }, reward: { report: true } },

@@ -4,7 +4,7 @@
 
 import { CHOKEPOINTS, type ChokepointName } from '../data/chokepoints';
 import { applyAction } from '../engine/actions';
-import { plantOf, total } from '../engine/companies';
+import { plantOf, total, wellOf } from '../engine/companies';
 import type { Agent, AgentId, Fill } from '../engine/model';
 import { nextFloat, rngFor } from '../engine/rng';
 import type { DealDelivery } from '../engine/deals';
@@ -21,6 +21,8 @@ export interface CampaignState {
   readonly lengthDays: number;
   /** Every company's net worth when the scenario began, for growth comparisons. */
   readonly start: Partial<Record<string, number>>;
+  /** Every company's extraction plus refining capacity at the start, bbl/day (0 for traders). */
+  readonly capacity: Partial<Record<string, number>>;
   /** The player's net worth every 30 days, starting with day 0. */
   monthly: number[];
   /** Net worth at the start of each PROFIT window. */
@@ -31,8 +33,7 @@ export interface CampaignState {
   ever: { drilling: boolean; reservation: boolean; lease: boolean };
   /** Market reports the player has bought or been given. */
   reports: number;
-  /** Barrels sold per day before any trouble at each export-share strait, and while it is closed. */
-  exportsBefore: number[];
+  /** Barrels sold each day while the export-share strait is closed. */
   exportsDuring: number[];
   /** Conditions already met for good (streaks, "by day N" targets). */
   sticky: string[];
@@ -80,12 +81,16 @@ export function applySetup(w: World, s: ScenarioData, me: Agent): void {
 
 export function createCampaign(w: World, s: ScenarioData, lengthDays: number): CampaignState {
   const start: Partial<Record<string, number>> = {};
-  for (const a of w.agents) start[a.agentId] = netWorth(w, a);
+  const capacity: Partial<Record<string, number>> = {};
+  for (const a of w.agents) {
+    start[a.agentId] = netWorth(w, a);
+    capacity[a.agentId] = (wellOf(a)?.extractionCapacity ?? 0) + (plantOf(a)?.processingCapacity ?? 0);
+  }
   const me = w.agents.find((a) => a.controller === 'HUMAN') as Agent;
   return {
-    id: s.id, lengthDays, start, monthly: [start[me.agentId] ?? 0], windowStart: { 0: start[me.agentId] ?? 0 },
+    id: s.id, lengthDays, start, capacity, monthly: [start[me.agentId] ?? 0], windowStart: { 0: start[me.agentId] ?? 0 },
     stockoutDays: 0, maxHeld: 0, deals: [], ever: { drilling: false, reservation: false, lease: false }, reports: 0,
-    exportsBefore: [], exportsDuring: [], sticky: [], milestones: s.milestones.map(() => false), result: null, reason: '',
+    exportsDuring: [], sticky: [], milestones: s.milestones.map(() => false), result: null, reason: '',
   };
 }
 
@@ -126,7 +131,17 @@ export function scriptedActions(w: World, s: ScenarioData): void {
   }
 }
 
-const growth = (c: CampaignState, w: World, a: Agent) => netWorth(w, a) / Math.max(1, c.start[a.agentId] ?? 1);
+/**
+ * How well a company has done, comparable across sizes: profit per barrel a day of starting capacity
+ * for producers and refiners (a small field and a giant one earn the same per barrel), and growth in
+ * net worth for traders, whose size is their capital.
+ */
+function performance(c: CampaignState, w: World, a: Agent): number {
+  const gain = netWorth(w, a) - (c.start[a.agentId] ?? 0);
+  const size = c.capacity[a.agentId] ?? 0;
+  return size > 0 ? gain / size : gain / Math.max(1, c.start[a.agentId] ?? 1);
+}
+const perBarrel = (x: number) => `$${Math.round(x).toLocaleString('en-US')} per bbl/day`;
 
 /** One day of tracking, after the engine's step. */
 export function campaignDay(w: World, c: CampaignState, advisor: AdvisorState, fills: readonly Fill[], deliveries: readonly DealDelivery[]): void {
@@ -154,12 +169,12 @@ export function campaignDay(w: World, c: CampaignState, advisor: AdvisorState, f
 
   const share = s.goal.find((g) => g.kind === 'EXPORT_SHARE');
   if (share) {
-    const mine = new Set(w.deals.filter((d) => d.sellerId === me.agentId).map((d) => d.dealId));
-    const sold = fills.filter((f) => f.sellerId === me.agentId).reduce((sum, f) => sum + f.qty, 0)
+    // Exports only: crude sold to buyers in the company's own region never crosses the strait.
+    const mine = new Set(w.deals.filter((d) => d.sellerId === me.agentId && d.deliveryRegion !== me.region).map((d) => d.dealId));
+    const sold = fills.filter((f) => f.sellerId === me.agentId && f.deliveryRegion !== me.region).reduce((sum, f) => sum + f.qty, 0)
       + deliveries.filter((d) => mine.has(d.dealId)).reduce((sum, d) => sum + d.delivered - d.held, 0);
     const status = w.graph.chokepoints[share.chokepoint].status;
     if (status === 'CLOSED') c.exportsDuring.push(sold);
-    else if (status === 'OPEN' && c.exportsDuring.length === 0) c.exportsBefore = [...c.exportsBefore, sold].slice(-30);
   }
 
   // Milestones and their rewards.
@@ -256,24 +271,26 @@ export function evaluate(cond: Condition, c: CampaignState, w: World, me: Agent,
     case 'AHEAD_OF': {
       const rival = w.agents.find((a) => a.agentId === cond.rival);
       if (!rival) return { status: 'MET', progress: 'Rival gone' };
-      const mine = growth(c, w, me);
-      const theirs = growth(c, w, rival);
-      const progress = `Your growth ${pct(mine)} vs ${rival.name} ${pct(theirs)}`;
+      const mine = performance(c, w, me);
+      const theirs = performance(c, w, rival);
+      const progress = `Your profit ${perBarrel(mine)} vs ${rival.name} ${perBarrel(theirs)}`;
       return { status: final ? (mine > theirs ? 'MET' : 'FAILED') : 'PENDING', progress };
     }
     case 'RANK_FIRST': {
       const kind = me.kind === 'INTEGRATED' ? 'PRODUCER' : me.kind;
       const rivals = w.agents.filter((a) => a !== me && (a.kind === kind || (kind === 'PRODUCER' && a.kind === 'INTEGRATED')));
-      const mine = growth(c, w, me);
-      const rank = 1 + rivals.filter((a) => growth(c, w, a) > mine).length;
-      return { status: final ? (rank === 1 ? 'MET' : 'FAILED') : 'PENDING', progress: `Rank ${rank} of ${rivals.length + 1} by growth` };
+      const mine = performance(c, w, me);
+      const rank = 1 + rivals.filter((a) => performance(c, w, a) > mine).length;
+      return { status: final ? (rank === 1 ? 'MET' : 'FAILED') : 'PENDING', progress: `Rank ${rank} of ${rivals.length + 1}` };
     }
     case 'EXPORT_SHARE': {
+      // Barrels sold while the strait is closed, against what the company's wells could pump:
+      // steadier than its recent sales, which arrive in whole cargoes.
       const avg = (xs: readonly number[]) => (xs.length === 0 ? 0 : xs.reduce((a, b) => a + b, 0) / xs.length);
-      const before = avg(c.exportsBefore);
+      const capacity = c.capacity[me.agentId] ?? 0;
       const during = avg(c.exportsDuring);
-      const share = before > 0 ? during / before : 0;
-      const progress = c.exportsDuring.length === 0 ? 'Exports while closed: not yet' : `Exports while closed: ${pct(share)} of normal (need ${pct(cond.atLeast)})`;
+      const share = capacity > 0 ? during / capacity : 0;
+      const progress = c.exportsDuring.length === 0 ? 'Exports while closed: not yet' : `Exports while closed: ${pct(share)} of your output (need ${pct(cond.atLeast)})`;
       if (!final) return { status: 'PENDING', progress };
       return { status: c.exportsDuring.length === 0 || share >= cond.atLeast ? 'MET' : 'FAILED', progress };
     }
