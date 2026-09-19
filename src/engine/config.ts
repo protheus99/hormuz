@@ -294,5 +294,19 @@ const APPETITE: Readonly<Record<AppetiteSetting, DeepPartial<Config>>> = {
  * which depends on today's chokepoint statuses — see avoidFor() in transport.ts.
  */
 export function configFor(settings: CompanySettings, base: Config): Config {
-  return withOverrides(base, { ...SELLING[settings.selling], ...STOCKPILE[settings.stockpile], ...APPETITE[settings.appetite] });
+  // Configs are frozen, so each (base, settings) pair can be built once and shared.
+  let byKey = companyConfigs.get(base);
+  if (byKey === undefined) {
+    byKey = new Map();
+    companyConfigs.set(base, byKey);
+  }
+  const key = `${settings.selling}|${settings.stockpile}|${settings.appetite}`;
+  let cfg = byKey.get(key);
+  if (cfg === undefined) {
+    cfg = withOverrides(base, { ...SELLING[settings.selling], ...STOCKPILE[settings.stockpile], ...APPETITE[settings.appetite] });
+    byKey.set(key, cfg);
+  }
+  return cfg;
 }
+
+const companyConfigs = new WeakMap<Config, Map<string, Config>>();

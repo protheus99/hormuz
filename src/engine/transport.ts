@@ -135,9 +135,8 @@ export function findRoute(
     }
     return agentId === undefined || edgeCapacityLeft(e, agentId) > 0;
   };
-  const other = (e: Edge, place: PlaceName): PlaceName => (e.a === place ? e.b : e.a);
-  const pipelineTo = (from: PlaceName, to: PlaceName): boolean =>
-    g.edges.some((e) => e.mode === EdgeMode.PIPELINE && (e.a === from || e.b === from) && other(e, from) === to);
+  const topo = topologyOf(g);
+  const pipelineTo = (from: PlaceName, to: PlaceName): boolean => topo.pipelineNeighbors.get(from)?.has(to) === true;
 
   // Dijkstra over (place, leg) states. Regions are endpoints, not junctions (spec §3.5): a route may
   // pass through a region only straight off a pipeline from its origin ("out", then on by sea or
@@ -163,8 +162,7 @@ export function findRoute(
     const leg = k.slice(k.lastIndexOf('|') + 1) as Leg;
     const isTransitRegion = place !== origin && isRegion(place);
 
-    for (const e of g.edges) {
-      if (e.a !== place && e.b !== place) continue;
+    for (const e of topo.adjacency.get(place) ?? []) {
       if (!usable(e)) continue;
       const next = other(e, place);
       // Leaving a region we entered on the way to a destination pipeline: only that pipeline.
@@ -259,26 +257,31 @@ export function advanceCargo(c: Cargo, g: LaneGraph): CargoAdvance {
 
 /**
  * The lane graph behind the RouteProvider interface that clearing and deals use (spec §14.4).
- * Routes are cached per tick; call `resetTick()` in phase 0, after chokepoint changes.
+ * Plain routes depend only on chokepoint states, so they are cached per graph for as long as
+ * those states stay the same — across ticks — and recomputed as soon as any chokepoint changes.
+ * Routes found for a company are checked against today's pipeline use every time.
  */
 export class LaneRouteProvider implements RouteProvider {
   readonly graph: LaneGraph;
-  private readonly cache = new Map<string, Route | null>();
 
   constructor(graph: LaneGraph) {
     this.graph = graph;
   }
 
   route(origin: RegionName, destination: RegionName, avoid: readonly ChokepointName[] = [], agentId?: AgentId): Route | null {
-    // Capacity-limited answers depend on today's use, so only the plain answer is cached.
     if (agentId !== undefined) {
       const plain = this.route(origin, destination, avoid);
       if (plain === null || this.capacityLeft(plain, agentId) > 0) return plain;
       return findRoute(this.graph, origin, destination, avoid, agentId);
     }
-    const key = `${origin}>${destination}|${[...avoid].sort().join(',')}`;
-    if (!this.cache.has(key)) this.cache.set(key, findRoute(this.graph, origin, destination, avoid));
-    return this.cache.get(key) ?? null;
+    const cache = routeCacheOf(this.graph);
+    const key = `${origin}>${destination}|${avoid.length === 0 ? '' : [...avoid].sort().join(',')}`;
+    let route = cache.get(key);
+    if (route === undefined) {
+      route = findRoute(this.graph, origin, destination, avoid);
+      cache.set(key, route);
+    }
+    return route;
   }
 
   capacityLeft(route: Route, agentId: AgentId): number {
@@ -296,19 +299,80 @@ export class LaneRouteProvider implements RouteProvider {
     return granted;
   }
 
-  /** New tick: empty the pipelines and forget cached routes (spec §5 phase 0). */
+  /** New tick: empty the pipelines (spec §5 phase 0). */
   resetTick(): void {
     resetPipelineUse(this.graph);
-    this.cache.clear();
   }
 }
 
-function isRegion(place: PlaceName): place is RegionName {
-  return place in REGIONS;
+// Plain-route caches, one per graph, valid for one set of chokepoint states. Derived data only:
+// never saved, and rebuilt after a load.
+const routeCaches = new WeakMap<LaneGraph, { signature: string; routes: Map<string, Route | null> }>();
+
+function routeCacheOf(g: LaneGraph): Map<string, Route | null> {
+  let signature = '';
+  for (const c of CHOKEPOINT_NAMES) {
+    const s = g.chokepoints[c];
+    signature += `${s.status}:${s.delayTicks}:${s.freightSurcharge};`;
+  }
+  const cached = routeCaches.get(g);
+  if (cached !== undefined && cached.signature === signature) return cached.routes;
+  const routes = new Map<string, Route | null>();
+  routeCaches.set(g, { signature, routes });
+  return routes;
 }
 
+const REGION_SET: ReadonlySet<PlaceName> = new Set(Object.keys(REGIONS) as PlaceName[]);
+
+function isRegion(place: PlaceName): place is RegionName {
+  return REGION_SET.has(place);
+}
+
+function other(e: Edge, place: PlaceName): PlaceName {
+  return e.a === place ? e.b : e.a;
+}
+
+/** Which edges touch each place, and which places each place reaches by pipeline. */
+interface Topology {
+  readonly adjacency: ReadonlyMap<PlaceName, readonly Edge[]>;
+  readonly pipelineNeighbors: ReadonlyMap<PlaceName, ReadonlySet<PlaceName>>;
+}
+
+// Derived once per edge list and never saved: the graph's shape never changes during a game,
+// only its statuses and pipeline use, which live on the same Edge objects the lists hold.
+const topologies = new WeakMap<readonly Edge[], Topology>();
+
+function topologyOf(g: LaneGraph): Topology {
+  const cached = topologies.get(g.edges);
+  if (cached !== undefined) return cached;
+  const adjacency = new Map<PlaceName, Edge[]>();
+  const pipelineNeighbors = new Map<PlaceName, Set<PlaceName>>();
+  for (const e of g.edges) {
+    for (const end of [e.a, e.b]) {
+      const list = adjacency.get(end) ?? [];
+      list.push(e);
+      adjacency.set(end, list);
+      if (e.mode === EdgeMode.PIPELINE) {
+        const set = pipelineNeighbors.get(end) ?? new Set<PlaceName>();
+        set.add(other(e, end));
+        pipelineNeighbors.set(end, set);
+      }
+    }
+  }
+  const topo = { adjacency, pipelineNeighbors };
+  topologies.set(g.edges, topo);
+  return topo;
+}
+
+const edgeIndexes = new WeakMap<readonly Edge[], ReadonlyMap<EdgeId, Edge>>();
+
 function findEdge(g: LaneGraph, id: EdgeId): Edge {
-  const edge = g.edges.find((e) => e.id === id);
+  let index = edgeIndexes.get(g.edges);
+  if (index === undefined) {
+    index = new Map(g.edges.map((e) => [e.id, e]));
+    edgeIndexes.set(g.edges, index);
+  }
+  const edge = index.get(id);
   if (edge === undefined) throw new Error(`Unknown edge ${id}`);
   return edge;
 }

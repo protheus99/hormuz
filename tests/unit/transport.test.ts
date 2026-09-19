@@ -175,14 +175,15 @@ describe('pipeline capacity (spec §8 rule 5, Phase 4 acceptance)', () => {
     expect(() => setReservation(g, asEdgeId('hormuz'), qasr, 1000, DEFAULT_CONFIG)).toThrow(/not a pipeline/);
   });
 
-  it('caches plain routes per tick but always rechecks capacity for a company', () => {
+  it('caches plain routes while chokepoints are unchanged, and refreshes as soon as one changes', () => {
     const routes = new LaneRouteProvider(g);
     const a = routes.route('North_Sea', 'Coastal_Asia');
-    expect(routes.route('North_Sea', 'Coastal_Asia')).toBe(a);   // same object: cached
-    setChokepoint(g, 'SUEZ', 'CLOSED');
-    expect(routes.route('North_Sea', 'Coastal_Asia')).toBe(a);   // stale until the next tick
     routes.resetTick();
+    expect(routes.route('North_Sea', 'Coastal_Asia')).toBe(a);   // same object: cached across ticks
+    setChokepoint(g, 'SUEZ', 'CLOSED');
     expect(routes.route('North_Sea', 'Coastal_Asia')?.chokepoints).not.toContain('SUEZ');
+    setChokepoint(g, 'SUEZ', 'OPEN');
+    expect(routes.route('North_Sea', 'Coastal_Asia')?.chokepoints).toContain('SUEZ');
   });
 
   it('survives a save and load mid-tick', () => {
