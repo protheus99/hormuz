@@ -76,11 +76,11 @@ describe('scheduled events and forks', () => {
 });
 
 describe('credit lines (spec G6, invariants 8 and 9)', () => {
-  it('gives each company 50% of its capital assets plus its play type’s base amount', () => {
+  it('gives each company 5× its capital assets plus its play type’s base amount', () => {
     const w = s0();
     const straits = w.agents.find((a) => a.agentId === 'Straits_Refining');
     // Coastal_Asia labor 0.80: (4,000 + 3,000 + 5,000) × 8,000 plant + 15 × 25,000 tanks = $96.375M × 0.80.
-    expect(straits?.creditLimit).toBeCloseTo(0.5 * (12_000 * 8_000 + 15 * 25_000) * 0.8 + 2_000_000, 6);
+    expect(straits?.creditLimit).toBeCloseTo(5 * (12_000 * 8_000 + 15 * 25_000) * 0.8 + 20_000_000, 6);
   });
 
   it('covers negative cash from the line at the end of the day, charges interest, and repays above the cushion', () => {
@@ -95,8 +95,8 @@ describe('credit lines (spec G6, invariants 8 and 9)', () => {
     const drawn = metro.creditDrawn;
     step(w);
     expect(w.ledger.entries.some((e) => e.kind === 'CREDIT_INTEREST' && e.agentId === metro.agentId)).toBe(true);
-    metro.cash += 50_000_000;
-    (w.totals as { startingCash: number }).startingCash += 50_000_000;
+    metro.cash += 500_000_000;
+    (w.totals as { startingCash: number }).startingCash += 500_000_000;
     step(w);
     expect(metro.creditDrawn).toBe(0);
     expect(drawn).toBeGreaterThan(0);

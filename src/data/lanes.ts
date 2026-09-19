@@ -28,6 +28,12 @@ export interface LaneData {
   readonly chokepoint?: ChokepointName;
   /** bbl per tick, pipelines only; shared by both directions. Absent means unlimited. */
   readonly capacity?: number;
+  /**
+   * bbl per tick a chokepoint lane carries when OPEN, shared by both directions; its status scales
+   * it down (CHOKEPOINT_THROUGHPUT). Sized at 3–4 times a typical day's traffic, so an open strait
+   * binds only on the busiest days, spreading them out, while TENSION and DELAYED really bite.
+   */
+  readonly throughput?: number;
 }
 
 const { SEA, PIPELINE } = EdgeMode;
@@ -69,11 +75,11 @@ export const LANES: readonly LaneData[] = [
   terminal('Coastal_Asia', 'W_N_PACIFIC', 2),
 
   // Sea lanes
-  { id: 'hormuz', a: 'W_PERSIAN_GULF', b: 'W_ARABIAN_SEA', mode: SEA, transit: 2, freight: 0.40, chokepoint: 'HORMUZ' },
-  { id: 'bab_el_mandeb', a: 'W_ARABIAN_SEA', b: 'W_RED_SEA', mode: SEA, transit: 4, freight: 0.80, chokepoint: 'BAB_EL_MANDEB' },
-  { id: 'suez', a: 'W_RED_SEA', b: 'W_MEDITERRANEAN', mode: SEA, transit: 3, freight: 1.20, chokepoint: 'SUEZ' },
+  { id: 'hormuz', a: 'W_PERSIAN_GULF', b: 'W_ARABIAN_SEA', mode: SEA, transit: 2, freight: 0.40, chokepoint: 'HORMUZ', throughput: 30_000 },
+  { id: 'bab_el_mandeb', a: 'W_ARABIAN_SEA', b: 'W_RED_SEA', mode: SEA, transit: 4, freight: 0.80, chokepoint: 'BAB_EL_MANDEB', throughput: 20_000 },
+  { id: 'suez', a: 'W_RED_SEA', b: 'W_MEDITERRANEAN', mode: SEA, transit: 3, freight: 1.20, chokepoint: 'SUEZ', throughput: 20_000 },
   { id: 'arabian_indian', a: 'W_ARABIAN_SEA', b: 'W_INDIAN_OCEAN', mode: SEA, transit: 4, freight: 0.60 },
-  { id: 'malacca', a: 'W_INDIAN_OCEAN', b: 'W_S_CHINA_SEA', mode: SEA, transit: 6, freight: 0.90, chokepoint: 'MALACCA' },
+  { id: 'malacca', a: 'W_INDIAN_OCEAN', b: 'W_S_CHINA_SEA', mode: SEA, transit: 6, freight: 0.90, chokepoint: 'MALACCA', throughput: 40_000 },
   { id: 'lombok', a: 'W_INDIAN_OCEAN', b: 'W_S_CHINA_SEA', mode: SEA, transit: 9, freight: 1.20 },
   { id: 'indian_cape', a: 'W_INDIAN_OCEAN', b: 'W_CAPE', mode: SEA, transit: 10, freight: 1.20 },
   { id: 'cape_s_atlantic', a: 'W_CAPE', b: 'W_S_ATLANTIC', mode: SEA, transit: 8, freight: 1.00 },
@@ -81,9 +87,9 @@ export const LANES: readonly LaneData[] = [
   { id: 's_atlantic_caribbean', a: 'W_S_ATLANTIC', b: 'W_CARIBBEAN', mode: SEA, transit: 7, freight: 0.90 },
   { id: 'n_atlantic_caribbean', a: 'W_N_ATLANTIC', b: 'W_CARIBBEAN', mode: SEA, transit: 7, freight: 0.90 },
   { id: 'caribbean_gulf', a: 'W_CARIBBEAN', b: 'W_GULF_MEXICO', mode: SEA, transit: 3, freight: 0.40 },
-  { id: 'panama', a: 'W_CARIBBEAN', b: 'W_N_PACIFIC', mode: SEA, transit: 20, freight: 4.50, chokepoint: 'PANAMA' },
+  { id: 'panama', a: 'W_CARIBBEAN', b: 'W_N_PACIFIC', mode: SEA, transit: 20, freight: 4.50, chokepoint: 'PANAMA', throughput: 10_000 },
   { id: 'gibraltar', a: 'W_N_ATLANTIC', b: 'W_MEDITERRANEAN', mode: SEA, transit: 5, freight: 0.60 },
-  { id: 'danish_straits', a: 'W_N_ATLANTIC', b: 'W_BALTIC', mode: SEA, transit: 4, freight: 0.50, chokepoint: 'DANISH_STRAITS' },
-  { id: 'bosphorus', a: 'W_MEDITERRANEAN', b: 'W_BLACK_SEA', mode: SEA, transit: 3, freight: 0.60, chokepoint: 'BOSPHORUS' },
+  { id: 'danish_straits', a: 'W_N_ATLANTIC', b: 'W_BALTIC', mode: SEA, transit: 4, freight: 0.50, chokepoint: 'DANISH_STRAITS', throughput: 15_000 },
+  { id: 'bosphorus', a: 'W_MEDITERRANEAN', b: 'W_BLACK_SEA', mode: SEA, transit: 3, freight: 0.60, chokepoint: 'BOSPHORUS', throughput: 15_000 },
   { id: 's_china_n_pacific', a: 'W_S_CHINA_SEA', b: 'W_N_PACIFIC', mode: SEA, transit: 4, freight: 0.50 },
 ];

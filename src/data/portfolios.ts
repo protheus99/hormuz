@@ -91,8 +91,12 @@ export const CORE_PORTFOLIO: readonly PortfolioEntry[] = [
  */
 export const PRODUCER_STORAGE_DAYS = 10;
 
+/** Starting cash for producers and traders in the game world, generous so rivals survive a bad start. */
+export const PRODUCER_CASH = 5_000_000;
+export const TRADER_CASH = 5_000_000;
+
 const producer = (id: string, region: RegionName, grade: Grade, capacity: number, cost: number): PortfolioEntry => ({
-  kind: 'PRODUCER', id, name: id.replace(/_/g, ' '), region, cash: 2_000_000,
+  kind: 'PRODUCER', id, name: id.replace(/_/g, ' '), region, cash: PRODUCER_CASH,
   well: { grade, extractionCapacity: capacity, baseExtractionCost: cost, storageCapacity: PRODUCER_STORAGE_DAYS * capacity },
 });
 
@@ -101,7 +105,7 @@ const producer = (id: string, region: RegionName, grade: Grade, capacity: number
  * Crude is paid for when it is loaded and a far refinery has 16–28 days of it at sea, so §10.2's
  * flat $3.0M left the Asian refineries unable to finance their own supply (found in Phase 7).
  */
-export const REFINER_CASH_PER_BBL_DAY = 1_500;
+export const REFINER_CASH_PER_BBL_DAY = 3_000;
 
 /**
  * §10.2 defaults: 10 days of tanks, starting with 5 days of stock of the grade the tier is built
@@ -125,10 +129,15 @@ export const GLOBAL_PORTFOLIO: readonly PortfolioEntry[] = [
   // its tight tanks so a Hormuz closure fills them within days (§10.3).
   ...CORE_PORTFOLIO.map((p): PortfolioEntry => {
     if (p.kind === 'REFINER') return { ...p, cash: REFINER_CASH_PER_BBL_DAY * p.plant.processingCapacity };
-    if ((p.kind === 'PRODUCER' || p.kind === 'INTEGRATED') && p.region !== 'Middle_East') {
-      return { ...p, well: { ...p.well, storageCapacity: PRODUCER_STORAGE_DAYS * p.well.extractionCapacity } };
+    if (p.kind === 'TRADER') {
+      // Two offices, cash and hub space to match: enough to move crude between the Gulf and Europe.
+      return { ...p, cash: TRADER_CASH, offices: [{ region: 'North_Sea', capacity: 25_000 }, { region: 'Middle_East', capacity: 25_000 }] };
     }
-    return p;
+    const cash = p.kind === 'PRODUCER' ? Math.max(p.cash, PRODUCER_CASH) : p.cash;
+    if ((p.kind === 'PRODUCER' || p.kind === 'INTEGRATED') && p.region !== 'Middle_East') {
+      return { ...p, cash, well: { ...p.well, storageCapacity: PRODUCER_STORAGE_DAYS * p.well.extractionCapacity } };
+    }
+    return { ...p, cash };
   }),
   refiner('Marshaven_Refining', 'US_Gulf_Coast', 3, 10_000),
   producer('Tarvale_Sands', 'Western_Canada', 'HEAVY_SOUR', 5_000, 30),

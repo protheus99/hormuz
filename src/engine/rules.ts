@@ -91,7 +91,8 @@ function producerAsks(
   const unsold = (1 - cfg.ASK_DECAY) ** well.daysUnsold;
   const price = roundUp(Math.max(floor, ref * (1 - cfg.SKEW * (fill - 0.5)) * unsold));
 
-  // Rule 5: when nearly full, the excess above 70% fill goes at cash cost.
+  // Rule 5: when nearly full, the excess above 70% fill goes at a discount — DUMP_DISCOUNT below the
+  // reference, never below cash cost. Dumping at cash cost printed trades so low they swung the marker.
   const dumpQty = fill >= cfg.DUMP_THRESHOLD
     ? lots(Math.min(well.storage, well.storage + well.storageEscrow - 0.7 * well.storageCapacity), lot)
     : 0;
@@ -103,7 +104,7 @@ function producerAsks(
     orderId: ids(), agentId: company.agentId, node: nodeName, side: 'ASK', limitPrice, qty, qtyRemaining: qty, originRegion: origin,
   });
   if (mainQty > 0) asks.push(ask(price, mainQty));
-  if (dumpQty > 0) asks.push(ask(roundUp(cost), dumpQty));
+  if (dumpQty > 0) asks.push(ask(roundUp(Math.max(cost, ref * (1 - cfg.DUMP_DISCOUNT))), dumpQty));
   return asks;
 }
 
@@ -262,8 +263,9 @@ export function updateThrottle(company: Refiner | IntegratedMajor, view: MarketV
 // ─── Traders (spec §6.4) ─────────────────────────────────────────────────────────────────────
 
 /**
- * Market making at every office, for every grade: an ask from the hub and a bid delivered into it,
- * HALF_SPREAD either side of the local reference and shifted away from inventory — an empty hub
+ * Arbitrage between regions (spec §6.4): at every office, for every grade, an ask from the hub
+ * and a bid delivered into it, HALF_SPREAD either side of the local reference — the bid also net of
+ * the export tariff due on resale — and shifted away from inventory — an empty hub
  * quotes higher (keen to buy), a full one lower (keen to sell). Asks offer half the stock, or all of
  * it when the marker is above its 20-day average. Bids use half the room left — the least of free
  * tank space, the rest of MAX_RISK_LIMIT and cash, shared across every office and grade — or all
@@ -271,7 +273,6 @@ export function updateThrottle(company: Refiner | IntegratedMajor, view: MarketV
  */
 function traderOrders(trader: Trader, view: MarketView, cfg: Config, ids: () => ReturnType<typeof makeOrderId>): Order[] {
   const lot = cfg.LOT_SIZE;
-  const ctx: ClearContext = { routes: view.routes, tick: view.tick, config: cfg };
   const nodeNames = NODE_NAMES.filter((n) => view.nodes[n] !== undefined);
   if (nodeNames.length === 0) return [];
 
@@ -307,9 +308,10 @@ function traderOrders(trader: Trader, view: MarketView, cfg: Config, ids: () => 
         orders.push({ orderId: ids(), agentId: trader.agentId, node: name, side: 'ASK', limitPrice: price, qty: askQty, qtyRemaining: askQty, originRegion: office });
       }
 
-      const landed = previousClose(node, office, ctx, view.avoid)[0]?.landed
-        ?? referenceFob(node, office, view) + REGIONS[office].infrastructureTariff;
-      const price = roundDown(landed - cfg.HALF_SPREAD + shift);
+      // Buy delivered into this office only below what the crude resells for here, net of the export
+      // tariff paid on resale: every filled round trip clears at least the full spread. It fills only
+      // when crude from elsewhere lands cheaper than the local price — a gap between regions.
+      const price = roundDown(referenceFob(node, office, view) - REGIONS[office].infrastructureTariff - cfg.HALF_SPREAD + shift);
       if (!(price > 0)) continue;
       const room = Math.min(freePerGrade, budget / price, cashPerSlot / price);
       const bidQty = lots(trend === 'cheap' ? room : room / 2, lot);

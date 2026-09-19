@@ -34,8 +34,12 @@ export interface Edge {
   readonly transit: number;
   readonly freight: number;
   readonly chokepoint: ChokepointName | null;
-  /** bbl per tick, shared by both directions; null means unlimited. */
+  /** Pipeline bbl per tick, shared by both directions; null for sea lanes. */
   readonly capacity: number | null;
+  /** A chokepoint lane's bbl per tick when OPEN; null for lanes without one. */
+  readonly throughput: number | null;
+  /** Share of `throughput` usable at the chokepoint's current status (CHOKEPOINT_THROUGHPUT). */
+  throughputShare: number;
   /** Barrels each company has shipped along this edge today. Reset every tick. */
   usedBy: Partial<Record<AgentId, number>>;
   /** bbl per tick held for one company, usable only by it (spec §8 rule 5). */
@@ -47,19 +51,24 @@ export interface LaneGraph {
   chokepoints: Record<ChokepointName, ChokepointState>;
   /** CARRY_RATE, fixed when the graph is built: the cost of a tick at sea in route choice. */
   readonly carryRate: number;
+  /** CHOKEPOINT_THROUGHPUT, fixed when the graph is built. */
+  readonly throughputShares: Readonly<Record<ChokepointStatus, number>>;
 }
 
 /** The §3.5 network with every chokepoint open and every pipeline empty. */
 export function buildLaneGraph(config: Config): LaneGraph {
   const chokepoints = {} as Record<ChokepointName, ChokepointState>;
+  const shares = config.CHOKEPOINT_THROUGHPUT;
   for (const c of CHOKEPOINT_NAMES) chokepoints[c] = { status: ChokepointStatus.OPEN, delayTicks: 0, freightSurcharge: 0 };
   return {
     edges: LANES.map((l) => ({
       id: asEdgeId(l.id), a: l.a, b: l.b, mode: l.mode, transit: l.transit, freight: l.freight,
-      chokepoint: l.chokepoint ?? null, capacity: l.capacity ?? null, usedBy: {}, reserved: {},
+      chokepoint: l.chokepoint ?? null, capacity: l.capacity ?? null, throughput: l.throughput ?? null, throughputShare: shares.OPEN,
+      usedBy: {}, reserved: {},
     })),
     chokepoints,
     carryRate: config.CARRY_RATE,
+    throughputShares: { ...shares },
   };
 }
 
@@ -67,6 +76,14 @@ export function buildLaneGraph(config: Config): LaneGraph {
 export function setChokepoint(g: LaneGraph, name: ChokepointName, status: ChokepointStatus, delayTicks = 0, freightSurcharge = 0): void {
   if (delayTicks < 0 || freightSurcharge < 0) throw new Error(`${name}: delay and surcharge cannot be negative`);
   g.chokepoints[name] = { status, delayTicks, freightSurcharge };
+  for (const e of g.edges) if (e.chokepoint === name) e.throughputShare = g.throughputShares[status];
+}
+
+/** What an edge can carry today in bbl, both directions together; Infinity when unlimited. */
+export function edgeCapacity(edge: Edge): number {
+  if (edge.capacity !== null) return edge.capacity;
+  if (edge.throughput !== null) return edge.throughput * edge.throughputShare;
+  return Number.POSITIVE_INFINITY;
 }
 
 /**
@@ -104,8 +121,9 @@ export function setReservation(g: LaneGraph, edgeId: EdgeId, agentId: AgentId, q
  * that it shares the unreserved pool with everyone else's overflow.
  */
 export function edgeCapacityLeft(edge: Edge, agentId: AgentId): number {
-  if (edge.capacity === null) return Number.POSITIVE_INFINITY;
-  const pool = edge.capacity - sum(edge.reserved);
+  const capacity = edgeCapacity(edge);
+  if (capacity === Number.POSITIVE_INFINITY) return capacity;
+  const pool = capacity - sum(edge.reserved);
   let poolUsed = 0;
   for (const [id, used] of Object.entries(edge.usedBy) as [AgentId, number][]) {
     poolUsed += Math.max(0, used - (edge.reserved[id] ?? 0));
@@ -294,7 +312,7 @@ export class LaneRouteProvider implements RouteProvider {
     const granted = Math.max(0, Math.min(qty, this.capacityLeft(route, agentId)));
     for (const id of route.edges) {
       const edge = findEdge(this.graph, id);
-      if (edge.capacity !== null) edge.usedBy[agentId] = (edge.usedBy[agentId] ?? 0) + granted;
+      if (edgeCapacity(edge) !== Number.POSITIVE_INFINITY) edge.usedBy[agentId] = (edge.usedBy[agentId] ?? 0) + granted;
     }
     return granted;
   }

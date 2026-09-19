@@ -22,6 +22,13 @@ describe('lane table (spec §3.5)', () => {
     for (const c of CHOKEPOINT_NAMES) expect(LANES.filter((l) => l.chokepoint === c).map((l) => l.id), c).toHaveLength(1);
   });
 
+  it('gives every chokepoint lane an open throughput, and no other lane one', () => {
+    for (const l of LANES) {
+      if (l.chokepoint !== undefined) expect(l.throughput, l.id).toBeGreaterThan(0);
+      else expect(l.throughput, l.id).toBeUndefined();
+    }
+  });
+
   it('keeps transit and freight positive, and capacity only on pipelines', () => {
     for (const l of LANES) {
       expect(l.transit, l.id).toBeGreaterThan(0);

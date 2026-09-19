@@ -45,12 +45,18 @@ describe('producer asks (spec §6.1)', () => {
     expect(brief(decideOrders(qasr(24_000), 0, view, DEFAULT_CONFIG))).toEqual([['ASK', 'DME', 56.85, 24_000]]);
   });
 
-  it('dump threshold: offers the excess above 70% fill at cash cost', () => {
-    // 95% full: 28,500 − 21,000 = 7,500 → 7,000 in whole lots at $7.50; the rest at 58.6 × 0.955.
+  it('dump threshold: offers the excess above 70% fill at DUMP_DISCOUNT below the close', () => {
+    // 95% full: 28,500 − 21,000 = 7,500 → 7,000 in whole lots at 58.60 × 0.80 = 46.88; the rest at 58.6 × 0.955.
     expect(brief(decideOrders(qasr(28_500), 0, view, DEFAULT_CONFIG))).toEqual([
       ['ASK', 'DME', 55.97, 21_000],
-      ['ASK', 'DME', 7.5, 7_000],
+      ['ASK', 'DME', 46.88, 7_000],
     ]);
+  });
+
+  it('never dumps below cash cost, however far the close has fallen', () => {
+    nodes.DME.lastFobByOrigin.Middle_East = 8;   // 8 × 0.80 = 6.40, under the 7.50 cash cost
+    const dump = decideOrders(qasr(28_500), 0, view, DEFAULT_CONFIG).find((o) => o.qty === 7_000);
+    expect(dump?.limitPrice).toBe(7.5);
   });
 
   it('no reference price: uses the marker less freight to the marker region', () => {
@@ -198,10 +204,10 @@ describe('integrated majors (spec §6.3)', () => {
     expect(bid?.limitPrice).toBeCloseTo((plain?.limitPrice ?? 0) * 1.05, 1);
   });
 
-  it('dump threshold: offers the excess above 70% fill at cash cost', () => {
-    // 9,600 of 10,000: excess 2,600 → 2,000 at 9.00; the other 7,000 at the shaded close.
+  it('dump threshold: offers the excess above 70% fill at DUMP_DISCOUNT below the close', () => {
+    // 9,600 of 10,000: excess 2,600 → 2,000 at 58.60 × 0.80 = 46.88; the other 7,000 at the shaded close.
     const asks = decideOrders(sabkhar(9_600), 3, view, DEFAULT_CONFIG).filter((o) => o.side === 'ASK');
-    expect(brief(asks)).toEqual([['ASK', 'DME', 55.91, 7_000], ['ASK', 'DME', 9, 2_000]]);   // 58.60 × (1 − 0.10 × 0.46)
+    expect(brief(asks)).toEqual([['ASK', 'DME', 55.91, 7_000], ['ASK', 'DME', 46.88, 2_000]]);   // 58.60 × (1 − 0.10 × 0.46)
   });
 
   it('sells surplus at cost plus tariff with no margin, and bids more aggressively for a deficit', () => {
@@ -219,8 +225,9 @@ describe('integrated majors (spec §6.3)', () => {
 });
 
 describe('trader quotes (spec §6.4)', () => {
-  // One office in Middle_East (50,000 bbl of tanks, $0.20 tariff) and only the DME node, with
-  // yesterday's close at 58.60 and the marker at 62: landed reference 58.60 + 0.20 = 58.80.
+  // One office in Middle_East (50,000 bbl of tanks, $0.20 export tariff) and only the DME node,
+  // with yesterday's close at 58.60 and the marker at 62. Bids sit below the close by the tariff due
+  // on resale and the half-spread, so every round trip clears at least the full spread.
   const dmeOnly = (): MarketView => ({ ...view, nodes: { DME: nodes.DME } });
   const tidemere = (heavy = 0, cash = 2_000_000) => {
     const t = createTrader({ id: 'tidemere', name: 'Tidemere', region: 'Middle_East', cash, offices: [{ region: 'Middle_East', capacity: 50_000 }] });
@@ -230,16 +237,16 @@ describe('trader quotes (spec §6.4)', () => {
   };
 
   it('empty hub: no ask, and a keen bid for half its room', () => {
-    // fill 0 → shift +0.40: bid 58.80 − 0.40 + 0.40 = 58.80. Room: cash 2M / 58.80 = 34,013 → half, 17,000.
-    expect(brief(decideOrders(tidemere(), 4, dmeOnly(), DEFAULT_CONFIG))).toEqual([['BID', 'DME', 58.8, 17_000]]);
+    // fill 0 → shift +0.40: bid 58.60 − 0.20 − 0.40 + 0.40 = 58.40. Room: cash 2M / 58.40 = 34,246 → half, 17,000.
+    expect(brief(decideOrders(tidemere(), 4, dmeOnly(), DEFAULT_CONFIG))).toEqual([['BID', 'DME', 58.4, 17_000]]);
   });
 
   it('part-full hub: offers half its stock above the reference and bids below it', () => {
-    // 20,000 held, fill 0.4 → shift +0.08. Ask 58.60 + 0.40 + 0.08; bid 58.80 − 0.40 + 0.08.
-    // Bid room: 30,000 free, (5M − 20,000 × 62) / 58.48 = 64,295, 2M / 58.48 = 34,199 → half of 30,000.
+    // 20,000 held, fill 0.4 → shift +0.08. Ask 58.60 + 0.40 + 0.08; bid 58.60 − 0.20 − 0.40 + 0.08.
+    // Bid room: 30,000 free, (5M − 20,000 × 62) / 58.08 = 64,738, 2M / 58.08 = 34,435 → half of 30,000.
     expect(brief(decideOrders(tidemere(20_000), 4, dmeOnly(), DEFAULT_CONFIG))).toEqual([
       ['ASK', 'DME', 59.08, 10_000],
-      ['BID', 'DME', 58.48, 15_000],
+      ['BID', 'DME', 58.08, 15_000],
     ]);
   });
 

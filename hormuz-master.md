@@ -227,7 +227,7 @@ AI companies use only public information plus their own state. Order books are i
 
 **Net worth** = cash + inventory at its grade's marker price + depreciated capital assets − credit drawn.
 
-**Credit line:** limit = 50% of capital assets + a play-type base amount (`CREDIT_BASE`: producer $1M, refiner and trader $2M), with `CREDIT_RATE` daily interest on the drawn balance. Capital assets are valued at replacement cost: the plant at `FACTORY_COST` plus its tier upgrades, wells at `DRILL_COST` and tanks at `STORAGE_COST`, all × labor. At the end of each day negative cash is covered from the line automatically (invariant 9), and cash above `CREDIT_CUSHION_DAYS` (30) of fixed costs repays it. Borrowing is money lent into the economy, so invariant 2 counts net borrowing.
+**Credit line:** limit = `CREDIT_ASSET_SHARE` (5) × capital assets + a play-type base amount (`CREDIT_BASE`: producer $10M, refiner and trader $20M) — generous by decision (D35), because the world has too few companies to lose any to a bad start — with `CREDIT_RATE` daily interest on the drawn balance. Capital assets are valued at replacement cost: the plant at `FACTORY_COST` plus its tier upgrades, wells at `DRILL_COST` and tanks at `STORAGE_COST`, all × labor. At the end of each day negative cash is covered from the line automatically (invariant 9), and cash above `CREDIT_CUSHION_DAYS` (30) of fixed costs repays it. Borrowing is money lent into the economy, so invariant 2 counts net borrowing.
 
 **Bankruptcy:** available cash below zero with the credit line fully drawn for 3 consecutive days. Scenarios may add their own loss conditions.
 
@@ -495,7 +495,7 @@ Routes are recomputed with Dijkstra at the start of each tick and cached for all
 | `DANISH_STRAITS` | Baltic ↔ North Atlantic | Russian Baltic exports |
 | `PANAMA` | Caribbean ↔ North Pacific | Americas-to-Asia shortcut |
 
-A chokepoint's `status` is `OPEN`, `TENSION`, `DELAYED` or `CLOSED`. `TENSION` adds its `freight_surcharge` (war-risk insurance) to the edge with no delay. `DELAYED` adds `delay_ticks` and keeps any surcharge. `CLOSED` removes the edge from routing; cargo already at the entry waypoint holds position until it reopens. All seven chokepoints use these statuses; how often each one changes, and how far, is set by its event profile (G7.1). **Closing any single chokepoint leaves every region at least one route to market** — only a pipeline's capacity can limit it — and a property test enforces this (§14.6).
+A chokepoint's `status` is `OPEN`, `TENSION`, `DELAYED` or `CLOSED`. `TENSION` adds its `freight_surcharge` (war-risk insurance) to the edge with no delay. `DELAYED` adds `delay_ticks` and keeps any surcharge. `CLOSED` removes the edge from routing; cargo already at the entry waypoint holds position until it reopens. **Throughput falls in steps with the status (D35):** each chokepoint lane carries a daily `throughput` when `OPEN` (Malacca 40,000 bbl; Hormuz 30,000; Suez and Bab el-Mandeb 20,000; Bosphorus and the Danish Straits 15,000; Panama 10,000 — about 3–4 times a typical day, so an open strait binds only on the busiest days), scaled by `CHOKEPOINT_THROUGHPUT`: 100% `OPEN`, 75% `TENSION`, 50% `DELAYED`, 0% `CLOSED`. Once a narrowed strait is full, cargo is redirected exactly as when a pipeline fills — to a bypass pipeline or another sea route. All seven chokepoints use these statuses; how often each one changes, and how far, is set by its event profile (G7.1). **Closing any single chokepoint leaves every region at least one route to market** — only a pipeline's capacity can limit it — and a property test enforces this (§14.6).
 
 #### Region connections
 
@@ -691,7 +691,7 @@ Every company, including the player's, runs these rules every day in Phase 5b. P
 2. `floor = actual_cost + infrastructure_tariff + MIN_MARGIN`.
 3. `ask = max(floor, ref_price × (1 − SKEW × (fill_ratio − 0.5)) × (1 − ASK_DECAY)^days_unsold)`, where `days_unsold` counts consecutive days the company offered crude and sold none. Any sale resets it. Without it, an unsold producer kept asking its stale close for ever.
 4. Quantity is available storage minus tomorrow's deal commitments.
-5. If `fill_ratio ≥ DUMP_THRESHOLD`, the excess above 70% fill is offered at `actual_cost`. A producer never sells below its cash cost.
+5. If `fill_ratio ≥ DUMP_THRESHOLD`, the excess above 70% fill is offered at `DUMP_DISCOUNT` (20%) below `ref_price`, never below `actual_cost` (D35). Dumping at cash cost printed trades so far below value that the heavy-crude marker moved 11–12% a day and spent 46–84 days a year under $40; at a discount it moves about 5% and never falls under $40 (tests/scenarios/dumping.test.ts).
 
 ### 6.2 Refiners
 
@@ -717,7 +717,7 @@ After internal clearing, surplus production is offered under §6.1 with a floor 
 
 Traders act only in office and leased-storage regions.
 
-- **Market making:** at each office region and for each grade, an ask FOB from the hub and a bid delivered into it, `HALF_SPREAD` either side of the local previous close (landed, for the bid), shifted by `−2 × HALF_SPREAD × (hub fill − 0.5)` so an empty hub quotes keen to buy and a full one keen to sell. Asks offer half the grade's stock; bids use half the room left — the least of free tank space, the unused `MAX_RISK_LIMIT` (holdings valued at markers) and cash, shared across every office and grade.
+- **Arbitrage between regions (D35):** at each office region and for each grade, an ask FOB from the hub at `ref + HALF_SPREAD` and a bid delivered into it at `ref − origin tariff − HALF_SPREAD`, where `ref` is the office's previous close or offer. Every filled round trip therefore clears at least the full spread after the tariff on resale, and bids fill only when crude from elsewhere lands below the local price — a gap between regions. Both are shifted by `−2 × HALF_SPREAD × (hub fill − 0.5)` so an empty hub quotes keen to buy and a full one keen to sell. Asks offer half the grade's stock; bids use half the room left — the least of free tank space, the unused `MAX_RISK_LIMIT` (holdings valued at markers) and cash, shared across every office and grade.
 - **Storage arbitrage:** if `marker < 20-day average − STORAGE_CARRY × HOLD_TICKS`, bids use all the room left instead of half; if `marker > 20-day average`, asks offer all the stock instead of half. The 20-day memory is updated in phase 7.
 - **Committed capital:** capital committed through cards (price gaps, crisis bets, distressed cargo) adds targeted bids and asks for the committed period.
 
@@ -852,12 +852,15 @@ Placeholders for balancing. "× labor" scales with the region's `labor_cost_inde
 | `DEMURRAGE_RATE`, `DEMURRAGE_MAX_TICKS` | $0.25 per bbl per tick, 15 ticks | Delivery overflow |
 | `DISTRESS_DISCOUNT` | 20% below marker | Forced sales |
 | `CHARTER_RATE`, capacity, `CHARTER_MIN_TICKS` | Small $6,000/tick, 50,000 bbl; Large $15,000/tick, 200,000 bbl; 30 ticks | Charters; chartered cargo pays no per-barrel freight but does pay chokepoint surcharges |
-| `OFFICE_COST` | $250,000 to open, $5,000 per tick | Trading offices |
+| `OFFICE_COST` | $250,000 to open, $2,500 per tick | Trading offices |
+| `DUMP_DISCOUNT` | 20% below the reference, never below cash cost | Producer dumps (§6.1 rule 5) |
+| `CHOKEPOINT_THROUGHPUT` | 100% / 75% / 50% / 0% for `OPEN` / `TENSION` / `DELAYED` / `CLOSED` | Strait throughput (§3.5) |
+| `CREDIT_ASSET_SHARE` | 5 × capital assets | Credit line (G6) |
 | `DEAL_VOLUME`, `DEAL_TERMS` | 1,000–10,000 bbl/day; 30 or 90 days | Deals |
 | `DEAL_MAX_SHARE` | 80% of capacity | Deals |
 | `SHORTFALL_RATE`, `CANCEL_RATE` | 15% of deal price per missing barrel; 10% of remaining deal value | Deal penalties |
 | `TENDER_DELAY`, `DEAL_OFFER_INTERVAL` | 3–5 ticks; 7 ticks | Deal offers |
-| `CREDIT_RATE`, `CREDIT_BASE`, `CREDIT_CUSHION_DAYS` | 0.03% per tick; producer $1M, refiner and trader $2M; 30 days | Credit line (G6) |
+| `CREDIT_RATE`, `CREDIT_BASE`, `CREDIT_CUSHION_DAYS` | 0.03% per tick; producer $10M, refiner and trader $20M; 30 days | Credit line (G6) |
 | `REPORT_COST`, `REPORT_LAG`, `REPORT_NOISE` | $25,000, 5 ticks, ±15% | Market reports |
 | `INTEGRATE_THRESHOLD` | Net worth of 3× starting | Integration and second-refinery cards (G2, G4.4) |
 | `CARD_MAX_OPEN`, `CARD_COOLDOWN`, `CARD_DEADLINE` | 3; 14 ticks per card type; 7 ticks | Cards |
@@ -941,7 +944,7 @@ The core portfolio runs a deliberate 28% surplus (30,500 bbl/tick produced again
 
 **Company names are fictional (D32).** Each is an invented or derived root plus a generic word (`Tarvale_Sands`, `Ilhavera_Refining`), and every name was checked against real companies. `Santos`, `Australis`, `Athabasca`, `Gulfport`, `Helios`, `Aegis`, `Meridian`, `Jurong` and `Kandla` were replaced because they matched or crowded real companies. New names follow the same pattern, and the full list goes through formal trademark clearance in Phase 10.
 
-Defaults (the core companies follow them in the global world, except that the Gulf producers keep their tight §10.1 tanks so a closure fills them within days): producer storage holds 10 days of capacity (3 days overflowed on any slow trading day, halting producers within two weeks of a calm start) and refinery storage 10; starting cash is $2.0M for producers and `REFINER_CASH_PER_BBL_DAY` ($1,500) per bbl/day of capacity for refiners — about three weeks of crude, since a far refinery pays for 16–28 days of cargo at sea (a flat $3.0M left the Asian refineries unable to finance their own supply); refineries start with 5 days of stock and producers at 25% storage. Bypass pipelines carry 6,000 bbl/tick (East-West to Red Sea) and 3,000 bbl/tick (to Gulf of Oman) — deliberately below Gulf export volume, so they bind in Hormuz scenarios.
+Defaults (the core companies follow them in the global world, except that the Gulf producers keep their tight §10.1 tanks so a closure fills them within days): producer storage holds 10 days of capacity (3 days overflowed on any slow trading day, halting producers within two weeks of a calm start) and refinery storage 10; starting cash is `PRODUCER_CASH` ($5.0M) for producers and `REFINER_CASH_PER_BBL_DAY` ($3,000) per bbl/day of capacity for refiners — about six weeks of crude, raised by decision (D35) to keep rivals from failing early, since a far refinery pays for 16–28 days of cargo at sea (a flat $3.0M left the Asian refineries unable to finance their own supply); refineries start with 5 days of stock and producers at 25% storage. In the global world `Tidemere_Trading` has two offices, North_Sea and Middle_East, each with 25,000 bbl of hub storage, and `TRADER_CASH` ($5.0M). Bypass pipelines carry 6,000 bbl/tick (East-West to Red Sea) and 3,000 bbl/tick (to Gulf of Oman) — deliberately below Gulf export volume, so they bind in Hormuz scenarios.
 
 ### 10.3 Balance and calibration
 
@@ -960,7 +963,7 @@ Grade access also clears: Heavy Sour, which only Tier 3 plants accept, has 25,00
 |---|---|---|
 | Supply/demand balance | Production capacity ÷ (refining capacity × `BASE_UTILIZATION`) | 1.00–1.10 |
 | Storage pressure builds slowly in baseline | Mean producer fill in S0 | Rises, but no producer halts before tick 60 |
-| Storage pressure bites in disruption | Producer halt-ticks, S4 vs S0 | At least 10× higher |
+| Storage pressure bites in disruption | Gulf producers' halt-ticks, S4 vs S0 | Higher; the closure stops Hormuz completely but the bypass pipelines stay open (D35), so the effect is bounded by what they cannot carry |
 | Refining margin is contested | Ticks with at least one refiner throttled, S0 | 5–40% |
 | A merit order exists | Barrels produced by cost quartile, S0 | Top-cost quartile produces measurably less than the bottom |
 | Output cuts happen somewhere | Producers cutting output across S0–S17 | At least three distinct producers |
@@ -1055,6 +1058,7 @@ The build proceeds on these. Changing one means updating the sections it names.
 | D23 | Sandbox games last 1, 3 or 5 years or run without end; campaign scenarios set their own length |
 | D24 | The campaign has three scenarios per play type plus a finale, built from seven goal types with optional milestones (G7.2) |
 | D25 | Disruptions are staged events (`RUMOR → TENSION → DISRUPTION → RECOVERY`), with a `TENSION` chokepoint status (G7.1) |
+| D35 | Owner decisions 2026-09-19: chokepoint throughput falls in steps with status (a closure stops 100% of the strait but redirection by bypass stays possible, so the bypasses keep their capacity); producers dump at a discount to the reference, not at cash cost; the AI trader arbitrages between regions with tariff-aware spreads, from two offices at lower running cost; starting cash raised and credit lines 10× larger; insolvency is recoverable, because the world has too few companies to lose them |
 | D34 | Refiners grow through processing units, tier upgrades, storage and one second refinery in another refining region (not the Gulf); rival buyouts are out of scope. Chosen over a single site, which left refiners no late game, and over acquisitions, which add valuation and merger rules a teenager should not need |
 | D33 | Every chokepoint is live. Each of the seven has its own event profile; warning scales with severity; the deck never disrupts a chokepoint and its bypass together on Easy or Normal; each year hits at least one chokepoint the player depends on; the campaign features six of the seven (G7.1, G7.2) |
 
@@ -1448,5 +1452,6 @@ The free web version stays available after Steam launches. Schools mostly use Ch
 | 3 | 2026-09-18 | Reframed the player as a CEO. Removed manual trading, standing orders, order lifetimes, order-book depth and player order validation. Added decision cards, two company settings per play type, fixed-price deals, daily batch clearing (replacing continuous matching and overnight-resting orders), the running clock, three play types with integration as a goal, the campaign, field decline, emergency repair and trading offices. Renamed `Manufacturer` to `Refiner`. Consolidated the document and replaced the prototype issue log with this history. |
 | 3.1 | 2026-09-18 | Closed the real-world framing decision as D32: real geography, fictional companies, faceless and non-violent event wording, coastline-only map. Renamed nine companies whose names matched or crowded real companies. Removed the refiner's "Buy an oilfield" card: only producers can become integrated. |
 | 3.2 | 2026-09-18 | Made every chokepoint a live risk: an event profile for each of the seven, deck rules, route cards that react to delays as well as tension, a campaign featuring six of the seven, verification runs S13–S17, and a property test that no single closure strands a region. |
+| 3.5 | 2026-09-19 | Phase 7 calibration: price discovery (bids climb towards value as tanks empty; unsold asks decay; closing offers published), refiners count the voyage in stock targets and tank space, credit lines, recoverable insolvency, AI output cuts, personality mixes, the global portfolio's cash and storage, and the D35 decisions. Global S0: markers about 78 / 71 / 63 in grade order on ~90% of days, no insolvencies. |
 | 3.4 | 2026-09-18 | Settled ten open questions: refiners may build a second refinery (D34); an integrating producer's plant is at the tier its own crude needs; every capacity-limited pipeline has a capacity; processing units are 2,500 bbl/day; Risk covers routes, breakdowns and cash; Supply shows its worst point; related cards merge; Opportunities have no deadline; unaffordable options show when they will be affordable; the example card fits its pipeline. Phase 3 found and fixed a cross-engine price rounding gap (G10). |
 | 3.3 | 2026-09-18 | Set the release path: own site → itch.io → web portals → Steam (via Electron, replacing Tauri) → mobile rebuild (§14.8). Phase 10 now requires a 1280×800 layout; npm replaces pnpm. |

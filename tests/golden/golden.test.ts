@@ -9,13 +9,13 @@
 import { describe, expect, it } from 'vitest';
 import { runGoldenReplay } from './replay';
 
-// S0 through the real tick orchestrator, re-recorded in Node 24 in Phase 7 after the price-discovery
-// changes. Last verified identical in Chrome 152 (`npm run golden:browser`) in Phase 6;
-// re-check in a browser at the end of each phase.
+// S0 through the real tick orchestrator, re-recorded in Node 24 after the D35 decisions and
+// verified identical in Chrome 152 (`npm run golden:browser`) on 2026-09-19. Re-check in a
+// browser at the end of each phase.
 const GOLDEN = {
-  day1: '9beaca46aea882539ee95be709c4c9fd',
-  day30: '5f4bda5aaa696461fe59f22ec39b261f',
-  final: 'afefcaa9b3e3f3bcc1e218f3fd83a5d6',
+  day1: '0064cb018651fd8410092f4234dd4ce5',
+  day30: '4c1d38ea3afcf6f23b0d08ba500aede7',
+  final: 'cd8a6938490dbbe9dab610e397f17c4d',
 };
 
 describe('golden replay', () => {

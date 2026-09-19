@@ -113,7 +113,7 @@ if (process.argv[1]?.endsWith('calibrate.ts')) {
     const s4 = measure(seed, S4);
     console.log(`\nSeed ${seed}`);
     console.log(`  Storage pressure (S0)     fill ${pct(s0.fillStart)} → ${pct(s0.fillEnd)}; first halt ${s0.firstHalt ?? 'never'} (target: rises, none before 60)`);
-    console.log(`  Disruption bites (S4/S0)  halt-days ${s4.haltDays} vs ${s0.haltDays} (target ≥ 10×)`);
+    console.log(`  Disruption bites (S4/S0)  halt-days ${s4.haltDays} vs ${s0.haltDays} (target: higher; bypasses stay open, D35)`);
     console.log(`  Margin contested (S0)     ${pct(s0.throttledShare)} of ticks with a refinery throttled (target 5–40%)`);
     console.log(`  Merit order (S0)          cheapest quartile ${Math.round(s0.cheapQuartile).toLocaleString()} bbl, dearest ${Math.round(s0.dearQuartile).toLocaleString()} bbl (target: dearest measurably less)`);
     console.log(`  Output cuts               ${s0.outputCutters} producers in S0, ${s4.outputCutters} in S4 (target ≥ 3 across S0–S17)`);

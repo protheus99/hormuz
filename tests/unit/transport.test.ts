@@ -6,7 +6,7 @@ import { REGION_NAMES, REGIONS } from '../../src/data/regions';
 import { DEFAULT_CONFIG } from '../../src/engine/config';
 import { asAgentId, asEdgeId, type Route } from '../../src/engine/model';
 import {
-  buildLaneGraph, edgeCapacityLeft, findRoute, LaneRouteProvider, setChokepoint, setReservation, type LaneGraph,
+  buildLaneGraph, edgeCapacity, edgeCapacityLeft, findRoute, LaneRouteProvider, setChokepoint, setReservation, type LaneGraph,
 } from '../../src/engine/transport';
 
 let g: LaneGraph;
@@ -192,5 +192,36 @@ describe('pipeline capacity (spec §8 rule 5, Phase 4 acceptance)', () => {
     routes.reserve(routes.route('Middle_East', 'Gulf_of_Oman') as Route, 2000, qasr);
     const restored = new LaneRouteProvider(JSON.parse(JSON.stringify(g)) as LaneGraph);
     expect(restored.capacityLeft(restored.route('Middle_East', 'Gulf_of_Oman') as Route, straits)).toBe(1000);
+  });
+});
+
+describe('chokepoint throughput by status (spec §3.5)', () => {
+  it('lets an open strait carry its full throughput, and scales it down step by step as the status worsens', () => {
+    const hormuz = () => g.edges.find((e) => e.id === asEdgeId('hormuz'));
+    const cap = () => { const e = hormuz(); return e ? edgeCapacity(e) : NaN; };
+    expect(cap()).toBe(30_000);
+    setChokepoint(g, 'HORMUZ', 'TENSION');
+    expect(cap()).toBe(22_500);
+    setChokepoint(g, 'HORMUZ', 'DELAYED', 3);
+    expect(cap()).toBe(15_000);
+    setChokepoint(g, 'HORMUZ', 'CLOSED');
+    expect(cap()).toBe(0);
+    setChokepoint(g, 'HORMUZ', 'OPEN');
+    expect(cap()).toBe(30_000);
+  });
+
+  it('redirects cargo once a narrowed strait is full: Gulf crude moves to the bypass pipelines', () => {
+    setChokepoint(g, 'HORMUZ', 'DELAYED');   // no delay days, so only the narrowing matters
+    const routes = new LaneRouteProvider(g);
+    const first = routes.route('Middle_East', 'South_Asia', [], straits) as Route;
+    expect(first.chokepoints).toEqual(['HORMUZ']);
+    expect(routes.reserve(first, 20_000, straits)).toBe(15_000);   // half of 30,000
+    const next = routes.route('Middle_East', 'South_Asia', [], straits);
+    expect(ids(next)?.[0]).toMatch(/^bypass_/);
+  });
+
+  it('keeps sea lanes without a chokepoint unlimited', () => {
+    const lombok = g.edges.find((e) => e.id === asEdgeId('lombok'));
+    expect(lombok ? edgeCapacity(lombok) : 0).toBe(Number.POSITIVE_INFINITY);
   });
 });

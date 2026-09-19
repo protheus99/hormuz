@@ -4,7 +4,7 @@
 // Rates and shares are fractions, so 25% is written 0.25.
 // All values are placeholders to be tuned in Phases 7 and 12.
 
-import type { AppetiteSetting, DeclineClass, Product, SellingSetting, StockpileSetting } from './enums';
+import type { AppetiteSetting, ChokepointStatus, DeclineClass, Product, SellingSetting, StockpileSetting } from './enums';
 import type { CompanySettings } from './model';
 
 export interface Range {
@@ -42,6 +42,7 @@ export interface Config {
   readonly MIN_MARGIN: number;             // $/bbl above cost on producer asks (Selling: Balanced)
   readonly SKEW: number;                   // how hard storage pressure discounts asks
   readonly DUMP_THRESHOLD: number;         // storage fill that triggers selling the excess
+  readonly DUMP_DISCOUNT: number;          // below the reference, for that excess; never below cash cost
   readonly ASK_DECAY: number;              // share a producer's ask falls for each day in a row unsold
   readonly TARGET_DAYS: number;            // refiner stock target, days of use (Stockpile: Normal)
   readonly URGENCY: number;                // how far a starved refiner raises its bid
@@ -82,6 +83,7 @@ export interface Config {
 
   // Network and storage (spec §3.5, §6.5)
   readonly MAX_RESERVATION_SHARE: number;  // of a pipeline's capacity, per company
+  readonly CHOKEPOINT_THROUGHPUT: Readonly<Record<ChokepointStatus, number>>;   // share of a strait's throughput usable at each status
   readonly RESERVATION_COST: number;       // $ per bbl/day, times labor index
   readonly RESERVATION_TICKS: number;
   readonly LEASE_STEP: number;             // bbl
@@ -114,7 +116,8 @@ export interface Config {
 
   // Finance and intelligence (spec G6)
   readonly CREDIT_RATE: number;            // per tick on the drawn balance
-  readonly CREDIT_BASE: { readonly PRODUCER: number; readonly REFINER: number; readonly TRADER: number };   // $ added to 50% of capital assets
+  readonly CREDIT_ASSET_SHARE: number;     // credit limit as a multiple of capital assets
+  readonly CREDIT_BASE: { readonly PRODUCER: number; readonly REFINER: number; readonly TRADER: number };   // $ added to the asset share
   readonly CREDIT_CUSHION_DAYS: number;    // days of fixed costs kept as cash before repaying credit
   readonly REPORT_COST: number;
   readonly REPORT_LAG: number;             // ticks old
@@ -147,6 +150,7 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
   MIN_MARGIN: 1.00,
   SKEW: 0.10,
   DUMP_THRESHOLD: 0.90,
+  DUMP_DISCOUNT: 0.20,
   ASK_DECAY: 0.02,
   TARGET_DAYS: 10,
   URGENCY: 0.08,
@@ -184,6 +188,7 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
   EMERGENCY_REPAIR_COST: 3.00,
 
   MAX_RESERVATION_SHARE: 0.50,
+  CHOKEPOINT_THROUGHPUT: { OPEN: 1, TENSION: 0.75, DELAYED: 0.5, CLOSED: 0 },
   RESERVATION_COST: 1_500,
   RESERVATION_TICKS: 30,
   LEASE_STEP: 10_000,
@@ -203,7 +208,7 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
     LARGE: { RATE: 15_000, CAPACITY: 200_000 },
   },
   CHARTER_MIN_TICKS: 30,
-  OFFICE_COST: { OPEN: 250_000, PER_TICK: 5_000 },
+  OFFICE_COST: { OPEN: 250_000, PER_TICK: 2_500 },
 
   DEAL_VOLUME: { min: 1_000, max: 10_000 },
   DEAL_TERMS: [30, 90],
@@ -214,7 +219,8 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
   DEAL_OFFER_INTERVAL: 7,
 
   CREDIT_RATE: 0.0003,
-  CREDIT_BASE: { PRODUCER: 1_000_000, REFINER: 2_000_000, TRADER: 2_000_000 },
+  CREDIT_ASSET_SHARE: 5,
+  CREDIT_BASE: { PRODUCER: 10_000_000, REFINER: 20_000_000, TRADER: 20_000_000 },
   CREDIT_CUSHION_DAYS: 30,
   REPORT_COST: 25_000,
   REPORT_LAG: 5,

@@ -21,7 +21,7 @@ import type { Agent, AgentId, Cargo, ChokepointName, Deal, Fill, NodeName, Tick 
 import { nextFloat, rngFor, type Rng } from './rng';
 import { decideOrders, recordSales, rememberMarkers, updateOutput, updateThrottle, type MarketView } from './rules';
 import { placeOrder, releaseEscrow, settleFills } from './settlement';
-import { avoidFor, buildLaneGraph, LaneRouteProvider, setChokepoint, type LaneGraph } from './transport';
+import { avoidFor, buildLaneGraph, edgeCapacity, LaneRouteProvider, setChokepoint, type LaneGraph } from './transport';
 import { NODE_NAMES } from '../data/nodes';
 import { REGIONS } from '../data/regions';
 import type { PlantData, PortfolioEntry } from '../data/portfolios';
@@ -299,11 +299,12 @@ export function checkInvariants(w: World, deliveries: readonly DealDelivery[] = 
     if (a.cash < -1e-6 && a.creditDrawn < a.creditLimit - 1e-6) fail(`${a.name} has $${a.cash} with credit left`);
   }
 
-  // 7. Network: pipelines within capacity.
+  // 7. Network: pipelines and straits within today's capacity.
   for (const e of w.graph.edges) {
-    if (e.capacity === null) continue;
+    const capacity = edgeCapacity(e);
+    if (capacity === Number.POSITIVE_INFINITY) continue;
     const used = Object.values(e.usedBy).reduce<number>((s, q) => s + (q ?? 0), 0);
-    if (used > e.capacity + 1e-6) fail(`pipeline ${e.id} carried ${used} of ${e.capacity} bbl`);
+    if (used > capacity + 1e-6) fail(`${e.id} carried ${used} of ${capacity} bbl`);
   }
 
   // 10. Deals: each day's delivered plus shortfall is exactly the daily volume.
@@ -404,7 +405,7 @@ function chargeRunningCosts(w: World, tick: Tick): void {
 }
 
 /**
- * Spec G6: a credit line of 50% of capital assets plus a base amount for the play type. Capital
+ * Spec G6: a credit line of CREDIT_ASSET_SHARE × capital assets plus a base amount for the play type. Capital
  * assets are valued at replacement cost: the plant at FACTORY_COST plus its tier upgrades, wells at
  * DRILL_COST and tanks at STORAGE_COST, all times the region's labor index.
  */
@@ -424,7 +425,7 @@ export function creditLimit(a: Agent, cfg: Config): number {
     }
   }
   const base = a.kind === 'TRADER' ? cfg.CREDIT_BASE.TRADER : plant ? cfg.CREDIT_BASE.REFINER : cfg.CREDIT_BASE.PRODUCER;
-  return 0.5 * assets + base;
+  return cfg.CREDIT_ASSET_SHARE * assets + base;
 }
 
 /**
