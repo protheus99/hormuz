@@ -95,7 +95,7 @@ describe('chokepoints (spec §3.5)', () => {
   });
 
   it('never uses a region as a junction: no piping North Sea crude across Russia (spec §3.5)', () => {
-    for (const [from, to] of [['North_Sea', 'Coastal_Asia'], ['US_Gulf_Coast', 'Coastal_Asia']] as const) {
+    for (const [from, to] of [['North_Sea', 'Coastal_Asia'], ['US_Gulf_Coast', 'Coastal_Asia'], ['US_Permian', 'Coastal_Asia']] as const) {
       const r = findRoute(g, from, to);
       expect(ids(r), `${from} → ${to}`).not.toContain('russia_east');
       expect(ids(r), `${from} → ${to}`).not.toContain('canada_west');
@@ -105,6 +105,8 @@ describe('chokepoints (spec §3.5)', () => {
   it('still lets a region’s own pipelines carry its crude onward', () => {
     expect(ids(findRoute(g, 'Western_Canada', 'US_Gulf_Coast'))).toEqual(['canada_south', 'permian_pipeline']);
     expect(ids(findRoute(g, 'Russia_West', 'Russia_Far_East'))).toEqual(['russia_east']);
+    expect(ids(findRoute(g, 'Russia_West', 'Coastal_Asia'))?.slice(0, 2)).toEqual(['russia_east', 'Russia_Far_East-W_N_PACIFIC']);
+    expect(ids(findRoute(g, 'US_Permian', 'Coastal_Asia'))?.[0]).toBe('permian_pipeline');   // out through the Gulf Coast
     setChokepoint(g, 'HORMUZ', 'CLOSED');
     expect(ids(findRoute(g, 'Coastal_Asia', 'Middle_East'))?.at(-1)).toMatch(/^bypass_/);   // imports come in the same way
   });

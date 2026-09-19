@@ -140,9 +140,10 @@ export function findRoute(
     g.edges.some((e) => e.mode === EdgeMode.PIPELINE && (e.a === from || e.b === from) && other(e, from) === to);
 
   // Dijkstra over (place, leg) states. Regions are endpoints, not junctions (spec §3.5): a route may
-  // pass through a region only straight off a pipeline from its origin ("out") or on its way into
-  // a pipeline to its destination ("in"). That keeps the Gulf bypasses and Canada-to-Gulf-Coast
-  // crude, and rules out land bridges such as piping North Sea crude across Russia.
+  // pass through a region only straight off a pipeline from its origin ("out", then on by sea or
+  // straight into the destination) or on its way into a pipeline to its destination ("in"). That
+  // keeps the Gulf bypasses, Russia's eastern line and Canada-to-Gulf-Coast crude, and rules out
+  // land bridges such as piping North Sea crude across Russia or Permian crude up into Canada.
   // Strict < when relaxing, and the heap's first-in-first-out ties, make equal-cost choices stable.
   type Leg = 'sea' | 'out' | 'in';
   interface Label { readonly cost: number; readonly place: PlaceName; readonly via: Edge | null; readonly prev: string | null }
@@ -168,6 +169,9 @@ export function findRoute(
       const next = other(e, place);
       // Leaving a region we entered on the way to a destination pipeline: only that pipeline.
       if (isTransitRegion && leg === 'in' && !(e.mode === EdgeMode.PIPELINE && next === destination)) continue;
+      // Leaving a region reached off the origin's pipeline: by sea, or by a pipeline straight into
+      // the destination — never onward along another pipeline (no Permian crude up the Canadian line).
+      if (isTransitRegion && leg === 'out' && e.mode === EdgeMode.PIPELINE && next !== destination) continue;
       let nextLeg: Leg = 'sea';
       if (next !== destination && isRegion(next)) {
         if (place === origin && e.mode === EdgeMode.PIPELINE) nextLeg = 'out';

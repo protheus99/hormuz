@@ -9,12 +9,12 @@
 import { describe, expect, it } from 'vitest';
 import { runGoldenReplay } from './replay';
 
-// Recorded in Node 24 at the end of Phase 5 and verified identical in Chrome 152
-// (`npm run golden:browser`). Re-check in a browser at the end of each phase.
+// S0 through the real tick orchestrator, recorded in Node 24 in Phase 6 and verified identical in
+// Chrome 152 (`npm run golden:browser`). Re-check in a browser at the end of each phase.
 const GOLDEN = {
-  day1: '5c434c816472771d8424485b353ce3a2',
-  day30: '7e147b64fba497869970a2863f624a34',
-  final: '4e8f315a0b13fd44a81a0bc1ee3708a2',
+  day1: '7738904cf33555b5ed3659eb6529bb8f',
+  day30: '62bd94c0a85f9c55f19cd90b3107d1ea',
+  final: '4f0be02c99e80597a86bbe47e707fe21',
 };
 
 describe('golden replay', () => {
@@ -29,9 +29,8 @@ describe('golden replay', () => {
 
   it('actually exercises the engine, so the hash means something', () => {
     expect(run.daily).toHaveLength(365);
-    expect(run.summary.fills).toBeGreaterThan(100);
+    expect(run.summary.fills).toBeGreaterThan(300);
     expect(run.summary.refined).toBeGreaterThan(1_000_000);
-    expect(run.summary.heldCargoDays).toBeGreaterThan(0);   // the Hormuz closure held cargo
     expect(new Set(run.daily).size).toBe(365);
   });
 

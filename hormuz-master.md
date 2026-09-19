@@ -475,7 +475,7 @@ Routes are the **lowest generalized-cost path** through usable edges:
 
 Routes are recomputed with Dijkstra at the start of each tick and cached for all pairs, once per chokepoint-avoidance set. Delivery inside one region has no freight and still takes one tick.
 
-**Regions are endpoints, not junctions.** A route may pass through a region only straight off a pipeline from its origin (Western Canada → Permian → US Gulf Coast; the Gulf bypasses) or on its way into a pipeline to its destination (Red Sea Coast → Middle East imports). Otherwise every lane being bidirectional would invent land bridges — North Sea crude shipped into the Baltic and piped across Russia, or US Gulf crude pumped backwards through the Permian and Canadian lines to the Pacific.
+**Regions are endpoints, not junctions.** A route may pass through a region only straight off a pipeline from its origin, then on by sea or straight into its destination (the Gulf bypasses; Russia's eastern line; Western Canada → Permian → US Gulf Coast), or on its way into a pipeline to its destination (Red Sea Coast → Middle East imports). Otherwise every lane being bidirectional would invent land bridges — North Sea crude shipped into the Baltic and piped across Russia, or Permian crude pumped backwards up the Canadian line to the Pacific.
 
 **Routing is capacity-aware.** Asked for a route on a company's behalf, the graph skips pipelines that company can no longer use today, so once the Oman bypass is full the next route offered is the Red Sea bypass. Clearing asks again whenever a route runs out (§8 rule 3).
 
@@ -1146,7 +1146,7 @@ src/
     economics.ts   FeeLedger (§7.1); retail sink and yields from Phase 3
     agents.ts      physical operations: extraction, decline, refining, internal transfer (§4.8–4.10)
     rules.ts       the daily decision rules and MarketView (§6)
-    world.ts       step(), phases, invariants, fork
+    world.ts       createWorld, step() phases 0–7, scheduled events, running costs, insolvency, invariants, fork
     metrics.ts     recorders, CSV, canonical serializer
   data/            regions, lanes, portfolios (TypeScript `as const`)
   game/
@@ -1241,7 +1241,7 @@ Scripts: `dev` (vite), `build` (vite build), `test` (vitest run), `typecheck` (t
 | `engine/agents.ts` | model, config, companies, economics |
 | `engine/rules.ts` | model, config, agents, clearing, companies, economics, routes (the interface), data |
 | `engine/world.ts` | all of the above |
-| `engine/metrics.ts` | model |
+| `engine/metrics.ts` | model, companies, rng, world (types) |
 
 **`model.ts` imports from `data/`, not the other way round.** Region, node and chokepoint names are derived from the data tables, so those tables must be declared without the model types. Reversing the edge creates a cycle and the derived names silently collapse to `string`.
 
@@ -1330,13 +1330,15 @@ export function internalTransfer(m: IntegratedMajor): number;                   
 export function integrate(p: Producer, plant: PlantSpec): IntegratedMajor;          // wells, cash and id carry over; the card pays and picks the plant
 
 // world.ts
-export function createWorld(s: WorldSettings): World;
-export function step(w: World): TickReport;
-export function fork(w: World, calm: boolean): World;                                  // G4.5
-export function checkInvariants(w: World): void;                                       // §9, throws
+export function createWorld(s: WorldSettings): World;                                 // seed, portfolio, scheduled events, config overrides
+export function step(w: World): TickReport;                                            // phases 0–7, then checkInvariants
+export function run(w: World, n: number): TickReport[];
+export function fork(w: World, calm: boolean): World;                                  // G4.5: calm drops future events and price noise
+export function checkInvariants(w: World, deliveries?: readonly DealDelivery[]): void; // §9, throws naming tick, company and numbers
 
 // metrics.ts
-export function record(r: Recorder, w: World, report: TickReport): void;
+export function createRecorder(): Recorder;
+export function record(r: Recorder, w: World, report: TickReport): void;               // one row of §11.1 headline series per tick
 export function toCsv(r: Recorder): string;
 export function canonical(value: unknown): string;                                    // §14.6
 

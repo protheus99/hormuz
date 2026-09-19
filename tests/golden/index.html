@@ -17,7 +17,7 @@
     document.body.innerHTML = `<p>Final: <code id="final">${run.final}</code></p>
       <p>Day 1: <code id="day1">${run.daily[0]}</code></p>
       <p>Day 30: <code id="day30">${run.daily[29]}</code></p>
-      <p>${run.summary.fills} fills, ${run.summary.refined.toLocaleString()} barrels refined, ${ms} ms in ${navigator.userAgent}</p>`;
+      <p>${run.summary.fills} fills, ${Math.round(run.summary.refined).toLocaleString()} barrels refined, ${ms} ms in ${navigator.userAgent}</p>`;
     document.title = `golden ${run.final}`;
   </script>
 </body>
