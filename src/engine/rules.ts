@@ -6,13 +6,13 @@
 // cleared yet. Every order is a whole number of lots; asks round up to the cent and bids round
 // down, so rounding never breaks a floor or a ceiling.
 
-import { actualCost, effectiveUtilization, fillRatio } from './agents';
-import { previousClose, type ClearContext, type ExchangeNode, type Quote } from './clearing';
+import { actualCost, effectiveUtilization, fillRatio, setExtractionRate } from './agents';
+import { previousClose, referencePrice, type ClearContext, type ExchangeNode, type Quote } from './clearing';
 import { acceptedGrades, availableCash, total } from './companies';
 import type { Config } from './config';
-import { productValue, YIELDS, type ProductPrices } from './economics';
+import { productValue, YIELDS, type FeeLedger, type ProductPrices } from './economics';
 import {
-  makeOrderId, type Agent, type Ask, type Bid, type ChokepointName, type IntegratedMajor, type NodeName, type Order,
+  makeOrderId, type Agent, type Ask, type Bid, type ChokepointName, type Fill, type IntegratedMajor, type NodeName, type Order,
   type PlantState, type Producer, type Refiner, type Tick, type Trader, type WellState,
 } from './model';
 import type { RouteProvider } from './routes';
@@ -86,9 +86,10 @@ function producerAsks(
   const ref = referenceFob(node, origin, view);
   // Rule 2: never below cash cost, the export tariff and the margin.
   const floor = cost + REGIONS[origin].infrastructureTariff + margin;
-  // Rule 3: fuller storage, lower ask.
+  // Rule 3: fuller storage, lower ask; and lower again for every day in a row nothing sold.
   const fill = fillRatio(well);
-  const price = roundUp(Math.max(floor, ref * (1 - cfg.SKEW * (fill - 0.5))));
+  const unsold = (1 - cfg.ASK_DECAY) ** well.daysUnsold;
+  const price = roundUp(Math.max(floor, ref * (1 - cfg.SKEW * (fill - 0.5)) * unsold));
 
   // Rule 5: when nearly full, the excess above 70% fill goes at cash cost.
   const dumpQty = fill >= cfg.DUMP_THRESHOLD
@@ -114,7 +115,63 @@ function referenceFob(node: ExchangeNode, origin: Agent['region'], view: MarketV
   return Math.max(0, node.markerPrice - (toMarker?.totalFreight ?? 0));
 }
 
+/**
+ * After clearing (spec §6.1 rule 3): a producer that offered crude today and sold none counts one
+ * more day unsold, so tomorrow's ask comes down; any sale resets the count.
+ */
+export function recordSales(agents: readonly Agent[], asked: ReadonlySet<Agent['agentId']>, fills: readonly Fill[]): void {
+  const sold = new Set(fills.map((f) => f.sellerId));
+  for (const a of agents) {
+    const well = a.kind === 'PRODUCER' ? a : a.kind === 'INTEGRATED' ? a.well : undefined;
+    if (well === undefined) continue;
+    well.daysUnsold = asked.has(a.agentId) && !sold.has(a.agentId) ? well.daysUnsold + 1 : 0;
+  }
+}
+
+/** Days of netback below (or back above) breakeven before an AI producer cuts (or restores) output. */
+export const OUTPUT_CUT_DAYS = 10;
+/** Output an AI producer cuts to when prices stay below its cost (spec §6.5). */
+export const OUTPUT_CUT_RATE = 0.5;
+/** Storage fill above which a losing AI producer cuts rather than keeps storing. */
+export const OUTPUT_CUT_FILL = 0.8;
+
+/**
+ * AI output cuts (spec §6.5, Phases 7–8): an AI producer whose netback — yesterday's price at its
+ * origin less the export tariff — has been below breakeven (cash cost plus fixed cost per barrel)
+ * for OUTPUT_CUT_DAYS, with storage above 80%, cuts to half output; after as many days back above
+ * breakeven it restores full output. From Phase 9 the "Prices below your cost" card replaces this.
+ */
+export function updateOutput(company: Producer | IntegratedMajor, nodes: MarketView['nodes'], ledger: FeeLedger, tick: Tick, cfg: Config): void {
+  if (company.controller !== 'AI') return;
+  const well = company.kind === 'INTEGRATED' ? company.well : company;
+  const node = nodes[NODE_FOR_GRADE[well.grade]];
+  const price = node === undefined ? undefined : referencePrice(node, company.region);
+  if (price === undefined) return;
+  const netback = price - REGIONS[company.region].infrastructureTariff;
+  const breakeven = actualCost(company) + cfg.FIXED_COST_RATE.PRODUCER;
+  well.breakevenStreak = netback < breakeven
+    ? Math.min(0, well.breakevenStreak) - 1
+    : Math.max(0, well.breakevenStreak) + 1;
+  if (well.breakevenStreak <= -OUTPUT_CUT_DAYS && fillRatio(well) > OUTPUT_CUT_FILL && well.extractionRate > OUTPUT_CUT_RATE) {
+    setExtractionRate(company, OUTPUT_CUT_RATE, ledger, tick, cfg);
+  } else if (well.breakevenStreak >= OUTPUT_CUT_DAYS && well.extractionRate < 1 && !well.shutIn) {
+    setExtractionRate(company, 1, ledger, tick, cfg);
+  }
+}
+
 // ─── Refiners (spec §6.2) ────────────────────────────────────────────────────────────────────
+
+/**
+ * What a refinery bids for a delivered barrel (spec §6.2). A little short, it offers a small
+ * premium over the reference (URGENCY); seriously short, it climbs towards the most the barrel is
+ * worth, reaching it with empty tanks. Never above that ceiling. With no reference, the ceiling.
+ */
+export function bidPrice(reference: number | null, ceiling: number, starvation: number, cfg: Config): number {
+  if (reference === null) return ceiling;
+  const premium = reference * (1 + cfg.URGENCY * starvation);
+  const climb = reference + Math.max(0, ceiling - reference) * starvation;
+  return Math.min(ceiling, Math.max(premium, climb));
+}
 
 interface NodeChoice {
   readonly node: NodeName;
@@ -142,11 +199,10 @@ function refinerBids(
   const target = (cfg.TARGET_DAYS + best.transit) * dailyUse;
   const ceiling = best.deliveredMax * (1 + aggression);
   const starvation = target > 0 ? clamp01(1 - held / target) : 0;
-  const price = roundDown(best.referenceLanded === null
-    ? ceiling
-    : Math.min(ceiling, best.referenceLanded * (1 + cfg.URGENCY * starvation)));
+  const price = roundDown(bidPrice(best.referenceLanded, ceiling, starvation, cfg));
   if (!(price > 0)) return [];
-  const space = plant.crudeStorageCapacity - held;
+  // Tank space when this purchase lands: what is held now, less what the plant uses on the way.
+  const space = plant.crudeStorageCapacity - Math.max(0, held - dailyUse * best.transit);
   const affordable = availableCash(company) / price;
   const qty = lots(Math.min(target - held, space, affordable), lot);
   if (qty <= 0) return [];

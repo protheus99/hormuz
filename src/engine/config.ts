@@ -42,6 +42,7 @@ export interface Config {
   readonly MIN_MARGIN: number;             // $/bbl above cost on producer asks (Selling: Balanced)
   readonly SKEW: number;                   // how hard storage pressure discounts asks
   readonly DUMP_THRESHOLD: number;         // storage fill that triggers selling the excess
+  readonly ASK_DECAY: number;              // share a producer's ask falls for each day in a row unsold
   readonly TARGET_DAYS: number;            // refiner stock target, days of use (Stockpile: Normal)
   readonly URGENCY: number;                // how far a starved refiner raises its bid
   readonly AGGRESSION: number;             // integrated deficit bids above delivered_max
@@ -144,6 +145,7 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
   MIN_MARGIN: 1.00,
   SKEW: 0.10,
   DUMP_THRESHOLD: 0.90,
+  ASK_DECAY: 0.02,
   TARGET_DAYS: 10,
   URGENCY: 0.08,
   AGGRESSION: 0.05,

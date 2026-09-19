@@ -689,7 +689,7 @@ Every company, including the player's, runs these rules every day in Phase 5b. P
 
 1. `ref_price` = previous-close FOB at my origin; if none, the marker price minus `freight(my region → marker region)`, floored at zero.
 2. `floor = actual_cost + infrastructure_tariff + MIN_MARGIN`.
-3. `ask = max(floor, ref_price × (1 − SKEW × (fill_ratio − 0.5)))`.
+3. `ask = max(floor, ref_price × (1 − SKEW × (fill_ratio − 0.5)) × (1 − ASK_DECAY)^days_unsold)`, where `days_unsold` counts consecutive days the company offered crude and sold none. Any sale resets it. Without it, an unsold producer kept asking its stale close for ever.
 4. Quantity is available storage minus tomorrow's deal commitments.
 5. If `fill_ratio ≥ DUMP_THRESHOLD`, the excess above 70% fill is offered at `actual_cost`. A producer never sells below its cash cost.
 
@@ -703,7 +703,9 @@ For each node whose grade the refinery accepts:
 
 **Quantity:** `need = (TARGET_DAYS + transit) × processing_capacity × effective_utilization − (stock + inbound, including deal cargo)`, capped by free storage and available cash, where `transit` is the voyage from the chosen node's cheapest origin. Barrels at sea count as held, so the target must also cover what the plant uses while they sail; without the transit term a refinery 25 days from supply buys 10 days of crude and runs dry for two weeks (found in Phase 7). `starvation` uses the same target. An offline refinery needs nothing and bids nothing.
 
-**Price:** `bid = min(delivered_max, reference_landed × (1 + URGENCY × starvation))`, where `starvation = 1 − (stock + inbound) ÷ target_stock`.
+**Price:** `bid = min(delivered_max, max(reference_landed × (1 + URGENCY × starvation), reference_landed + (delivered_max − reference_landed) × starvation))`, where `starvation = 1 − (stock + inbound) ÷ target_stock`. A little short, a refinery offers a small premium over the reference; seriously short, it climbs towards what the barrel is worth, reaching it with empty tanks. The earlier cap of `URGENCY` over the cheapest reference left starving refineries unable to outbid it once that seller sold out, and the whole market collapsed to the cheapest producer's price (found in Phase 7).
+
+**Space:** tank space is judged for when the purchase lands: `crude_storage_capacity − max(0, stock + inbound − daily_use × transit)`. Counting everything at sea as if already in the tanks blocked far refineries from buying at all.
 
 `delivered_max` uses smoothed product prices (λ, about a 10-day memory) against landed prices that move daily. That inertia is deliberate; if S10's response is too slow, give the run-rate throttle a shorter λ than bid pricing.
 
@@ -733,7 +735,7 @@ These run without any decision. Cards change them.
 | Charters | Cargo is assigned to an idle owned charter whenever that is cheaper than per-barrel freight |
 | Leases | Auto-renew at the current rate. If the pool is full, `LEASE_GRACE_TICKS` at `LEASE_GRACE_MULTIPLIER`, then forced sale at `DISTRESS_DISCOUNT`. Warning `LEASE_WARN_TICKS` ahead |
 | Delivery overflow | Floating on demurrage, then forced sale (§5) |
-| AI output cuts (Phases 7–8) | Cut to 50% after 10 days with netback below breakeven and storage above 80%. From Phase 9, AI companies answer the "Prices below your cost" card instead |
+| AI output cuts (Phases 7–8) | Cut to 50% after 10 days with netback (reference FOB less origin tariff) below breakeven (cash cost plus `FIXED_COST_RATE`) and storage above 80%; restore after 10 days above. From Phase 9, AI companies answer the "Prices below your cost" card instead |
 
 ## 7. Economics
 
@@ -825,6 +827,7 @@ Placeholders for balancing. "× labor" scales with the region's `labor_cost_inde
 | `LOT_SIZE` | 1,000 bbl | All orders and deals |
 | `CARRY_RATE` | $0.10 per bbl per tick | Route cost, refiner pricing |
 | `MIN_MARGIN`, `SKEW`, `DUMP_THRESHOLD` | 1.00, 0.10, 0.90 (Balanced) | Producer asks (§6.1, G4.2) |
+| `ASK_DECAY` | 2% per consecutive day unsold | Producer asks come down when nothing sells (§6.1) |
 | `TARGET_DAYS`, `URGENCY` | 10, 0.08 (Normal) | Refiner bids (§6.2, G4.2) |
 | `AGGRESSION` | 0.05 | Integrated deficit bids |
 | `HALF_SPREAD`, `STORAGE_CARRY`, `HOLD_TICKS` | $0.40, $0.06 per bbl per tick, 30 | Traders (§6.4) |
@@ -872,7 +875,7 @@ Each node clears **once per day** in Phase 5c, as a batch.
 4. **Price.** The trade prints at the midpoint: `fob = ask + surplus ÷ 2`. The buyer pays `fob + freight + tariff`, which is at most its bid; the seller receives `fob`, which is at least its ask.
 5. **Pipeline capacity.** Deal cargo has already claimed capacity in Phase 5a. Capacity reserved by a company is usable only by that company; spot trades share the rest.
 6. **Expiry.** Unfilled remainders expire at the end of Phase 5c, and all escrow is released.
-7. **Marker and close.** The node updates its marker price from the day's fills (§3.3) and records the previous close in `last_fob_by_origin`: each origin's volume-weighted FOB on the last day it traded. Origins that did not trade today keep their earlier close.
+7. **Marker, close and offers.** The node updates its marker price from the day's fills (§3.3) and records the previous close in `last_fob_by_origin`: each origin's volume-weighted FOB on the last day it traded. Origins that did not trade today keep their earlier close. It also publishes the **closing offers**, `last_offer_by_origin`: each origin's lowest ask left unsold today, replaced every day. A buyer's reference for an origin is the lower of its close and its offer, so crude that did not sell is visible at its asking price instead of hidden behind a stale close (found in Phase 7: without offers, refineries crowded one grade while others went unbid).
 
 Greedy surplus-first matching is not the mathematical optimum for this routing problem, but it is deterministic, independent of submission order, and fast: a node sees at most a few hundred orders a day.
 
@@ -938,7 +941,7 @@ The core portfolio runs a deliberate 28% surplus (30,500 bbl/tick produced again
 
 **Company names are fictional (D32).** Each is an invented or derived root plus a generic word (`Tarvale_Sands`, `Ilhavera_Refining`), and every name was checked against real companies. `Santos`, `Australis`, `Athabasca`, `Gulfport`, `Helios`, `Aegis`, `Meridian`, `Jurong` and `Kandla` were replaced because they matched or crowded real companies. New names follow the same pattern, and the full list goes through formal trademark clearance in Phase 10.
 
-Defaults: producer storage holds 3 days of capacity and refinery storage 10; starting cash is $2.0M for producers and $3.0M for refiners; refineries start with 5 days of stock and producers at 25% storage. Bypass pipelines carry 6,000 bbl/tick (East-West to Red Sea) and 3,000 bbl/tick (to Gulf of Oman) — deliberately below Gulf export volume, so they bind in Hormuz scenarios.
+Defaults: producer storage holds 3 days of capacity and refinery storage 10; starting cash is $2.0M for producers and `REFINER_CASH_PER_BBL_DAY` ($1,500) per bbl/day of capacity for refiners — about three weeks of crude, since a far refinery pays for 16–28 days of cargo at sea (a flat $3.0M left the Asian refineries unable to finance their own supply); refineries start with 5 days of stock and producers at 25% storage. Bypass pipelines carry 6,000 bbl/tick (East-West to Red Sea) and 3,000 bbl/tick (to Gulf of Oman) — deliberately below Gulf export volume, so they bind in Hormuz scenarios.
 
 ### 10.3 Balance and calibration
 

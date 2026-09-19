@@ -32,6 +32,11 @@ export interface ExchangeNode {
   lastFobByOrigin: Partial<Record<RegionName, number>>;
   /** Each origin's close on each of the last 20 days, oldest first; deals are priced from it (spec G4.3). */
   fobHistory: Partial<Record<RegionName, number[]>>;
+  /**
+   * The closing offers: each origin's lowest ask left unsold at the end of the last clearing
+   * (spec §8 rule 7). Buyers see crude that did not sell, so a stale close cannot hide it.
+   */
+  lastOfferByOrigin: Partial<Record<RegionName, number>>;
 }
 
 /** Days of closes kept for deal pricing (spec G4.3). */
@@ -55,7 +60,7 @@ export interface Quote {
 
 export function createNode(name: NodeName): ExchangeNode {
   const { grade, markerRegion, startingMarker } = NODES[name];
-  return { name, grade, markerRegion, orders: [], fills: [], markerPrice: startingMarker, lastFobByOrigin: {}, fobHistory: {} };
+  return { name, grade, markerRegion, orders: [], fills: [], markerPrice: startingMarker, lastFobByOrigin: {}, fobHistory: {}, lastOfferByOrigin: {} };
 }
 
 /** Adds an order for today's clearing. Escrow is taken by the caller (Phase 2). */
@@ -139,6 +144,15 @@ export function clear(node: ExchangeNode, ctx: ClearContext): Fill[] {
       dealId: null,
     });
   }
+
+  // Rule 7 (offers): publish each origin's lowest unsold ask before the book is emptied.
+  const offers: Partial<Record<RegionName, number>> = {};
+  for (const ask of asks) {
+    if (ask.qtyRemaining <= 0) continue;
+    const best = offers[ask.originRegion];
+    if (best === undefined || ask.limitPrice < best) offers[ask.originRegion] = ask.limitPrice;
+  }
+  node.lastOfferByOrigin = offers;
 
   // Rule 6: unfilled remainders expire; tomorrow starts with an empty book.
   node.orders = [];
@@ -224,6 +238,15 @@ function recordClose(node: ExchangeNode, fills: readonly Fill[]): void {
   }
 }
 
+/** An origin's reference FOB price: the lower of its last trade and yesterday's unsold offer. */
+export function referencePrice(node: ExchangeNode, origin: RegionName): number | undefined {
+  const close = node.lastFobByOrigin[origin];
+  const offer = node.lastOfferByOrigin[origin];
+  if (close === undefined) return offer;
+  if (offer === undefined) return close;
+  return Math.min(close, offer);
+}
+
 /**
  * What each origin's crude would cost delivered to `destination`, from the previous close.
  * Cheapest first; ties keep the fixed region order, so the list never varies (spec §6.2).
@@ -237,7 +260,7 @@ export function previousClose(
   const tariff = REGIONS[destination].infrastructureTariff;
   const quotes: Quote[] = [];
   for (const origin of REGION_NAMES) {
-    const fob = node.lastFobByOrigin[origin];
+    const fob = referencePrice(node, origin);
     if (fob === undefined) continue;
     const route = ctx.routes.route(origin, destination, avoid);
     if (route === null) continue;

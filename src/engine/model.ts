@@ -174,6 +174,10 @@ export interface WellState {
   shutIn: boolean;
   /** Days left ramping back up after a restart. */
   rampTicksRemaining: number;
+  /** Days in a row this company offered crude and sold none; each one lowers the ask (spec §6.1). */
+  daysUnsold: number;
+  /** Days in a row the netback was below (negative) or above (positive) breakeven (spec §6.5). */
+  breakevenStreak: number;
 }
 
 /** A refinery and its crude tanks (spec §4.9). */

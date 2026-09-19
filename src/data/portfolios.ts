@@ -92,11 +92,18 @@ const producer = (id: string, region: RegionName, grade: Grade, capacity: number
 });
 
 /**
+ * Refiners' starting cash per bbl/day of capacity: about three weeks of crude at typical prices.
+ * Crude is paid for when it is loaded and a far refinery has 16–28 days of it at sea, so §10.2's
+ * flat $3.0M left the Asian refineries unable to finance their own supply (found in Phase 7).
+ */
+export const REFINER_CASH_PER_BBL_DAY = 1_500;
+
+/**
  * §10.2 defaults: 10 days of tanks, starting with 5 days of stock of the grade the tier is built
- * for (Tier 1 light, Tier 2 medium, Tier 3 heavy); refiners start with $3.0M.
+ * for (Tier 1 light, Tier 2 medium, Tier 3 heavy).
  */
 const refiner = (id: string, region: RegionName, techTier: 1 | 2 | 3, capacity: number): PortfolioEntry => ({
-  kind: 'REFINER', id, name: id.replace(/_/g, ' '), region, cash: 3_000_000,
+  kind: 'REFINER', id, name: id.replace(/_/g, ' '), region, cash: REFINER_CASH_PER_BBL_DAY * capacity,
   plant: {
     techTier, processingCapacity: capacity, crudeStorageCapacity: 10 * capacity,
     startingStock: { [techTier === 1 ? 'LIGHT_SWEET' : techTier === 2 ? 'MEDIUM' : 'HEAVY_SOUR']: 5 * capacity },
@@ -108,7 +115,8 @@ const refiner = (id: string, region: RegionName, techTier: 1 | 2 | 3, capacity: 
  * refining, a 5.2% surplus at BASE_UTILIZATION (§10.3).
  */
 export const GLOBAL_PORTFOLIO: readonly PortfolioEntry[] = [
-  ...CORE_PORTFOLIO,
+  // The core refineries get the same working capital as the rest of the world.
+  ...CORE_PORTFOLIO.map((p) => (p.kind === 'REFINER' ? { ...p, cash: REFINER_CASH_PER_BBL_DAY * p.plant.processingCapacity } : p)),
   refiner('Marshaven_Refining', 'US_Gulf_Coast', 3, 10_000),
   producer('Tarvale_Sands', 'Western_Canada', 'HEAVY_SOUR', 5_000, 30),
   producer('Campeche_Energia', 'Mexico_Gulf', 'HEAVY_SOUR', 4_000, 20),

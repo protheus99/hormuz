@@ -20,7 +20,8 @@
     "check": "npm run lint && npm run typecheck && npm test",
     "sim": "tsx src/cli/main.ts",
     "golden:browser": "vite tests/golden --port 5174 --strictPort",
-    "scenario": "tsx tools/run-scenario.ts"
+    "scenario": "tsx tools/run-scenario.ts",
+    "calibrate": "tsx tools/calibrate.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

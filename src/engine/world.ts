@@ -19,7 +19,7 @@ import { FeeKind, type ChokepointStatus, type Grade, type Product } from './enum
 import { runLogistics, type LogisticsReport } from './logistics';
 import type { Agent, AgentId, Cargo, ChokepointName, Deal, Fill, NodeName, Tick } from './model';
 import { rngFor, type Rng } from './rng';
-import { decideOrders, rememberMarkers, updateThrottle, type MarketView } from './rules';
+import { decideOrders, recordSales, rememberMarkers, updateOutput, updateThrottle, type MarketView } from './rules';
 import { placeOrder, releaseEscrow, settleFills } from './settlement';
 import { avoidFor, buildLaneGraph, LaneRouteProvider, setChokepoint, type LaneGraph } from './transport';
 import { NODE_NAMES } from '../data/nodes';
@@ -42,6 +42,8 @@ export interface WorldSettings {
 /** Running totals the conservation invariants are checked against (spec §9). */
 export interface WorldTotals {
   extracted: number;
+  /** Barrels each producer has extracted, for merit-order and metrics reports (spec §10.3). */
+  extractedBy: Partial<Record<AgentId, number>>;
   refined: number;
   forceSold: number;
   retailRevenue: number;
@@ -104,7 +106,7 @@ export function createWorld(s: WorldSettings): World {
     dealSeq: 0,
     events: [...(s.events ?? [])].sort((a, b) => a.tick - b.tick),
     totals: {
-      extracted: 0, refined: 0, forceSold: 0, retailRevenue: 0, forcedSaleRevenue: 0,
+      extracted: 0, extractedBy: {}, refined: 0, forceSold: 0, retailRevenue: 0, forcedSaleRevenue: 0,
       startingBarrels: barrelsHeld(agents, []),
       startingCash: agents.reduce((sum, a) => sum + a.cash, 0),
     },
@@ -134,7 +136,12 @@ export function step(w: World): TickReport {
 
   // Phase 1: extraction.
   let extracted = 0;
-  for (const a of w.agents) if (a.kind === 'PRODUCER' || a.kind === 'INTEGRATED') extracted += extract(a, w.ledger, tick, cfg).barrels;
+  for (const a of w.agents) {
+    if (a.kind !== 'PRODUCER' && a.kind !== 'INTEGRATED') continue;
+    const barrels = extract(a, w.ledger, tick, cfg).barrels;
+    extracted += barrels;
+    w.totals.extractedBy[a.agentId] = (w.totals.extractedBy[a.agentId] ?? 0) + barrels;
+  }
   w.totals.extracted += extracted;
 
   // Phase 2: internal clearing.
@@ -161,6 +168,7 @@ export function step(w: World): TickReport {
   const deliveries = deliverDeals(w.deals, w.cargo, byId, routes, w.ledger, tick, cfg);
 
   // Phase 5b: every company runs its rules against the previous close; orders are escrowed.
+  const asked = new Set<AgentId>();
   w.agents.forEach((a, index) => {
     const own = configFor(a.settings, cfg);
     const view: MarketView = {
@@ -171,6 +179,7 @@ export function step(w: World): TickReport {
     for (const order of decideOrders(a, index, view, own)) {
       placeOrder(a, order);
       submit(w.nodes[order.node], order, cfg);
+      if (order.side === 'ASK') asked.add(a.agentId);
     }
   });
 
@@ -182,9 +191,11 @@ export function step(w: World): TickReport {
     w.cargo.push(...settleFills(nodeFills, byId, w.ledger));
   }
   releaseEscrow(w.agents);
+  recordSales(w.agents, asked, fills);
 
-  // Phase 7: running costs, trader memory, insolvency, invariants.
+  // Phase 7: running costs, trader memory, AI output cuts, insolvency, invariants.
   chargeRunningCosts(w, tick);
+  for (const a of w.agents) if (a.kind === 'PRODUCER' || a.kind === 'INTEGRATED') updateOutput(a, w.nodes, w.ledger, tick, cfg);
   for (const a of w.agents) if (a.kind === 'TRADER') rememberMarkers(a, w.nodes);
   updateInsolvency(w);
   checkInvariants(w, deliveries);

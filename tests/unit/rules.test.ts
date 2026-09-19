@@ -10,7 +10,7 @@ import { createNode, type ExchangeNode } from '../../src/engine/clearing';
 import { createIntegrated, createProducer, createRefiner, createTrader } from '../../src/engine/companies';
 import { configFor, DEFAULT_CONFIG, type Config } from '../../src/engine/config';
 import { isBid, type Order, type Producer, type Refiner } from '../../src/engine/model';
-import { decideOrders, rememberMarkers, type MarketView } from '../../src/engine/rules';
+import { bidPrice, decideOrders, rememberMarkers, type MarketView } from '../../src/engine/rules';
 import { buildLaneGraph, LaneRouteProvider } from '../../src/engine/transport';
 
 let nodes: { DME: ExchangeNode; NC: ExchangeNode; NYMEX: ExchangeNode };
@@ -80,15 +80,32 @@ describe('refiner bids (spec §6.2)', () => {
   // DME: heavy worth 90 − 11 opex = 79 a barrel, less $0.10 × 16 days carry = 77.40 delivered.
   // Reference landed: 58.60 + 2.50 freight + 1.00 tariff = 62.10.
 
-  it('empty tanks: bids the reference plus full urgency, for all the space it has', () => {
-    // Target 10 days × 8,000 = 80,000; starvation 1 → 62.10 × 1.08 = 67.068; tanks hold 25,000.
-    expect(brief(decideOrders(straits(), 1, view, DEFAULT_CONFIG))).toEqual([['BID', 'DME', 67.06, 25_000]]);
+  it('empty tanks: bids the full delivered value, for all the space it has', () => {
+    // Starvation 1: the bid climbs all the way to what a barrel is worth, 77.40; tanks hold 25,000.
+    expect(brief(decideOrders(straits(), 1, view, DEFAULT_CONFIG))).toEqual([['BID', 'DME', 77.4, 25_000]]);
   });
 
-  it('part stocked: less urgency, and only the tank space left', () => {
+  it('part stocked: climbs part of the way from the reference to full value', () => {
     // The target covers 10 days in the tanks plus the 16 days at sea: 26 × 8,000 = 208,000.
-    // 20,000 held: starvation 1 − 20,000 / 208,000 = 0.904 → 62.10 × (1 + 0.08 × 0.904) = 66.590.
-    expect(brief(decideOrders(straits(20_000), 1, view, DEFAULT_CONFIG))).toEqual([['BID', 'DME', 66.59, 5_000]]);
+    // 20,000 held: starvation 1 − 20,000 / 208,000 = 0.904 → 62.10 + (77.40 − 62.10) × 0.904 = 75.93.
+    // By the time it lands, 16 days' use (128,000) will have gone, so all 25,000 of tanks are free.
+    expect(brief(decideOrders(straits(20_000), 1, view, DEFAULT_CONFIG))).toEqual([['BID', 'DME', 75.92, 25_000]]);
+  });
+
+  it('nearly stocked: climbs only a little above the reference', () => {
+    // 190,000 held of 208,000: starvation 0.087 → 62.10 + (77.40 − 62.10) × 0.087 = 63.42.
+    const r = straits(0, 50_000_000);
+    r.crudeStorageCapacity = 400_000;
+    r.inboundBarrels = 190_000;
+    expect(decideOrders(r, 1, view, DEFAULT_CONFIG)[0]?.limitPrice).toBe(63.42);
+  });
+
+  it('keeps the URGENCY premium when the reference is already close to full value', () => {
+    // Reference 75, ceiling 76, half starved: the climb reaches 75.50, the premium 75 × 1.04 = 78,
+    // and the ceiling caps it at 76.
+    expect(bidPrice(75, 76, 0.5, DEFAULT_CONFIG)).toBe(76);
+    expect(bidPrice(75, 90, 0.5, DEFAULT_CONFIG)).toBe(82.5);   // the climb: 75 + 15 × 0.5
+    expect(bidPrice(null, 90, 0.5, DEFAULT_CONFIG)).toBe(90);   // no reference: the ceiling
   });
 
   it('counts consumption during the voyage: a plant 16 days from supply wants more than 10 days’ stock', () => {
@@ -112,7 +129,7 @@ describe('refiner bids (spec §6.2)', () => {
   });
 
   it('short of cash: bids only what it can pay for', () => {
-    expect(brief(decideOrders(straits(0, 100_000), 1, view, DEFAULT_CONFIG))).toEqual([['BID', 'DME', 67.06, 1_000]]);
+    expect(brief(decideOrders(straits(0, 100_000), 1, view, DEFAULT_CONFIG))).toEqual([['BID', 'DME', 77.4, 1_000]]);
   });
 
   it('no reference anywhere: bids its delivered maximum on the most valuable node', () => {
@@ -150,12 +167,12 @@ describe('integrated majors (spec §6.3)', () => {
     plant: { techTier: 3, processingCapacity: 9000, crudeStorageCapacity: 25_000, crudeStock: { HEAVY_SOUR: plantHeavy } },
   });
   // At home in Middle_East the reference landed price is 58.60 + 0.20 tariff = 58.80; heavy is worth
-  // 79.00 with no transit, so the deficit ceiling is 79 × 1.05 = 82.95.
+  // 79.00 less a day's carry, so the deficit ceiling is 78.90 × 1.05 = 82.845.
 
   it('normal: sells its surplus at the close and tops its plant up at the reference plus urgency', () => {
     expect(brief(decideOrders(sabkhar(5_000, 0), 3, view, DEFAULT_CONFIG))).toEqual([
       ['ASK', 'DME', 58.6, 5_000],
-      ['BID', 'DME', 63.5, 25_000],   // 58.80 × 1.08, rounded down
+      ['BID', 'DME', 82.84, 25_000],   // empty tanks: the ceiling, (79 − 0.10 carry) × 1.05 AGGRESSION
     ]);
   });
 

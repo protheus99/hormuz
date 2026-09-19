@@ -119,14 +119,14 @@ export function integrate(p: Producer, plant: PlantSpec): IntegratedMajor {
   if (p.storageEscrow !== 0 || p.cashReserved !== 0) fail(spec, 'integration must happen between ticks, with no escrow held');
   const {
     kind, grade, extractionCapacity, fieldMaxCapacity, baseExtractionCost, storageCapacity, storage, storageEscrow,
-    peakCapacity, extractionRate, shutIn, rampTicksRemaining, ...company
+    peakCapacity, extractionRate, shutIn, rampTicksRemaining, daysUnsold, breakevenStreak, ...company
   } = p;
   return {
     ...company,
     kind: AgentKind.INTEGRATED,
     well: {
       grade, extractionCapacity, fieldMaxCapacity, baseExtractionCost, storageCapacity, storage, storageEscrow,
-      peakCapacity, extractionRate, shutIn, rampTicksRemaining,
+      peakCapacity, extractionRate, shutIn, rampTicksRemaining, daysUnsold, breakevenStreak,
     },
     plant: buildPlant(spec, p.region, plant),
   };
@@ -174,6 +174,8 @@ function buildWell(owner: CompanySpec, region: RegionName, w: WellSpec): WellSta
     extractionRate: 1,
     shutIn: false,
     rampTicksRemaining: 0,
+    daysUnsold: 0,
+    breakevenStreak: 0,
   };
 }
 
