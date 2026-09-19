@@ -21,7 +21,8 @@
     "sim": "tsx src/cli/main.ts",
     "golden:browser": "vite tests/golden --port 5174 --strictPort",
     "scenario": "tsx tools/run-scenario.ts",
-    "calibrate": "tsx tools/calibrate.ts"
+    "calibrate": "tsx tools/calibrate.ts",
+    "report": "tsx tools/report.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
