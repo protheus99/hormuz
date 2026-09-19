@@ -114,6 +114,8 @@ export interface Config {
 
   // Finance and intelligence (spec G6)
   readonly CREDIT_RATE: number;            // per tick on the drawn balance
+  readonly CREDIT_BASE: { readonly PRODUCER: number; readonly REFINER: number; readonly TRADER: number };   // $ added to 50% of capital assets
+  readonly CREDIT_CUSHION_DAYS: number;    // days of fixed costs kept as cash before repaying credit
   readonly REPORT_COST: number;
   readonly REPORT_LAG: number;             // ticks old
   readonly REPORT_NOISE: number;           // ± share of the true value
@@ -212,6 +214,8 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
   DEAL_OFFER_INTERVAL: 7,
 
   CREDIT_RATE: 0.0003,
+  CREDIT_BASE: { PRODUCER: 1_000_000, REFINER: 2_000_000, TRADER: 2_000_000 },
+  CREDIT_CUSHION_DAYS: 30,
   REPORT_COST: 25_000,
   REPORT_LAG: 5,
   REPORT_NOISE: 0.15,

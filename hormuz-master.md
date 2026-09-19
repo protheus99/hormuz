@@ -227,7 +227,7 @@ AI companies use only public information plus their own state. Order books are i
 
 **Net worth** = cash + inventory at its grade's marker price + depreciated capital assets − credit drawn.
 
-**Credit line:** limit = 50% of capital assets + a play-type base amount, with `CREDIT_RATE` daily interest on the drawn balance.
+**Credit line:** limit = 50% of capital assets + a play-type base amount (`CREDIT_BASE`: producer $1M, refiner and trader $2M), with `CREDIT_RATE` daily interest on the drawn balance. Capital assets are valued at replacement cost: the plant at `FACTORY_COST` plus its tier upgrades, wells at `DRILL_COST` and tanks at `STORAGE_COST`, all × labor. At the end of each day negative cash is covered from the line automatically (invariant 9), and cash above `CREDIT_CUSHION_DAYS` (30) of fixed costs repays it. Borrowing is money lent into the economy, so invariant 2 counts net borrowing.
 
 **Bankruptcy:** available cash below zero with the credit line fully drawn for 3 consecutive days. Scenarios may add their own loss conditions.
 
@@ -857,7 +857,7 @@ Placeholders for balancing. "× labor" scales with the region's `labor_cost_inde
 | `DEAL_MAX_SHARE` | 80% of capacity | Deals |
 | `SHORTFALL_RATE`, `CANCEL_RATE` | 15% of deal price per missing barrel; 10% of remaining deal value | Deal penalties |
 | `TENDER_DELAY`, `DEAL_OFFER_INTERVAL` | 3–5 ticks; 7 ticks | Deal offers |
-| `CREDIT_RATE` | 0.03% per tick | Credit line |
+| `CREDIT_RATE`, `CREDIT_BASE`, `CREDIT_CUSHION_DAYS` | 0.03% per tick; producer $1M, refiner and trader $2M; 30 days | Credit line (G6) |
 | `REPORT_COST`, `REPORT_LAG`, `REPORT_NOISE` | $25,000, 5 ticks, ±15% | Market reports |
 | `INTEGRATE_THRESHOLD` | Net worth of 3× starting | Integration and second-refinery cards (G2, G4.4) |
 | `CARD_MAX_OPEN`, `CARD_COOLDOWN`, `CARD_DEADLINE` | 3; 14 ticks per card type; 7 ticks | Cards |
@@ -884,7 +884,7 @@ Greedy surplus-first matching is not the mathematical optimum for this routing p
 Checked every tick in Phase 7; the run halts with a descriptive error if one fails.
 
 1. **Barrel conservation:** `total_extracted − total_refined − total_force_sold = Σ producer storage + Σ refiner stock + Σ trader and leased storage + Σ cargo` (within 1e-6), counting `MOVING`, `HELD` and `FLOATING` cargo.
-2. **Cash conservation:** the change in total company cash equals retail and forced-sale revenue minus the `FeeLedger`'s external costs. Deal payments, penalties and spot trades are transfers.
+2. **Cash conservation:** the change in total company cash equals retail and forced-sale revenue plus net borrowing minus the `FeeLedger`'s external costs. Deal payments, penalties and spot trades are transfers.
 3. **Clearing completeness:** after Phase 5c, no pair of orders with positive surplus and remaining route capacity is left unmatched on any node.
 4. **Escrow:** at the end of every tick, every company's `storage_escrow` and `cash_reserved` are zero.
 5. **Physical bounds:** no negative storage anywhere, and no storage above capacity.
@@ -1030,7 +1030,7 @@ The build proceeds on these. Changing one means updating the sections it names.
 | D8 | Product prices follow a mean-reverting log process with seasonality, correlated shocks and weak lagged supply feedback (§7.3) |
 | D9 | The yield table drives decisions; the 3-2-1 crack is reporting only |
 | D10 | Fixed operating costs of $2.00 (producer) and $4.00 (refiner) per bbl/day of capacity make idling a real trade-off |
-| D11 | Insolvent companies cannot bid and are recorded, not removed |
+| D11 | Insolvent companies cannot bid and are recorded, not removed. An insolvent company whose available cash is back above zero may trade again; the record stays |
 | D12 | Cargo that arrives to full storage floats on demurrage, then is force-sold (§5) |
 | D13 | Lease pools cap each company at 40%; expiring leases renew, then take a grace period, then force-sell (§6.5) |
 | D14 | Global production ÷ consumption stays within 1.00–1.10, with no new refining inside the Gulf (§10.3) |

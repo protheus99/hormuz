@@ -15,14 +15,15 @@ import { dealCommitments, deliverDeals, type DealDelivery } from './deals';
 import {
   applyShock, createLedger, createRetailSink, recordFee, updatePrices, type FeeLedger, type RetailSink,
 } from './economics';
-import { FeeKind, type ChokepointStatus, type Grade, type Product } from './enums';
+import { FeeKind, type ChokepointStatus, type Grade, type Personality, type Product } from './enums';
 import { runLogistics, type LogisticsReport } from './logistics';
 import type { Agent, AgentId, Cargo, ChokepointName, Deal, Fill, NodeName, Tick } from './model';
-import { rngFor, type Rng } from './rng';
+import { nextFloat, rngFor, type Rng } from './rng';
 import { decideOrders, recordSales, rememberMarkers, updateOutput, updateThrottle, type MarketView } from './rules';
 import { placeOrder, releaseEscrow, settleFills } from './settlement';
 import { avoidFor, buildLaneGraph, LaneRouteProvider, setChokepoint, type LaneGraph } from './transport';
 import { NODE_NAMES } from '../data/nodes';
+import { REGIONS } from '../data/regions';
 import type { PlantData, PortfolioEntry } from '../data/portfolios';
 
 /** Something scheduled to happen at the start of a tick (spec §5 phase 0). Event stages come in Phase 11. */
@@ -32,9 +33,23 @@ export type ScheduledEvent =
   | { readonly tick: Tick; readonly kind: 'PRODUCT_SHOCK'; readonly product: Product; readonly pct: number; readonly persistent: boolean }
   | { readonly tick: Tick; readonly kind: 'PLANT_ONLINE'; readonly agentId: string; readonly online: boolean };
 
+/**
+ * How AI personalities are dealt out (spec G8): Easy is mostly Conservative, Normal even, Hard
+ * mostly Aggressive. Companies whose data names a personality keep it.
+ */
+export type PersonalityMix = 'MOSTLY_CONSERVATIVE' | 'EVEN' | 'MOSTLY_AGGRESSIVE';
+
+const MIX_WEIGHTS: Readonly<Record<PersonalityMix, readonly [number, number, number]>> = {
+  MOSTLY_CONSERVATIVE: [0.6, 0.3, 0.1],
+  EVEN: [1 / 3, 1 / 3, 1 / 3],
+  MOSTLY_AGGRESSIVE: [0.1, 0.3, 0.6],
+};
+
 export interface WorldSettings {
   readonly seed: string;
   readonly portfolio: readonly PortfolioEntry[];
+  /** Omitted: every AI company without a named personality is Balanced (engine tests). */
+  readonly personalityMix?: PersonalityMix;
   readonly events?: readonly ScheduledEvent[];
   readonly config?: DeepPartial<Config>;
 }
@@ -48,6 +63,8 @@ export interface WorldTotals {
   forceSold: number;
   retailRevenue: number;
   forcedSaleRevenue: number;
+  /** Credit drawn less credit repaid, across all companies: money lent into the economy. */
+  netBorrowing: number;
   readonly startingBarrels: number;
   readonly startingCash: number;
 }
@@ -70,6 +87,8 @@ export interface World {
   totals: WorldTotals;
   /** Consecutive days each company has had negative available cash (G6 bankruptcy). */
   distressDays: Partial<Record<AgentId, number>>;
+  /** Every company that has ever been insolvent, with the first tick it happened (D11: recorded). */
+  insolvencies: Partial<Record<AgentId, Tick>>;
 }
 
 /** What happened in one tick, for metrics and tests. */
@@ -88,7 +107,9 @@ export const BANKRUPTCY_DAYS = 3;
 
 export function createWorld(s: WorldSettings): World {
   const config = withOverrides(DEFAULT_CONFIG, s.config ?? {});
-  const agents = s.portfolio.map(build);
+  const ai = rngFor(s.seed, 'ai');
+  const agents = s.portfolio.map((p) => build(withPersonality(p, s.personalityMix, ai)));
+  for (const a of agents) a.creditLimit = creditLimit(a, config);
   const nodes = {} as Record<NodeName, ExchangeNode>;
   for (const name of NODE_NAMES) nodes[name] = createNode(name);
   const world: World = {
@@ -99,18 +120,19 @@ export function createWorld(s: WorldSettings): World {
     nodes,
     graph: buildLaneGraph(config),
     sink: createRetailSink(s.seed, config),
-    rng: { events: rngFor(s.seed, 'events'), ai: rngFor(s.seed, 'ai') },
+    rng: { events: rngFor(s.seed, 'events'), ai },
     ledger: createLedger(),
     cargo: [],
     deals: [],
     dealSeq: 0,
     events: [...(s.events ?? [])].sort((a, b) => a.tick - b.tick),
     totals: {
-      extracted: 0, extractedBy: {}, refined: 0, forceSold: 0, retailRevenue: 0, forcedSaleRevenue: 0,
+      extracted: 0, extractedBy: {}, refined: 0, forceSold: 0, retailRevenue: 0, forcedSaleRevenue: 0, netBorrowing: 0,
       startingBarrels: barrelsHeld(agents, []),
       startingCash: agents.reduce((sum, a) => sum + a.cash, 0),
     },
     distressDays: {},
+    insolvencies: {},
   };
   return world;
 }
@@ -193,8 +215,9 @@ export function step(w: World): TickReport {
   releaseEscrow(w.agents);
   recordSales(w.agents, asked, fills);
 
-  // Phase 7: running costs, trader memory, AI output cuts, insolvency, invariants.
+  // Phase 7: running costs, credit, trader memory, AI output cuts, insolvency, invariants.
   chargeRunningCosts(w, tick);
+  settleCredit(w, tick);
   for (const a of w.agents) if (a.kind === 'PRODUCER' || a.kind === 'INTEGRATED') updateOutput(a, w.nodes, w.ledger, tick, cfg);
   for (const a of w.agents) if (a.kind === 'TRADER') rememberMarkers(a, w.nodes);
   updateInsolvency(w);
@@ -240,7 +263,7 @@ export function checkInvariants(w: World, deliveries: readonly DealDelivery[] = 
 
   // 2. Cash conservation.
   const cash = w.agents.reduce((s, a) => s + a.cash, 0);
-  const expectedCash = t.startingCash + t.retailRevenue + t.forcedSaleRevenue - w.ledger.total;
+  const expectedCash = t.startingCash + t.retailRevenue + t.forcedSaleRevenue + t.netBorrowing - w.ledger.total;
   if (Math.abs(cash - expectedCash) > 1e-3 + 1e-12 * Math.abs(expectedCash)) {
     fail(`company cash ${cash} ≠ start + revenue − fees = ${expectedCash}`);
   }
@@ -271,6 +294,9 @@ export function checkInvariants(w: World, deliveries: readonly DealDelivery[] = 
     }
     // 8. Limits.
     if (well && well.extractionCapacity > well.fieldMaxCapacity + 1e-6) fail(`${a.name} pumps above its field maximum`);
+    if (a.creditDrawn > a.creditLimit + 1e-6) fail(`${a.name} has drawn $${a.creditDrawn} on a $${a.creditLimit} line`);
+    // 9. Solvency: cash is never negative while credit remains.
+    if (a.cash < -1e-6 && a.creditDrawn < a.creditLimit - 1e-6) fail(`${a.name} has $${a.cash} with credit left`);
   }
 
   // 7. Network: pipelines within capacity.
@@ -288,6 +314,15 @@ export function checkInvariants(w: World, deliveries: readonly DealDelivery[] = 
 }
 
 // ─── Internals ───────────────────────────────────────────────────────────────────────────────
+
+/** Deals a personality from the mix, using the ai stream, unless the data names one. */
+function withPersonality(p: PortfolioEntry, mix: PersonalityMix | undefined, ai: Rng): PortfolioEntry {
+  if (mix === undefined || p.personality !== undefined) return p;
+  const [conservative, balanced] = MIX_WEIGHTS[mix];
+  const roll = nextFloat(ai);
+  const personality: Personality = roll < conservative ? 'CONSERVATIVE' : roll < conservative + balanced ? 'BALANCED' : 'AGGRESSIVE';
+  return { ...p, personality };
+}
 
 function build(p: PortfolioEntry): Agent {
   const base = { id: p.id, name: p.name, region: p.region, cash: p.cash, ...(p.personality ? { personality: p.personality } : {}) };
@@ -369,16 +404,87 @@ function chargeRunningCosts(w: World, tick: Tick): void {
 }
 
 /**
+ * Spec G6: a credit line of 50% of capital assets plus a base amount for the play type. Capital
+ * assets are valued at replacement cost: the plant at FACTORY_COST plus its tier upgrades, wells at
+ * DRILL_COST and tanks at STORAGE_COST, all times the region's labor index.
+ */
+export function creditLimit(a: Agent, cfg: Config): number {
+  const labor = REGIONS[a.region].laborCostIndex;
+  const well = wellOf(a);
+  const plant = plantOf(a);
+  let assets = 0;
+  if (well) assets += (cfg.DRILL_COST * well.extractionCapacity + cfg.STORAGE_COST * well.storageCapacity) * labor;
+  if (plant) {
+    const tier = (plant.techTier >= 2 ? cfg.TIER_COST.TO_TIER_2 : 0) + (plant.techTier >= 3 ? cfg.TIER_COST.TO_TIER_3 : 0);
+    assets += ((cfg.FACTORY_COST + tier) * plant.processingCapacity + cfg.STORAGE_COST * plant.crudeStorageCapacity) * labor;
+  }
+  if (a.kind === 'TRADER') {
+    for (const [region, hub] of Object.entries(a.hubs)) {
+      if (hub) assets += cfg.STORAGE_COST * hub.capacity * REGIONS[region as keyof typeof REGIONS].laborCostIndex;
+    }
+  }
+  const base = a.kind === 'TRADER' ? cfg.CREDIT_BASE.TRADER : plant ? cfg.CREDIT_BASE.REFINER : cfg.CREDIT_BASE.PRODUCER;
+  return 0.5 * assets + base;
+}
+
+/**
+ * Phase 7 credit (spec G6, invariant 9): interest on what is drawn; any negative cash is covered
+ * from the line, as far as it goes; and cash above a cushion of CREDIT_CUSHION_DAYS of fixed costs
+ * repays it. Borrowing and repayment are money moving in and out of the economy.
+ */
+function settleCredit(w: World, tick: Tick): void {
+  const cfg = w.config;
+  for (const a of w.agents) {
+    if (a.creditDrawn > 0) {
+      const interest = cfg.CREDIT_RATE * a.creditDrawn;
+      a.cash -= interest;
+      recordFee(w.ledger, { tick, agentId: a.agentId, kind: FeeKind.CREDIT_INTEREST, amount: interest });
+    }
+    if (a.cash < 0) {
+      const draw = Math.min(-a.cash, a.creditLimit - a.creditDrawn);
+      if (draw > 0) {
+        a.cash += draw;
+        a.creditDrawn += draw;
+        w.totals.netBorrowing += draw;
+      }
+    } else if (a.creditDrawn > 0) {
+      const repay = Math.min(a.creditDrawn, Math.max(0, a.cash - cfg.CREDIT_CUSHION_DAYS * dailyFixedCost(a, cfg)));
+      if (repay > 0) {
+        a.cash -= repay;
+        a.creditDrawn -= repay;
+        w.totals.netBorrowing -= repay;
+      }
+    }
+  }
+}
+
+function dailyFixedCost(a: Agent, cfg: Config): number {
+  const well = wellOf(a);
+  const plant = plantOf(a);
+  return (well ? cfg.FIXED_COST_RATE.PRODUCER * well.extractionCapacity : 0)
+    + (plant ? cfg.FIXED_COST_RATE.REFINER * plant.processingCapacity : 0)
+    + (a.kind === 'TRADER' ? cfg.OFFICE_COST.PER_TICK * a.offices.length : 0);
+}
+
+/**
  * Spec G6: a company whose available cash stays below zero, with no credit left, for
  * BANKRUPTCY_DAYS days in a row is insolvent. It is recorded, not removed, and may not bid (D11).
+ * Once its available cash is back above zero — cargo it had already paid for gets sold — it may
+ * trade again; the record of the insolvency stays in `insolvencies`.
  */
 function updateInsolvency(w: World): void {
   for (const a of w.agents) {
     const creditLeft = a.creditLimit - a.creditDrawn;
-    const distressed = a.cash - a.cashReserved < 0 && creditLeft <= 0;
+    const available = a.cash - a.cashReserved;
+    const distressed = available < 0 && creditLeft <= 0;
     const days = distressed ? (w.distressDays[a.agentId] ?? 0) + 1 : 0;
     w.distressDays[a.agentId] = days;
-    if (days >= BANKRUPTCY_DAYS) a.insolvent = true;
+    if (days >= BANKRUPTCY_DAYS && !a.insolvent) {
+      a.insolvent = true;
+      w.insolvencies[a.agentId] ??= w.tick;
+    } else if (a.insolvent && available >= 0) {
+      a.insolvent = false;
+    }
   }
 }
 

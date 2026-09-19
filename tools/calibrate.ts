@@ -10,9 +10,14 @@ import { parseArgs } from 'node:util';
 import { GLOBAL_PORTFOLIO } from '../src/data/portfolios';
 import { actualCost } from '../src/engine/agents';
 import { plantOf, wellOf } from '../src/engine/companies';
-import { createWorld, step, type ScheduledEvent, type World } from '../src/engine/world';
+import { createWorld, step, type PersonalityMix, type ScheduledEvent, type World } from '../src/engine/world';
 
-const { values } = parseArgs({ options: { seeds: { type: 'string', default: '3' }, ticks: { type: 'string', default: '365' } } });
+const { values } = parseArgs({ options: {
+  seeds: { type: 'string', default: '3' },
+  ticks: { type: 'string', default: '365' },
+  mix: { type: 'string', default: 'EVEN' },
+} });
+const mix = values.mix === 'NONE' ? undefined : (values.mix as PersonalityMix);
 const seeds = Array.from({ length: Number(values.seeds) }, (_, i) => `cal-${i + 1}`);
 const ticks = Number(values.ticks);
 
@@ -36,6 +41,7 @@ export interface RunStats {
   dearQuartile: number;
   /** Producers whose output rate was ever cut. */
   outputCutters: number;
+  /** Every company that was insolvent at any point in the run. */
   insolvent: string[];
   /** Mean marker by node, and the share of days NYMEX > NC > DME. */
   markers: Record<string, number>;
@@ -45,7 +51,7 @@ export interface RunStats {
 }
 
 export function measure(seed: string, events: readonly ScheduledEvent[]): RunStats {
-  const w: World = createWorld({ seed, portfolio: GLOBAL_PORTFOLIO, events });
+  const w: World = createWorld({ seed, portfolio: GLOBAL_PORTFOLIO, events, ...(mix ? { personalityMix: mix } : {}) });
   const producers = w.agents.filter((a) => a.kind === 'PRODUCER' || a.kind === 'INTEGRATED');
   const cut = new Set<string>();
   const capacity = w.agents.reduce((s, a) => s + (plantOf(a)?.processingCapacity ?? 0), 0);
@@ -92,7 +98,7 @@ export function measure(seed: string, events: readonly ScheduledEvent[]): RunSta
     cheapQuartile: extracted(byCost.slice(0, q)),
     dearQuartile: extracted(byCost.slice(-q)),
     outputCutters: cut.size,
-    insolvent: w.agents.filter((a) => a.insolvent).map((a) => a.agentId),
+    insolvent: Object.keys(w.insolvencies),
     markers: Object.fromEntries(Object.entries(markerSums).map(([k, v]) => [k, v / ticks])),
     gradeOrderShare: ordered / ticks,
     utilization: refined / (capacity * ticks),
@@ -112,6 +118,6 @@ if (process.argv[1]?.endsWith('calibrate.ts')) {
     console.log(`  Output cuts               ${s0.outputCutters} producers in S0, ${s4.outputCutters} in S4 (target ≥ 3 across S0–S17)`);
     console.log(`  Refinery utilization      ${pct(s0.utilization)} (S0)`);
     console.log(`  Markers (S0 mean)         ${Object.entries(s0.markers).map(([k, v]) => `${k} ${v.toFixed(1)}`).join('  ')}; grade order held ${pct(s0.gradeOrderShare)} of days`);
-    console.log(`  Insolvent (S0)            ${s0.insolvent.join(', ') || 'none'} (target: none)`);
+    console.log(`  Ever insolvent (S0)       ${s0.insolvent.join(', ') || 'none'} (target: none)`);
   }
 }

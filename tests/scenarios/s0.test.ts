@@ -75,6 +75,34 @@ describe('scheduled events and forks', () => {
   });
 });
 
+describe('credit lines (spec G6, invariants 8 and 9)', () => {
+  it('gives each company 50% of its capital assets plus its play type’s base amount', () => {
+    const w = s0();
+    const straits = w.agents.find((a) => a.agentId === 'Straits_Refining');
+    // Coastal_Asia labor 0.80: (4,000 + 3,000 + 5,000) × 8,000 plant + 15 × 25,000 tanks = $96.375M × 0.80.
+    expect(straits?.creditLimit).toBeCloseTo(0.5 * (12_000 * 8_000 + 15 * 25_000) * 0.8 + 2_000_000, 6);
+  });
+
+  it('covers negative cash from the line at the end of the day, charges interest, and repays above the cushion', () => {
+    const w = s0();
+    const metro = w.agents.find((a) => a.agentId === 'Metro_Refine');
+    if (!metro) throw new Error('Metro expected');
+    metro.cash -= 5_000_000;
+    (w.totals as { startingCash: number }).startingCash -= 5_000_000;
+    step(w);
+    expect(metro.cash).toBeGreaterThanOrEqual(0);
+    expect(metro.creditDrawn).toBeGreaterThan(0);
+    const drawn = metro.creditDrawn;
+    step(w);
+    expect(w.ledger.entries.some((e) => e.kind === 'CREDIT_INTEREST' && e.agentId === metro.agentId)).toBe(true);
+    metro.cash += 50_000_000;
+    (w.totals as { startingCash: number }).startingCash += 50_000_000;
+    step(w);
+    expect(metro.creditDrawn).toBe(0);
+    expect(drawn).toBeGreaterThan(0);
+  });
+});
+
 describe('invariants and insolvency (spec §9, G6)', () => {
   it('stops the run, naming the problem, if barrels appear from nowhere', () => {
     const w = s0();
@@ -96,6 +124,7 @@ describe('invariants and insolvency (spec §9, G6)', () => {
     const w = s0();
     const metro = w.agents.find((a) => a.agentId === 'Metro_Refine');
     if (!metro) throw new Error('Metro expected');
+    metro.creditLimit = 0;   // no credit line to fall back on
     metro.cash = -1_000_000;
     (w.totals as { startingCash: number }).startingCash -= 4_000_000;   // keep invariant 2 balanced for this test
     run(w, 2);
@@ -103,5 +132,22 @@ describe('invariants and insolvency (spec §9, G6)', () => {
     step(w);
     expect(metro.insolvent).toBe(true);
     expect(w.agents).toContain(metro);
+    expect(w.insolvencies[metro.agentId]).toBe(3);
+  });
+
+  it('lets an insolvent company trade again once its cash is back above zero, keeping the record', () => {
+    const w = s0();
+    const metro = w.agents.find((a) => a.agentId === 'Metro_Refine');
+    if (!metro) throw new Error('Metro expected');
+    metro.creditLimit = 0;
+    metro.cash = -1_000_000;
+    (w.totals as { startingCash: number }).startingCash -= 4_000_000;
+    run(w, 3);
+    expect(metro.insolvent).toBe(true);
+    metro.cash += 5_000_000;
+    (w.totals as { startingCash: number }).startingCash += 5_000_000;
+    step(w);
+    expect(metro.insolvent).toBe(false);
+    expect(w.insolvencies[metro.agentId]).toBe(3);
   });
 });
