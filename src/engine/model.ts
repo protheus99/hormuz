@@ -2,7 +2,7 @@
 // copies with structuredClone. That is why lists are arrays, never Set: JSON turns a Set into {}.
 
 import type {
-  AgentKind, AppetiteSetting, CargoStatus, Controller, Grade, Personality, RiskSetting, SellingSetting, Side, StockpileSetting,
+  AgentKind, AppetiteSetting, CargoStatus, Controller, DealStatus, Grade, Personality, RiskSetting, SellingSetting, Side, StockpileSetting,
 } from './enums';
 import type { ChokepointName } from '../data/chokepoints';
 import type { NodeName } from '../data/nodes';
@@ -244,7 +244,8 @@ export interface Cargo {
   qty: number;
   readonly origin: RegionName;
   readonly destination: RegionName;
-  readonly route: Route;
+  /** Fixed at dispatch; set later only for deal cargo that waited at its origin for a route. */
+  route: Route;
   readonly dispatchTick: Tick;
   readonly dealId: DealId | null;
   status: CargoStatus;
@@ -254,12 +255,48 @@ export interface Cargo {
   ticksLeft: number;
   /** Ticks spent floating offshore waiting for tank space (spec §5). */
   demurrageTicks: number;
+  /**
+   * Deal cargo loaded and paid for, waiting at its origin because no route had pipeline space
+   * (spec §5 phase 5a). It is HELD, never moves, and is routed again each day until space frees.
+   */
+  awaitingRoute: boolean;
 }
 
 /** A new cargo at the start of its route. Delivery inside one region still takes one tick (spec §5). */
-export function newCargo(fields: Omit<Cargo, 'status' | 'leg' | 'ticksLeft' | 'demurrageTicks'>): Cargo {
+export function newCargo(fields: Omit<Cargo, 'status' | 'leg' | 'ticksLeft' | 'demurrageTicks' | 'awaitingRoute'>): Cargo {
   const local = fields.route.edges.length === 0;
-  return { ...fields, status: 'MOVING', leg: 0, ticksLeft: local ? 1 : 0, demurrageTicks: 0 };
+  return { ...fields, status: 'MOVING', leg: 0, ticksLeft: local ? 1 : 0, demurrageTicks: 0, awaitingRoute: false };
+}
+
+// ---- Deals (spec §4.4, G4.3) -----------------------------------------------------------------
+
+/** A fixed-price, fixed-volume, fixed-term supply agreement. */
+export interface Deal {
+  readonly dealId: DealId;
+  readonly sellerId: AgentId;
+  readonly buyerId: AgentId;
+  readonly grade: Grade;
+  readonly originRegion: RegionName;
+  readonly deliveryRegion: RegionName;
+  /** Whole lots per day. */
+  readonly qtyPerDay: number;
+  /** Fixed FOB $/bbl. */
+  readonly price: number;
+  /** First delivery day, and the day after the last. */
+  readonly startTick: Tick;
+  readonly endTick: Tick;
+  /** The buyer's route choice; rerouting cards change it by splitting the deal. */
+  readonly avoidChokepoints: readonly ChokepointName[];
+  /** The other half of a trader's back-to-back pair. */
+  readonly linkedDealId: DealId | null;
+  status: DealStatus;
+  deliveredBbl: number;
+  shortfallBbl: number;
+}
+
+/** Deterministic deal IDs, in signing order. */
+export function makeDealId(seq: number): DealId {
+  return `deal-${String(seq).padStart(6, '0')}` as DealId;
 }
 
 /** Deterministic cargo IDs: the node and tick that created it, then its position in that settlement. */

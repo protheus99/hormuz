@@ -671,7 +671,7 @@ Owns the regions, nodes, lane graph, companies, deals, cargo, retail sink, RNG s
 | 2 | **Internal clearing** | Integrated companies move crude from well to plant at cost. |
 | 3 | **Refining** | Online refineries refine and sell output to the retail sink. |
 | 4 | **Logistics** | Cargo advances. A cargo whose next edge is `CLOSED` is `HELD` at the entry waypoint; a `DELAYED` edge adds its delay on entry. Arriving cargo is delivered up to free storage and pays destination tariff on what is delivered; the rest floats (below). |
-| 5a | **Deal deliveries** | Active deals deliver in `deal_id` order. The seller's storage becomes cargo on the deal's route, claiming pipeline capacity ahead of spot trades; if no route has capacity, the cargo is created `HELD` at the origin and waits. The buyer pays `price × volume`, the seller pays origin tariff, and any shortfall pays `SHORTFALL_RATE`. |
+| 5a | **Deal deliveries** | Deal cargo already waiting at its origin tries again for a route first. Then active deals deliver in `deal_id` order. The seller's storage becomes cargo on the deal's route, claiming pipeline capacity ahead of spot trades and splitting across routes as each fills; if no route has capacity, the cargo is created `HELD` at the origin, loaded and paid for, and waits. The buyer pays `price × volume`, the seller pays origin tariff, and any shortfall pays `SHORTFALL_RATE`. |
 | 5b | **Orders** | Every company runs its §6 rules against the previous close and submits limit orders. Asks escrow barrels; bids reserve cash. Submission order has no effect. |
 | 5c | **Clearing** | Each node clears once (§8). Unfilled orders expire and escrow is released. |
 | 6 | **Settlement & dispatch** | Each fill settles: cash moves, the seller pays origin tariff, the buyer pays freight, pipeline capacity is reserved, and cargo is dispatched. |
@@ -1233,7 +1233,8 @@ Scripts: `dev` (vite), `build` (vite build), `test` (vitest run), `typecheck` (t
 | `engine/transport.ts` | model, config, heap, routes (the interface), `data/lanes` |
 | `engine/logistics.ts` | model, config, transport, companies, economics, data |
 | `engine/routes.ts` | model |
-| `engine/clearing.ts`, `engine/deals.ts` | model, config, routes — only the `RouteProvider` interface, never the lane graph |
+| `engine/clearing.ts` | model, config, routes — only the `RouteProvider` interface, never the lane graph |
+| `engine/deals.ts` | model, config, companies, economics, routes (the interface), clearing (types), data |
 | `engine/economics.ts` | model, config, rng |
 | `engine/companies.ts` | model, data |
 | `engine/settlement.ts` | model, companies, economics, data |
@@ -1299,11 +1300,12 @@ export function runLogistics(cargo: Cargo[], agents: ReadonlyMap<AgentId, Agent>
   tick: Tick, config: Config, distressPrice: (grade: Grade) => number): LogisticsReport;   // phase 4: move, unload, float, force-sell
 
 // deals.ts
-export function priceDeal(w: World, terms: DealTerms): number;
-export function signDeal(w: World, terms: DealTerms): Deal;
-export function deliverDeals(w: World): DealDelivery[];                                // Phase 5a
-export function cancelDeal(w: World, id: DealId, by: AgentId): FeeEntry;
-export function splitDeal(w: World, id: DealId, avoid: readonly ChokepointName[]): [Deal, Deal];
+export function priceDeal(node: ExchangeNode, origin: RegionName, offeredBy: 'SELLER' | 'BUYER', p: Personality | null): number;   // 20-day average ±2%
+export function signDeal(terms: DealTerms, agents, existing: readonly Deal[], seq: number, tick: Tick, cfg: Config): Deal;   // starts tomorrow
+export function deliverDeals(deals, cargo, agents, routes: RouteProvider, ledger, tick, cfg): DealDelivery[];   // Phase 5a
+export function dealCommitments(deals: readonly Deal[], seller: AgentId, day: Tick): number;
+export function cancelDeal(deal: Deal, by: AgentId, agents, tick, cfg): number;          // fee, paid to the other party
+export function splitDeal(deal: Deal, avoid: readonly ChokepointName[], seqs: [number, number], tick, cfg): [Deal, Deal];
 
 // economics.ts
 export function createRetailSink(seed: string, config: Config): RetailSink;          // tick 0, prices at fair value

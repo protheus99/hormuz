@@ -69,7 +69,7 @@ export function runLogistics(
   }
 
   for (const c of cargo) {
-    if (c.status === 'FLOATING' || c.qty === 0) continue;
+    if (c.status === 'FLOATING' || c.qty === 0 || c.awaitingRoute) continue;
     if (advanceCargo(c, g) !== 'ARRIVED') continue;
     delivered += unload(c, ownerOf(agents, c), ledger, tick);
     if (c.qty > 0) c.status = 'FLOATING';

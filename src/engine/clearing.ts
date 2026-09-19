@@ -30,7 +30,12 @@ export interface ExchangeNode {
    * Companies price tomorrow's orders from this, because today's market has not cleared yet (spec §6).
    */
   lastFobByOrigin: Partial<Record<RegionName, number>>;
+  /** Each origin's close on each of the last 20 days, oldest first; deals are priced from it (spec G4.3). */
+  fobHistory: Partial<Record<RegionName, number[]>>;
 }
+
+/** Days of closes kept for deal pricing (spec G4.3). */
+export const FOB_HISTORY_DAYS = 20;
 
 export interface ClearContext {
   readonly routes: RouteProvider;
@@ -50,7 +55,7 @@ export interface Quote {
 
 export function createNode(name: NodeName): ExchangeNode {
   const { grade, markerRegion, startingMarker } = NODES[name];
-  return { name, grade, markerRegion, orders: [], fills: [], markerPrice: startingMarker, lastFobByOrigin: {} };
+  return { name, grade, markerRegion, orders: [], fills: [], markerPrice: startingMarker, lastFobByOrigin: {}, fobHistory: {} };
 }
 
 /** Adds an order for today's clearing. Escrow is taken by the caller (Phase 2). */
@@ -208,6 +213,15 @@ function recordClose(node: ExchangeNode, fills: readonly Fill[]): void {
     totals.set(f.originRegion, t);
   }
   for (const [origin, t] of totals) node.lastFobByOrigin[origin] = t.value / t.volume;
+  // Every origin with a close adds today's close to its history, traded today or not.
+  for (const origin of REGION_NAMES) {
+    const close = node.lastFobByOrigin[origin];
+    if (close === undefined) continue;
+    const history = node.fobHistory[origin] ?? [];
+    history.push(close);
+    if (history.length > FOB_HISTORY_DAYS) history.shift();
+    node.fobHistory[origin] = history;
+  }
 }
 
 /**
