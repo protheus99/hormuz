@@ -340,12 +340,20 @@ export const CATALOG: readonly CardDef[] = [
     },
   },
   {
-    type: 'EXPAND_STORAGE', kinds: PRODUCERS, raised: false, opportunity: true, operating: false,
-    detect: ({ w }) => ({ key: 'expand-storage', data: { step: bbl(w.config.STORAGE_STEP) } }),
+    type: 'EXPAND_STORAGE', kinds: PRODUCERS, raised: true, opportunity: true, operating: false,
+    // Raised once the tanks are more than half full with none being built, so a producer with crude
+    // to store is asked rather than having to go looking (spec G4.7: the thinnest play type).
+    detect: ({ w, me }) => {
+      const well = wellOf(me);
+      if (!well) return null;
+      const building = w.projects.some((p) => p.agentId === me.agentId && p.kind === 'STORAGE');
+      if (building || fillRatio(well) < 0.5) return null;
+      return { key: 'expand-storage', data: { step: bbl(w.config.STORAGE_STEP), fill: pct(fillRatio(well)) } };
+    },
     options: () => ({ yes: { actions: [{ kind: 'START_PROJECT', project: 'STORAGE', steps: 2 }] }, maybe: { actions: [{ kind: 'START_PROJECT', project: 'STORAGE', steps: 1 }] } }),
   },
   {
-    type: 'BUILD_REFINERY', kinds: ['PRODUCER'], raised: false, opportunity: true, operating: false,
+    type: 'BUILD_REFINERY', kinds: ['PRODUCER'], raised: true, opportunity: true, operating: false,
     detect: ({ w, me, memory }) => {
       if (me.kind !== 'PRODUCER' || CLOSED_TO_NEW_REFINING.includes(me.region)) return null;
       if (!(REGIONS[me.region].roles as readonly string[]).includes('REFINING')) return null;
@@ -694,9 +702,12 @@ export const CATALOG: readonly CardDef[] = [
     }),
   },
   {
-    type: 'OPEN_OFFICE', kinds: ['TRADER'], raised: false, opportunity: true, operating: false,
+    type: 'OPEN_OFFICE', kinds: ['TRADER'], raised: true, opportunity: true, operating: false,
+    // Raised when the office would leave a comfortable margin of cash, so spreading out is offered
+    // rather than having to be found; still openable from Opportunities at any time.
     detect: ({ w, me }) => {
-      if (me.kind !== 'TRADER') return null;
+      if (me.kind !== 'TRADER' || me.offices.length >= 3) return null;
+      if (me.cash - me.cashReserved < 2 * w.config.OFFICE_COST.OPEN) return null;
       const candidates: RegionName[] = ['Coastal_Asia', 'South_Asia', 'US_Gulf_Coast', 'Southern_Europe', 'North_Sea', 'Middle_East', 'West_Africa'];
       const region = candidates.find((r) => !me.offices.includes(r));
       return region ? { key: 'office', data: { region: REGIONS[region].displayName, regionId: region, cost: money(w.config.OFFICE_COST.OPEN), daily: money(w.config.OFFICE_COST.PER_TICK), hub: OFFICE_HUB_CAPACITY } } : null;

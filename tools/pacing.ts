@@ -1,9 +1,14 @@
 // Card pacing (spec G4.7 check 3): the median days between decisions for each play type, over a
 // year of Sandbox with random events, answering every card sensibly.
 //
-//   npm run pacing
+//   npm run pacing           — answering Yes where affordable
+//   npm run pacing -- NO     — answering No to everything, for comparison
+//   npm run pacing -- METER  — answering by the meters, as a competent player would
 
 import { GameSession, PLAYER_ID, type GameSettings } from '../src/game';
+import { answerFor, type BotPolicy } from './bots';
+
+const policy = (process.argv[2] ?? 'YES') as BotPolicy;
 
 const GAMES: readonly GameSettings[] = [
   { seed: 's1', playType: 'PRODUCER', region: 'US_Permian', companyName: 'P', lengthDays: 365 },
@@ -27,8 +32,7 @@ for (const base of GAMES) {
         types[c.type] = (types[c.type] ?? 0) + 1;
         gaps.push(r.tick - last);
         last = r.tick;
-        const choice = c.options.find((o) => o.choice === 'YES' && o.affordable)?.choice ?? 'NO';
-        await game.submit(PLAYER_ID, { kind: 'ANSWER_CARD', cardId: c.id, choice });
+        await game.submit(PLAYER_ID, { kind: 'ANSWER_CARD', cardId: c.id, choice: answerFor(c, policy) });
       }
       if (r.ended) break;
     }
@@ -36,5 +40,5 @@ for (const base of GAMES) {
   }
   gaps.sort((a, b) => a - b);
   const median = gaps.length === 0 ? Infinity : gaps[Math.floor(gaps.length / 2)];
-  console.log(`${base.playType.padEnd(8)} ${base.region.padEnd(14)} cards/yr ${Math.round(gaps.length / 3)}  median gap ${median} days  net worth $${(worth / 3e6).toFixed(1)}M  ${Object.entries(types).sort((a, b) => b[1] - a[1]).map(([t, n]) => `${t}:${n}`).join(' ')}`);
+  console.log(`${policy.padEnd(3)} ${base.playType.padEnd(8)} ${base.region.padEnd(14)} cards/yr ${Math.round(gaps.length / 3)}  median gap ${median} days  net worth $${(worth / 3e6).toFixed(1)}M  ${Object.entries(types).sort((a, b) => b[1] - a[1]).map(([t, n]) => `${t}:${n}`).join(' ')}`);
 }

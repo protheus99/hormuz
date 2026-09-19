@@ -62,7 +62,7 @@ const TEXT: Readonly<Record<string, CardText>> = {
   },
   EXPAND_STORAGE: {
     title: 'Expand your storage',
-    situation: 'More tanks let you hold crude when prices are low. Each step adds {step} barrels.',
+    situation: 'Your tanks are {fill} full. More tanks let you hold crude when prices are low; each step adds {step} barrels.',
     yes: 'Build two steps.', maybe: 'Build one step.', no: 'Not now.',
   },
   BUILD_REFINERY: {

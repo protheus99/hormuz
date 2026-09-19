@@ -127,8 +127,10 @@ export const SCENARIOS: readonly ScenarioData[] = [
     setup: { techTier: 1, stockDays: 30 },
     blurb: 'You run a small light-crude refinery on the East Asian coast. Keep it supplied and profitable.',
     script: [{ tick: 30, chokepoint: 'MALACCA', stages: [{ stage: 'DISRUPTION', days: 10, status: 'DELAYED', delay: 4 }] }],
-    goalText: 'Never run out of crude, and finish with a profit.',
-    goal: [{ kind: 'STOCKOUT_DAYS', atMost: 0 }, { kind: 'PROFIT', atLeast: 1 }],
+    // A tutorial teaches one thing: keep the plant fed. Ninety days of profit for a small Tier 1
+    // refinery is close to a coin toss, so it is not part of the goal (Phase 12).
+    goalText: 'Never run out of crude, and stay solvent.',
+    goal: [{ kind: 'STOCKOUT_DAYS', atMost: 0 }, { kind: 'SOLVENT' }],
     milestones: [
       { label: 'Sign a supply deal', condition: { kind: 'OWN', what: 'DEAL', atLeast: 1 }, reward: { cash: 250_000 } },
       { label: 'Buy a market report', condition: { kind: 'OWN', what: 'REPORT', atLeast: 1 }, reward: { cash: 25_000 } },
@@ -143,8 +145,8 @@ export const SCENARIOS: readonly ScenarioData[] = [
       { tick: 285, chokepoint: 'BOSPHORUS', stages: [{ stage: 'DISRUPTION', days: 8, status: 'CLOSED' }] },
       { tick: 320, chokepoint: 'BOSPHORUS', stages: [{ stage: 'DISRUPTION', days: 15, status: 'DELAYED', delay: 3 }] },
     ],
-    goalText: 'Make a profit of at least $1.6M in the last quarter, with no more than 2 days out of crude.',
-    goal: [{ kind: 'PROFIT', atLeast: 1_600_000, from: 274, to: 365 }, { kind: 'STOCKOUT_DAYS', atMost: 2 }],
+    goalText: 'Make a profit of at least $1.4M in the last quarter, with no more than 2 days out of crude.',
+    goal: [{ kind: 'PROFIT', atLeast: 1_400_000, from: 274, to: 365 }, { kind: 'STOCKOUT_DAYS', atMost: 2 }],
     milestones: [
       { label: 'Sign a supply deal', condition: { kind: 'OWN', what: 'DEAL', atLeast: 1 }, reward: { cash: 500_000 } },
       { label: 'Upgrade to Tier 3', condition: { kind: 'OWN', what: 'TIER', atLeast: 3 }, reward: { report: true } },
@@ -170,8 +172,10 @@ export const SCENARIOS: readonly ScenarioData[] = [
     setup: { cash: 2_000_000 },
     blurb: 'You have one office in the North Sea and $2M. A grounded ship is about to block Suez.',
     script: [{ tick: 30, chokepoint: 'SUEZ', stages: [{ stage: 'DISRUPTION', days: 7, status: 'CLOSED' }] }],
-    goalText: 'Make $150K profit and open a second office.',
-    goal: [{ kind: 'PROFIT', atLeast: 150_000 }, { kind: 'OWN', what: 'OFFICES', atLeast: 2 }],
+    // Likewise: the trader tutorial teaches buying low and spreading out, not hitting a number that
+    // today's trading economics cannot reliably reach (QUESTIONS.md, question 3).
+    goalText: 'Open a second office, and stay solvent.',
+    goal: [{ kind: 'OWN', what: 'OFFICES', atLeast: 2 }, { kind: 'SOLVENT' }],
     milestones: [
       { label: 'Buy a market report', condition: { kind: 'OWN', what: 'REPORT', atLeast: 1 }, reward: { cash: 25_000 } },
       { label: 'Open your second office by day 45', condition: { kind: 'OWN', what: 'OFFICES', atLeast: 2, by: 45 }, reward: { cash: 100_000 } },
