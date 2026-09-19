@@ -20,7 +20,7 @@ describe('DEFAULT_CONFIG (spec §7.4)', () => {
     expect(c.DEAL_TERMS).toEqual([30, 90]);
     expect(c.CARD_MAX_OPEN).toBe(3);
     expect(c.PROJECTION_TICKS).toBe(30);
-    expect(c.INTEGRATE_PLANT_CAPACITY).toBe(2500);
+    expect(c.UNIT_CAPACITY).toBe(2500);
   });
 
   it('holds only finite, non-negative numbers', () => {

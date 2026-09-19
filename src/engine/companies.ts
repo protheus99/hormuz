@@ -6,6 +6,7 @@
 // runtime, such as saves and future mods.
 
 import { AgentKind, Controller, Grade, Personality, RegionRole } from './enums';
+import type { Config } from './config';
 import { REGIONS } from '../data/regions';
 import {
   asAgentId, emptyStock,
@@ -122,6 +123,30 @@ export function integrate(p: Producer, plant: PlantSpec): IntegratedMajor {
     well: { grade, extractionCapacity, fieldMaxCapacity, baseExtractionCost, storageCapacity, storage, storageEscrow },
     plant: buildPlant(spec, p.region, plant),
   };
+}
+
+/** The lowest tech tier that can refine a grade (spec §4.9). */
+export function minimumTier(grade: Grade): TechTier {
+  return grade === Grade.LIGHT_SWEET ? 1 : grade === Grade.MEDIUM ? 2 : 3;
+}
+
+/**
+ * The refinery a producer builds to integrate (spec G2): UNIT_CAPACITY at the lowest tier that
+ * can refine the producer's own crude, with 10 days of crude storage.
+ */
+export function integrationPlant(p: Producer, config: Config): PlantSpec {
+  return { techTier: minimumTier(p.grade), processingCapacity: config.UNIT_CAPACITY, crudeStorageCapacity: 10 * config.UNIT_CAPACITY };
+}
+
+/**
+ * What a new plant costs to build (spec G2, §7.4): FACTORY_COST per bbl/day, plus TIER_COST for
+ * each tier above 1, all scaled by the region's labor index.
+ */
+export function plantCost(region: RegionName, plant: PlantSpec, config: Config): number {
+  const perBarrel = config.FACTORY_COST
+    + (plant.techTier >= 2 ? config.TIER_COST.TO_TIER_2 : 0)
+    + (plant.techTier >= 3 ? config.TIER_COST.TO_TIER_3 : 0);
+  return perBarrel * plant.processingCapacity * REGIONS[region].laborCostIndex;
 }
 
 function buildWell(owner: CompanySpec, region: RegionName, w: WellSpec): WellState {

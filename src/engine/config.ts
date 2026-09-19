@@ -69,7 +69,7 @@ export interface Config {
   readonly WORKS_CAPACITY_FACTOR: number;  // capacity available during tier works
   readonly FACTORY_COST: number;           // $ per bbl/day, times labor index
   readonly FACTORY_TICKS: number;
-  readonly INTEGRATE_PLANT_CAPACITY: number;   // bbl/day of the refinery a producer builds to integrate (spec G2)
+  readonly UNIT_CAPACITY: number;          // bbl/day of a processing unit or a new refinery (spec G2, G4.4)
   readonly MAINT_TICKS: number;
   readonly MAINT_COST: number;             // $ per bbl/day of capacity
   readonly MAINT_INTERVAL: number;
@@ -168,7 +168,7 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
   WORKS_CAPACITY_FACTOR: 0.60,
   FACTORY_COST: 4_000,
   FACTORY_TICKS: 90,
-  INTEGRATE_PLANT_CAPACITY: 2_500,
+  UNIT_CAPACITY: 2_500,
   MAINT_TICKS: 5,
   MAINT_COST: 0.50,
   MAINT_INTERVAL: 120,

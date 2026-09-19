@@ -2,7 +2,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import { internalTransfer, refine } from '../../src/engine/agents';
-import { createIntegrated, createProducer, integrate, plantOf, wellOf } from '../../src/engine/companies';
+import { createIntegrated, createProducer, integrate, integrationPlant, minimumTier, plantCost, plantOf, wellOf } from '../../src/engine/companies';
 import { DEFAULT_CONFIG } from '../../src/engine/config';
 import { createLedger, createRetailSink } from '../../src/engine/economics';
 import { makeOrderId, type Ask, type Bid, type IntegratedMajor, type Producer } from '../../src/engine/model';
@@ -100,7 +100,7 @@ describe('a producer integrating (spec G2)', () => {
     id: 'fennrick', name: 'Fennrick Offshore', region: 'North_Sea', grade: 'MEDIUM', cash: 1_000_000,
     extractionCapacity: 3500, baseExtractionCost: 32, storageCapacity: 15_000, storage: 9000,
   });
-  const newPlant = { techTier: 2, processingCapacity: DEFAULT_CONFIG.INTEGRATE_PLANT_CAPACITY, crudeStorageCapacity: 7500 } as const;
+  const newPlant = { techTier: 2, processingCapacity: DEFAULT_CONFIG.UNIT_CAPACITY, crudeStorageCapacity: 7500 } as const;
 
   it('keeps its identity, cash and wells, and gains the new plant', () => {
     const p = fennrick();
@@ -128,5 +128,27 @@ describe('a producer integrating (spec G2)', () => {
     const p = fennrick();
     p.storageEscrow = 1000;
     expect(() => integrate(p, newPlant)).toThrow(/between ticks/);
+  });
+});
+
+describe('the plant a producer builds (spec G2)', () => {
+  it('is at the lowest tier that refines the producer’s own crude', () => {
+    expect([minimumTier('LIGHT_SWEET'), minimumTier('MEDIUM'), minimumTier('HEAVY_SOUR')]).toEqual([1, 2, 3]);
+    const fennrick = createProducer({
+      id: 'fennrick', name: 'Fennrick Offshore', region: 'North_Sea', grade: 'MEDIUM', cash: 1_000_000,
+      extractionCapacity: 3500, baseExtractionCost: 32, storageCapacity: 15_000,
+    });
+    const plant = integrationPlant(fennrick, DEFAULT_CONFIG);
+    expect(plant).toEqual({ techTier: 2, processingCapacity: 2500, crudeStorageCapacity: 25_000 });
+    // Once built, it can take the company's own oil.
+    const m = integrate(fennrick, plant);
+    expect(internalTransfer(m)).toBeGreaterThan(0);
+  });
+
+  it('costs the factory plus each tier above 1, scaled by labor', () => {
+    // North Sea labor 1.40: 2,500 × (4,000 + 3,000) × 1.40 = $24.5M.
+    expect(plantCost('North_Sea', { techTier: 2, processingCapacity: 2500, crudeStorageCapacity: 25_000 }, DEFAULT_CONFIG)).toBeCloseTo(24_500_000, 6);
+    // Tier 1 in Southeast Asia (labor 0.70): 2,500 × 4,000 × 0.70 = $7.0M.
+    expect(plantCost('Southeast_Asia', { techTier: 1, processingCapacity: 2500, crudeStorageCapacity: 25_000 }, DEFAULT_CONFIG)).toBeCloseTo(7_000_000, 6);
   });
 });

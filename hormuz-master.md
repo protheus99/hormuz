@@ -1,7 +1,7 @@
 # HORMUZ MASTER PLAN
 ## Game Design, Engine Specification & Build Plan
 
-**Status:** Pre-build. This is the single source of truth for the Hormuz game and its market engine (GEMS, the Global Energy Market Simulator). It supersedes all earlier GEMS specifications and prototypes.
+**Status:** In build — engine Phases 0–3 complete, Phase 4 under way. This is the single source of truth for the Hormuz game and its market engine (GEMS, the Global Energy Market Simulator). It supersedes all earlier GEMS specifications and prototypes.
 **Build:** TypeScript. `src/engine/` in Phases 1–7, then `src/game/` and `web/` in Phases 8–13 (§14).
 
 Anything not written here is out of scope. Every number in this document — labor indices, tariffs, transit times, freight rates, capacities, costs, scenario targets — is an **illustrative placeholder** to be tuned for play, not market data. There are no open decisions (§12).
@@ -35,7 +35,7 @@ The player picks a play type, a home region valid for it (§3.4), and a company 
 
 Every play type also has **Risk: Bold · Balanced · Safe** (G4.2).
 
-**Integrated Major is a producer's goal, not a starting type.** A producer that builds a refinery becomes integrated through a late-game card (G4.4). Refiners cannot acquire fields; their growth is refining capacity and technology. The new plant is a 2,500 bbl/day Tier 1 refinery priced at `FACTORY_COST`. Both halves must sit in the same region, so integration is open where a region has both production and refining roles — `US_Gulf_Coast`, `Mexico_Gulf`, `Brazil_Presalt`, `North_Sea`, `Russia_West`, `Southeast_Asia` — and closed in `Middle_East` for the reason in §10.3.
+**Integrated Major is a producer's goal, not a starting type.** A producer that builds a refinery becomes integrated through a late-game card (G4.4). Refiners cannot acquire fields; they grow through refining capacity, technology and a second refinery in another region (G4.4, D34). The new plant is a `UNIT_CAPACITY` (2,500 bbl/day) refinery at the **lowest tier that can refine the producer's own crude** — Tier 1 for light sweet, Tier 2 for medium, Tier 3 for heavy sour — with 10 days of crude storage, priced at `FACTORY_COST` plus `TIER_COST` for each tier above 1, all × labor. A Tier 1 plant would leave most integrated producers unable to refine their own oil. Both halves must sit in the same region, so integration is open where a region has both production and refining roles — `US_Gulf_Coast`, `Mexico_Gulf`, `Brazil_Presalt`, `North_Sea`, `Russia_West`, `Southeast_Asia` — and closed in `Middle_East` for the reason in §10.3.
 
 **Market weight.** The player's company starts at 15–20% of its home region's production (Producer) or refining capacity (Refiner). A Trader starts with capital of about 15% of its regions' daily traded value. Growth can take any company to 35–40%. Below that range nothing the player does visibly moves prices (pillar 1). The player's company enters the world by scaling down the largest AI company of the same type in that region, so global balance (§10.3) holds.
 
@@ -63,19 +63,21 @@ Every decision is a card, whether the game raised it or the player opened it fro
 | **Yes** | Take the proposed action |
 | **No** | Leave things as they are |
 | **Maybe** | The middle path: half the size, a shorter term, or a partial fix. Omitted when no meaningful middle path exists |
-| **Impact** | Every option shows the same four meters: **Cash** (change now), **Profit** (change per month), **Supply** (days of crude for a refiner, storage fill for a producer, open position for a trader), **Risk** (Low · Medium · High) |
-| **Deadline** | If the player does not choose within `CARD_DEADLINE`, the card resolves as **No** |
+| **Impact** | Every option shows the same four meters: **Cash** (change now), **Profit** (change per month), **Supply** (the worst point over the projection, not the day-30 value: fewest days of crude for a refiner, fullest storage for a producer, largest open position for a trader), **Risk** (Low · Medium · High, covering what the projection cannot see — G4.5) |
+| **Deadline** | A card the game raises resolves as **No** if the player does not choose within `CARD_DEADLINE`. A card the player opens from Opportunities has no deadline: it stays until answered or closed |
+| **Affordability** | An option costing more than available cash plus unused credit still shows, marked "Not enough money yet" with an estimate of when current profit will cover it ("not at current profit" when profit is zero or negative). It cannot be chosen until affordable; the card is never hidden |
+| **Merging** | Cards with the same cause — one chokepoint event, one deal, one asset — merge into a single card whose options cover everything affected. A situation that arises while a related card is open updates that card instead of adding another |
 | **Details** | An optional expander with the full numbers — $/bbl, route, landed cost — for players who want them |
 | **Limits** | At most `CARD_MAX_OPEN` cards open at once, and a `CARD_COOLDOWN` per card type, so the inbox never floods |
 
-As the player sees it:
+As the player sees it. Yes is only offered for volume the new route can carry: this deal fits within the Oman pipeline's 3,000 bbl/day, which other companies share.
 
 > **Tension in the Strait of Hormuz**
-> Your deal with Qasr Petroleum (5,000 barrels a day) ships through Hormuz. Insurers have raised costs and there is talk the strait could close.
+> Your deal with Qasr Petroleum (2,000 barrels a day) ships through Hormuz. Insurers have raised costs and there is talk the strait could close.
 >
-> **Yes** — Move the deal to the Oman pipeline route. Safer, but it costs more. *Profit −$60K/mo · Risk High → Low*
+> **Yes** — Move the deal to the Oman pipeline route. Safer, but it costs more. *Profit −$24K/mo · Risk High → Low*
 > **No** — Keep shipping through Hormuz. *Profit unchanged · Risk High.* If the strait closes, oil you have paid for gets stuck at sea.
-> **Maybe** — Move half the deal. *Profit −$30K/mo · Risk High → Medium*
+> **Maybe** — Move half the deal. *Profit −$12K/mo · Risk High → Medium*
 >
 > *Decide by day 52*
 
@@ -148,7 +150,8 @@ Deals only arrive as cards: a rival offers one, or the player opens **Find a dea
 | Trouble on your supply route | Any chokepoint on a deal's route reaches `TENSION` or `DELAYED` | Reroute the deal (costs more) | Reroute half | Deal avoid set / split |
 | Deal oil stuck at sea | Deal cargo held 3+ days | Cancel the deal (fee) | Keep it and buy emergency supply | Deal cancelled / emergency bid |
 | Upgrade tech tier *(Opp)* | Tier below 3 | Upgrade | — | Tier project |
-| Add a processing unit *(Opp)* | Always available | Build | — | Unit project |
+| Add a processing unit *(Opp)* | Always available | Build | — | Unit project: +`UNIT_CAPACITY` (2,500 bbl/day) after `FACTORY_TICKS` |
+| Build a second refinery *(Opp, late)* | Net worth above `INTEGRATE_THRESHOLD`, one refinery owned | Build | — | A `UNIT_CAPACITY` plant at the first plant's tier in another refining region (not `Middle_East`), after `FACTORY_TICKS` |
 | Expand crude storage *(Opp)* | Always available | Two steps | One step | Storage project |
 
 **Trader**
@@ -171,7 +174,15 @@ Deals only arrive as cards: a rival offers one, or the player opens **Find a dea
 
 Each option's meters come from **forking the world**: copy the state, apply the option, run `PROJECTION_TICKS` days, and compare with the No fork. Plain-data state (§4.1) makes the copy trivial; three options cost roughly a quarter of a second.
 
-Forks run under **calm conditions**: product-price noise off (σ = 0), no new events, and events in progress held at their current stage. The meters therefore show "what happens if today's conditions hold" and can never leak the real future. What a projection cannot see goes into the Risk meter: the share of the company's flows crossing chokepoints at `TENSION` or worse (Low below 20%, Medium to 50%, High above).
+Forks run under **calm conditions**: product-price noise off (σ = 0), no new events, and events in progress held at their current stage. The meters therefore show "what happens if today's conditions hold" and can never leak the real future. What a projection cannot see goes into the Risk meter, which shows the highest of three parts:
+
+| Part | Low | Medium | High |
+|---|---|---|---|
+| **Routes:** share of the company's flows crossing chokepoints at `TENSION` or worse | Below 20% | 20–50% | Above 50% |
+| **Breakdown:** chance of a refinery outage within `PROJECTION_TICKS`, from the §4.9 hazard | Below 5% | 5–15% | Above 15% |
+| **Cash:** days of fixed costs covered by available cash plus unused credit, at the projection's lowest point | Above 30 | 10–30 | Below 10 |
+
+The card's Details expander names the part that set the level. Thresholds are placeholders for Phase 12.
 
 ### G4.6 AI parity
 
@@ -190,7 +201,7 @@ Balance numbers stay provisional until Phase 12, because until Phase 11 the play
 
 Each play type must pass four checks (Phases 11–12):
 
-1. **Coverage:** at least 10 card types across deals, operations, risk and growth. Including shared cards: Producer 12, Refiner 15, Trader 14.
+1. **Coverage:** at least 10 card types across deals, operations, risk and growth. Including shared cards: Producer 12, Refiner 16, Trader 14.
 2. **Market weight:** the starting company holds 15–20% of its region (G2).
 3. **Pacing:** a median of 7–14 game days between cards.
 4. **Decisions matter:** a bot that always answers **No** loses every Medium and Hard campaign scenario, and a bot that always answers **Yes** does not reliably win them.
@@ -234,7 +245,7 @@ AI companies use only public information plus their own state. Order books are i
 | `BAB_EL_MANDEB` | Security incidents at sea | `CLOSED` | 0.5 (closure 0.15) | 30–90 days | Cape of Good Hope, about 14 days longer | Europe–Asia cargo; Red Sea terminal exports |
 | `SUEZ` | A grounded vessel; canal works | `CLOSED`, briefly | 0.3 | Closed 5–10 days, or delays of 2–5 days | Cape of Good Hope | Gulf and Red Sea crude to Europe; Atlantic crude to Asia |
 | `MALACCA` | Congestion; poor visibility | `DELAYED` | 0.5 | Delays of 3–6 days lasting 5–20 days | Lombok passage, 3 days and $0.30 more | Almost all westbound supply into East Asia |
-| `BOSPHORUS` | Heavy traffic; fog and storms | `CLOSED`, briefly | 0.8 | 2–10 days | Caspian's Mediterranean pipeline (capacity-limited); Baltic ports for Russian crude | Russian Black Sea and Caspian exports |
+| `BOSPHORUS` | Heavy traffic; fog and storms | `CLOSED`, briefly | 0.8 | 2–10 days | Caspian's Mediterranean pipeline (2,000 bbl/tick); Baltic ports for Russian crude | Russian Black Sea and Caspian exports |
 | `DANISH_STRAITS` | Winter storms and ice | `DELAYED` | 0.5, winter only | Delays of 3–8 days lasting 10–40 days | Black Sea ports for Russian crude | Russian Baltic exports |
 | `PANAMA` | Low water in the dry season | `DELAYED`, with surcharge | 0.5, dry season only | 30–120 days | Cape of Good Hope | Americas-to-Asia cargo |
 
@@ -490,20 +501,22 @@ Unless noted, a region connects to its waypoint with a 1-tick, $0.30/bbl termina
 |---|---|
 | `US_Permian` | `US_Gulf_Coast` by pipeline (2 ticks, $1.00) |
 | `US_Gulf_Coast`, `Mexico_Gulf` | `W_GULF_MEXICO` |
-| `Western_Canada` | `US_Permian` by pipeline (4 ticks, $2.50, capacity-limited); `W_N_PACIFIC` by pipeline and terminal (3 ticks, $2.00, capacity-limited) |
+| `Western_Canada` | `US_Permian` by pipeline (4 ticks, $2.50, 4,000 bbl/tick); `W_N_PACIFIC` by pipeline and terminal (3 ticks, $2.00, 3,000 bbl/tick) |
 | `Venezuela_Orinoco`, `Colombia_Andean`, `Guyana_Suriname` | `W_CARIBBEAN` |
 | `Brazil_Presalt`, `West_Africa` | `W_S_ATLANTIC` |
 | `Argentina_Vaca_Muerta` | `W_S_ATLANTIC` (2 ticks, $0.80) |
 | `North_Sea` | `W_N_ATLANTIC` |
 | `Southern_Europe`, `North_Africa` | `W_MEDITERRANEAN` |
-| `Russia_West` | `W_BALTIC` and `W_BLACK_SEA`; `Russia_Far_East` by pipeline (8 ticks, $3.00, capacity-limited) |
+| `Russia_West` | `W_BALTIC` and `W_BLACK_SEA`; `Russia_Far_East` by pipeline (8 ticks, $3.00, 3,000 bbl/tick) |
 | `Russia_Far_East` | `W_N_PACIFIC` |
-| `Caspian` | `W_BLACK_SEA` by pipeline (3 ticks, $1.50, capacity-limited); `W_MEDITERRANEAN` by pipeline (4 ticks, $2.00, capacity-limited) |
-| `Middle_East` | `W_PERSIAN_GULF`; **bypass** to `Red_Sea_Coast` by pipeline (3 ticks, $1.00, capacity-limited); **bypass** to `Gulf_of_Oman` by pipeline (2 ticks, $0.80, capacity-limited) |
+| `Caspian` | `W_BLACK_SEA` by pipeline (3 ticks, $1.50, 3,000 bbl/tick); `W_MEDITERRANEAN` by pipeline (4 ticks, $2.00, 2,000 bbl/tick) |
+| `Middle_East` | `W_PERSIAN_GULF`; **bypass** to `Red_Sea_Coast` by pipeline (3 ticks, $1.00, 6,000 bbl/tick); **bypass** to `Gulf_of_Oman` by pipeline (2 ticks, $0.80, 3,000 bbl/tick) |
 | `Red_Sea_Coast` | `W_RED_SEA` |
 | `Gulf_of_Oman`, `South_Asia` | `W_ARABIAN_SEA` |
 | `Southeast_Asia` | `W_S_CHINA_SEA` |
 | `Coastal_Asia` | `W_S_CHINA_SEA` (3 ticks) and `W_N_PACIFIC` (2 ticks) |
+
+Pipeline capacities let each region export its full production in calm conditions and bind only in a disruption: Western Canada's two lines carry 7,000 against 5,000 produced, and the Caspian's 5,000 against 4,000, so a Bosphorus closure leaves it only the 2,000-barrel Mediterranean line. All are placeholders for Phase 7.
 
 #### Sea lanes
 
@@ -613,6 +626,7 @@ Rerouting half a deal (a card's Maybe) splits it into two half-volume deals with
 `tech_tier` (1–3), `processing_capacity`, `unit_count`, `crude_storage_capacity`, `crude_stock` (`Map` by grade), `utilization` (set by the automatic throttle), `utilization_cap` (set by cards, default 1), `online`, `outage_ticks_remaining`, `works_ticks_remaining`, `works_factor`, `days_since_maintenance`, `grade_weighting` (default: pure margin order), `inbound_barrels`.
 
 - `accepted_grades`: Tier 1 Light; Tier 2 Light and Medium; Tier 3 all.
+- **Two sites (D34):** from Phase 9 a refiner may own a second plant in another refining region. Each plant keeps its own region, tanks, utilization and outages and bids delivered to itself; cash is shared. Until then a refiner has one plant in its home region.
 - `refine()` consumes eligible stock up to `processing_capacity × effective_utilization × works_factor`, highest margin first adjusted by `grade_weighting`, and sells the output to the retail sink.
 - `effective_utilization = 0` when offline or in an outage, otherwise `min(utilization, utilization_cap)`. All stock-buffer sizing uses it, so an offline refinery stops buying.
 - **Breakdowns:** `hazard = BASE_HAZARD × (1 + days_since_maintenance ÷ MAINT_INTERVAL)³`, rolled in Phase 0 from the `events` stream; an outage lasts `BREAKDOWN_TICKS`. Emergency repair halves the remainder for `EMERGENCY_REPAIR_COST`. A tier upgrade limits capacity to `WORKS_CAPACITY_FACTOR` for `TIER_TICKS`.
@@ -819,7 +833,7 @@ Placeholders for balancing. "× labor" scales with the region's `labor_cost_inde
 | `REFINERY_RESTART_COST`, `REFINERY_RAMP_TICKS` | $2.00 per bbl/day, 3 ticks | Refinery restart |
 | `TIER_COST` | Tier 1→2 $3,000; Tier 2→3 $5,000 per bbl/day × labor | Tier upgrade |
 | `TIER_TICKS`, `WORKS_CAPACITY_FACTOR` | 60 ticks, 60% | Tier upgrade |
-| `FACTORY_COST`, `FACTORY_TICKS` | $4,000 per bbl/day × labor, 90 ticks | Processing unit; building a refinery to integrate |
+| `FACTORY_COST`, `FACTORY_TICKS`, `UNIT_CAPACITY` | $4,000 per bbl/day × labor, 90 ticks, 2,500 bbl/day | Processing unit; a new refinery (integration or a second site) |
 | `MAINT_TICKS`, `MAINT_COST`, `MAINT_INTERVAL` | 5 ticks, $0.50 per bbl/day, 120 ticks | Maintenance |
 | `BASE_HAZARD`, `BREAKDOWN_TICKS` | 0.0005 per tick, 8–20 ticks | Breakdowns |
 | `EMERGENCY_REPAIR_COST` | $3.00 per bbl/day of capacity | Halves the remaining outage |
@@ -837,7 +851,7 @@ Placeholders for balancing. "× labor" scales with the region's `labor_cost_inde
 | `TENDER_DELAY`, `DEAL_OFFER_INTERVAL` | 3–5 ticks; 7 ticks | Deal offers |
 | `CREDIT_RATE` | 0.03% per tick | Credit line |
 | `REPORT_COST`, `REPORT_LAG`, `REPORT_NOISE` | $25,000, 5 ticks, ±15% | Market reports |
-| `INTEGRATE_THRESHOLD`, `INTEGRATE_PLANT_CAPACITY` | Net worth of 3× starting; a 2,500 bbl/day Tier 1 plant | Integration cards (G2) |
+| `INTEGRATE_THRESHOLD` | Net worth of 3× starting | Integration and second-refinery cards (G2, G4.4) |
 | `CARD_MAX_OPEN`, `CARD_COOLDOWN`, `CARD_DEADLINE` | 3; 14 ticks per card type; 7 ticks | Cards |
 | `PROJECTION_TICKS` | 30 | Impact projections |
 
@@ -1033,6 +1047,7 @@ The build proceeds on these. Changing one means updating the sections it names.
 | D23 | Sandbox games last 1, 3 or 5 years or run without end; campaign scenarios set their own length |
 | D24 | The campaign has three scenarios per play type plus a finale, built from seven goal types with optional milestones (G7.2) |
 | D25 | Disruptions are staged events (`RUMOR → TENSION → DISRUPTION → RECOVERY`), with a `TENSION` chokepoint status (G7.1) |
+| D34 | Refiners grow through processing units, tier upgrades, storage and one second refinery in another refining region (not the Gulf); rival buyouts are out of scope. Chosen over a single site, which left refiners no late game, and over acquisitions, which add valuation and merger rules a teenager should not need |
 | D33 | Every chokepoint is live. Each of the seven has its own event profile; warning scales with severity; the deck never disrupts a chokepoint and its bypass together on Easy or Normal; each year hits at least one chokepoint the player depends on; the campaign features six of the seven (G7.1, G7.2) |
 
 **Technology**
@@ -1405,4 +1420,5 @@ The free web version stays available after Steam launches. Schools mostly use Ch
 | 3 | 2026-09-18 | Reframed the player as a CEO. Removed manual trading, standing orders, order lifetimes, order-book depth and player order validation. Added decision cards, two company settings per play type, fixed-price deals, daily batch clearing (replacing continuous matching and overnight-resting orders), the running clock, three play types with integration as a goal, the campaign, field decline, emergency repair and trading offices. Renamed `Manufacturer` to `Refiner`. Consolidated the document and replaced the prototype issue log with this history. |
 | 3.1 | 2026-09-18 | Closed the real-world framing decision as D32: real geography, fictional companies, faceless and non-violent event wording, coastline-only map. Renamed nine companies whose names matched or crowded real companies. Removed the refiner's "Buy an oilfield" card: only producers can become integrated. |
 | 3.2 | 2026-09-18 | Made every chokepoint a live risk: an event profile for each of the seven, deck rules, route cards that react to delays as well as tension, a campaign featuring six of the seven, verification runs S13–S17, and a property test that no single closure strands a region. |
+| 3.4 | 2026-09-18 | Settled ten open questions: refiners may build a second refinery (D34); an integrating producer's plant is at the tier its own crude needs; every capacity-limited pipeline has a capacity; processing units are 2,500 bbl/day; Risk covers routes, breakdowns and cash; Supply shows its worst point; related cards merge; Opportunities have no deadline; unaffordable options show when they will be affordable; the example card fits its pipeline. Phase 3 found and fixed a cross-engine price rounding gap (G10). |
 | 3.3 | 2026-09-18 | Set the release path: own site → itch.io → web portals → Steam (via Electron, replacing Tauri) → mobile rebuild (§14.8). Phase 10 now requires a 1280×800 layout; npm replaces pnpm. |
