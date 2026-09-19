@@ -55,6 +55,21 @@ export interface CardDef {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────────────────────
 
+/**
+ * What a trader may bid delivered into one of its offices and still make money: the local price
+ * less the region's tariff and the spread, exactly as its daily rules quote (spec §6.4). Cards that
+ * bid above this buy at the market and lose on any adverse move.
+ */
+function traderBid(w: World, node: NodeName, office: RegionName): number {
+  const cfg = w.config;
+  const ref = referencePrice(w.nodes[node], office) ?? w.nodes[node].markerPrice;
+  return Math.round((ref - REGIONS[office].infrastructureTariff - cfg.HALF_SPREAD) * 100) / 100;
+}
+
+/** How long "commit capital to the gap" runs, and the turnover it assumes (spec G4.4). */
+const GAP_DAYS = 28;
+const GAP_TURNOVER_DAYS = 7;
+
 const lot = (w: World, bbl: number) => Math.max(0, Math.floor(bbl / w.config.LOT_SIZE) * w.config.LOT_SIZE);
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 const bbl = (x: number) => Math.round(x).toLocaleString('en-US');
@@ -576,7 +591,7 @@ export const CATALOG: readonly CardDef[] = [
       const office = s.data.office as RegionName;
       const hub = me.kind === 'TRADER' ? me.hubs[office] : undefined;
       const room = hub ? hub.capacity - total(hub.stock) : 0;
-      const price = Math.round((referencePrice(w.nodes[node], office) ?? w.nodes[node].markerPrice) * 100) / 100;
+      const price = traderBid(w, node, office);
       const bid = (q: number): Action[] => (q > 0 ? [{ kind: 'STANDING_ORDER', side: 'BID', node, region: office, price, qty: q, days: 5 }] : []);
       return { yes: { actions: bid(lot(w, room / 5)) }, maybe: { actions: bid(lot(w, room / 10)) } };
     },
@@ -591,14 +606,22 @@ export const CATALOG: readonly CardDef[] = [
           const local = referencePrice(w.nodes[node], office);
           const landed = previousClose(w.nodes[node], office, ctx).find((q) => q.origin !== office)?.landed;
           if (local === undefined || landed === undefined || local - landed < 3) continue;
-          return { key: `gap:${office}:${node}`, data: { region: REGIONS[office].displayName, office, node, gap: money(local - landed), price: Math.round((landed + 0.5) * 100) / 100 } };
+          return { key: `gap:${office}:${node}`, data: { region: REGIONS[office].displayName, office, node, gap: money(local - landed), price: traderBid(w, node, office) } };
         }
       }
       return null;
     },
-    options: (_ctx, s) => {
-      const bid = (q: number): Action[] => [{ kind: 'STANDING_ORDER', side: 'BID', node: s.data.node as NodeName, region: s.data.office as RegionName, price: Number(s.data.price), qty: q, days: 28 }];
-      return { yes: { actions: bid(3000) }, maybe: { actions: bid(1000) } };
+    options: ({ w, me }, s) => {
+      // A standing order buys its quantity every day. The hub turns over about once a week, so a
+      // week's worth of room sets the daily size: bigger and the crude floats offshore on demurrage.
+      const office = s.data.office as RegionName;
+      const hub = me.kind === 'TRADER' ? me.hubs[office] : undefined;
+      const room = hub ? hub.capacity - total(hub.stock) - total(hub.inbound) : 0;
+      const bid = (share: number): Action[] => {
+        const qty = lot(w, (room * share) / GAP_TURNOVER_DAYS);
+        return qty > 0 ? [{ kind: 'STANDING_ORDER', side: 'BID', node: s.data.node as NodeName, region: office, price: Number(s.data.price), qty, days: GAP_DAYS }] : [];
+      };
+      return { yes: { actions: bid(1) }, maybe: { actions: bid(0.5) } };
     },
   },
   {
@@ -620,7 +643,9 @@ export const CATALOG: readonly CardDef[] = [
       const node = s.data.node as NodeName;
       const asks = (share: number): Action[] => me.kind !== 'TRADER' ? [] : me.offices.flatMap((o): Action[] => {
         const qty = lot(w, (me.hubs[o]?.stock[grade] ?? 0) * share);
-        const price = Math.round(((referencePrice(w.nodes[node], o) ?? w.nodes[node].markerPrice) - w.config.HALF_SPREAD) * 100) / 100;
+        // Selling out of a falling market asks the local price, not below it: the meters show what
+        // the sale is worth, and cutting further only gives the position away.
+        const price = Math.round((referencePrice(w.nodes[node], o) ?? w.nodes[node].markerPrice) * 100) / 100;
         return qty > 0 ? [{ kind: 'STANDING_ORDER', side: 'ASK', node, region: o, price, qty, days: 1 }] : [];
       });
       return { yes: { actions: asks(1) }, maybe: { actions: asks(0.5) } };
@@ -641,7 +666,7 @@ export const CATALOG: readonly CardDef[] = [
       const room = hub ? hub.capacity - total(hub.stock) : 0;
       const bids = (share: number): Action[] => (['NC', 'DME'] as NodeName[]).flatMap((node): Action[] => {
         const qty = lot(w, (room * share) / 2 / 14);
-        const price = Math.round((referencePrice(w.nodes[node], office) ?? w.nodes[node].markerPrice) * 100) / 100;
+          const price = traderBid(w, node, office);
         return qty > 0 ? [{ kind: 'STANDING_ORDER', side: 'BID', node, region: office, price, qty, days: 14 }] : [];
       });
       return { yes: { actions: bids(1) }, maybe: { actions: bids(0.5) } };

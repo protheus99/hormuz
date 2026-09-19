@@ -23,7 +23,8 @@
     "scenario": "tsx tools/run-scenario.ts",
     "calibrate": "tsx tools/calibrate.ts",
     "report": "tsx tools/report.ts",
-    "campaign": "tsx tools/campaign.ts"
+    "campaign": "tsx tools/campaign.ts",
+    "pacing": "tsx tools/pacing.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -100,8 +100,8 @@ export const SCENARIOS: readonly ScenarioData[] = [
       ] },
       { tick: 90, engine: { tick: 90, kind: 'PRODUCT_SHOCK', product: 'GASOLINE', pct: -0.12, persistent: true }, news: { headline: 'Gasoline prices slide on weak demand', body: 'Refiners pay less for light crude.' } },
     ],
-    goalText: 'End the year with 3.6 times the net worth you started with.',
-    goal: [{ kind: 'NET_WORTH', times: 3.6 }],
+    goalText: 'End the year with 3.3 times the net worth you started with.',
+    goal: [{ kind: 'NET_WORTH', times: 3.3 }],
     milestones: [
       { label: 'Lock in a deal before day 90', condition: { kind: 'OWN', what: 'DEAL', atLeast: 1, by: 90 }, reward: { cash: 500_000 } },
       { label: 'Stay solvent all year', condition: { kind: 'SOLVENT' }, reward: { report: true } },
@@ -170,8 +170,8 @@ export const SCENARIOS: readonly ScenarioData[] = [
     setup: { cash: 2_000_000 },
     blurb: 'You have one office in the North Sea and $2M. A grounded ship is about to block Suez.',
     script: [{ tick: 30, chokepoint: 'SUEZ', stages: [{ stage: 'DISRUPTION', days: 7, status: 'CLOSED' }] }],
-    goalText: 'Make $500K profit and open a second office.',
-    goal: [{ kind: 'PROFIT', atLeast: 500_000 }, { kind: 'OWN', what: 'OFFICES', atLeast: 2 }],
+    goalText: 'Make $150K profit and open a second office.',
+    goal: [{ kind: 'PROFIT', atLeast: 150_000 }, { kind: 'OWN', what: 'OFFICES', atLeast: 2 }],
     milestones: [
       { label: 'Buy a market report', condition: { kind: 'OWN', what: 'REPORT', atLeast: 1 }, reward: { cash: 25_000 } },
       { label: 'Open your second office by day 45', condition: { kind: 'OWN', what: 'OFFICES', atLeast: 2, by: 45 }, reward: { cash: 100_000 } },
@@ -184,8 +184,8 @@ export const SCENARIOS: readonly ScenarioData[] = [
       { tick: 20, engine: { tick: 20, kind: 'PLANT_ONLINE', agentId: 'Huanghai_Petrochem', online: false }, news: { headline: 'A major East Asian refinery shuts for repairs', body: 'Cargoes bound for it are looking for other buyers.' } },
       { tick: 65, engine: { tick: 65, kind: 'PLANT_ONLINE', agentId: 'Huanghai_Petrochem', online: true }, news: { headline: 'The East Asian refinery restarts', body: 'Demand for crude in the region recovers.' } },
     ],
-    goalText: 'Make $1.5M profit from the outage.',
-    goal: [{ kind: 'PROFIT', atLeast: 1_500_000 }],
+    goalText: 'Make $400K profit from the outage.',
+    goal: [{ kind: 'PROFIT', atLeast: 400_000 }],
     milestones: [
       { label: 'Lease extra storage', condition: { kind: 'OWN', what: 'LEASE', atLeast: 1 }, reward: { cash: 100_000 } },
       { label: 'Stay solvent', condition: { kind: 'SOLVENT' }, reward: { report: true } },
@@ -196,8 +196,8 @@ export const SCENARIOS: readonly ScenarioData[] = [
     setup: { secondOffice: 'South_Asia' },
     blurb: 'The southern Red Sea is closed to shipping. Every cargo between Europe and Asia goes around Africa.',
     script: [{ tick: 3, chokepoint: 'BAB_EL_MANDEB', stages: [{ stage: 'DISRUPTION', days: 170, status: 'CLOSED', surcharge: 1.5 }] }],
-    goalText: 'Make $3M profit, with no cargo held at sea for more than 10 days.',
-    goal: [{ kind: 'PROFIT', atLeast: 3_000_000 }, { kind: 'MAX_HELD_DAYS', atMost: 10 }],
+    goalText: 'Make $250K profit, with no cargo held at sea for more than 10 days.',
+    goal: [{ kind: 'PROFIT', atLeast: 250_000 }, { kind: 'MAX_HELD_DAYS', atMost: 10 }],
     milestones: [
       { label: 'Open a third office', condition: { kind: 'OWN', what: 'OFFICES', atLeast: 3 }, reward: { cash: 250_000 } },
       { label: 'Stay solvent', condition: { kind: 'SOLVENT' }, reward: { report: true } },
