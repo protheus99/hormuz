@@ -193,6 +193,8 @@ export interface PlantState {
   online: boolean;
   /** Days left on a breakdown; the plant refines nothing until it reaches 0. */
   outageTicksRemaining: number;
+  /** Days left of scheduled maintenance; the plant refines nothing meanwhile (spec §6.5). */
+  maintenanceTicksRemaining: number;
   /** Days left on tier-upgrade works, and the share of capacity usable meanwhile (spec §4.9). */
   worksTicksRemaining: number;
   worksFactor: number;

@@ -7,6 +7,7 @@ import { REGIONS } from '../data/regions';
 import { FeeKind, GRADES, type Grade } from './enums';
 import { productValue, recordFee, sellToSink, YIELDS, type FeeLedger, type RetailSink } from './economics';
 import type { IntegratedMajor, PlantState, Producer, Refiner, Tick, WellState } from './model';
+import { nextFloat, type Rng } from './rng';
 
 /**
  * The share of capacity a refinery can run at today (spec §4.9): zero when offline or broken down,
@@ -14,7 +15,7 @@ import type { IntegratedMajor, PlantState, Producer, Refiner, Tick, WellState } 
  * this, so an offline refinery stops buying.
  */
 export function effectiveUtilization(r: PlantState): number {
-  if (!r.online || r.outageTicksRemaining > 0) return 0;
+  if (!r.online || r.outageTicksRemaining > 0 || r.maintenanceTicksRemaining > 0) return 0;
   return Math.min(r.utilization, r.utilizationCap);
 }
 
@@ -141,5 +142,53 @@ export function setExtractionRate(company: Producer | IntegratedMajor, rate: num
     recordFee(ledger, { tick, agentId: company.agentId, kind: FeeKind.RESTART, amount: cost });
     well.shutIn = false;
     well.rampTicksRemaining = config.RAMP_TICKS;
+  }
+}
+
+// ─── Plant upkeep (spec §4.9, §6.5, §5 phase 0) ──────────────────────────────────────────────
+
+/** Chance of a breakdown today: rises with the cube of time since maintenance (spec §4.9). */
+export function breakdownHazard(plant: PlantState, config: Config): number {
+  return config.BASE_HAZARD * (1 + plant.daysSinceMaintenance / config.MAINT_INTERVAL) ** 3;
+}
+
+/**
+ * A plant's day of upkeep (spec §5 phase 0): outages, maintenance and tier works count down;
+ * maintenance starts when due, taking the plant offline for MAINT_TICKS at MAINT_COST; and a
+ * running plant may break down. Exactly one draw is taken from the events stream per plant per
+ * day, whatever the plant's state, so one plant's history never shifts another's.
+ */
+export function advancePlant(company: Refiner | IntegratedMajor, rng: Rng, ledger: FeeLedger, tick: Tick, config: Config): void {
+  const plant = company.kind === 'INTEGRATED' ? company.plant : company;
+  const roll = nextFloat(rng);
+
+  if (plant.worksTicksRemaining > 0) {
+    plant.worksTicksRemaining -= 1;
+    if (plant.worksTicksRemaining === 0) plant.worksFactor = 1;
+  }
+  if (plant.outageTicksRemaining > 0) {
+    plant.outageTicksRemaining -= 1;
+    return;
+  }
+  if (plant.maintenanceTicksRemaining > 0) {
+    plant.maintenanceTicksRemaining -= 1;
+    if (plant.maintenanceTicksRemaining === 0) plant.daysSinceMaintenance = 0;
+    return;
+  }
+  if (!plant.online) return;
+
+  plant.daysSinceMaintenance += 1;
+  if (plant.daysSinceMaintenance >= config.MAINT_INTERVAL) {
+    plant.maintenanceTicksRemaining = config.MAINT_TICKS;
+    const cost = config.MAINT_COST * plant.processingCapacity;
+    company.cash -= cost;
+    recordFee(ledger, { tick, agentId: company.agentId, kind: FeeKind.MAINTENANCE, amount: cost });
+    return;
+  }
+  if (roll < breakdownHazard(plant, config)) {
+    const { min, max } = config.BREAKDOWN_TICKS;
+    // Reuse the same draw, rescaled, for the outage length so the stream stays one draw per day.
+    const share = roll / breakdownHazard(plant, config);
+    plant.outageTicksRemaining = min + Math.min(max - min, Math.floor(share * (max - min + 1)));
   }
 }

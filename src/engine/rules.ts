@@ -130,26 +130,8 @@ function refinerBids(
   const utilization = effectiveUtilization(plant);
   if (utilization === 0 || company.insolvent) return [];   // an offline plant needs nothing; an insolvent company may not bid (D11)
   const lot = cfg.LOT_SIZE;
-  const ctx: ClearContext = { routes: view.routes, tick: view.tick, config: cfg };
-
-  // Value each node whose grade the plant can refine.
-  const choices: NodeChoice[] = [];
-  for (const nodeName of NODE_NAMES) {
-    const node = view.nodes[nodeName];
-    if (node === undefined || !acceptedGrades(plant.techTier).includes(node.grade)) continue;
-    const quotes: Quote[] = previousClose(node, company.region, ctx, view.avoid);
-    const cheapest = quotes[0];
-    const transit = cheapest?.route.totalTransit ?? view.routes.route(node.markerRegion, company.region, view.avoid)?.totalTransit ?? 0;
-    const value = productValue(node.grade, view.expectedPrices) - YIELDS[node.grade].opex;
-    choices.push({ node: nodeName, deliveredMax: value - cfg.CARRY_RATE * transit, referenceLanded: cheapest?.landed ?? null });
-  }
-  if (choices.length === 0) return [];
-
-  // Best margin over the reference; with no reference anywhere, the highest delivered value.
-  const withRef = choices.filter((c) => c.referenceLanded !== null);
-  const best = withRef.length > 0
-    ? withRef.reduce((a, b) => (b.deliveredMax - (b.referenceLanded ?? 0) > a.deliveredMax - (a.referenceLanded ?? 0) ? b : a))
-    : choices.reduce((a, b) => (b.deliveredMax > a.deliveredMax ? b : a));
+  const best = bestNode(company, plant, view, cfg);
+  if (best === null) return [];
 
   // Quantity: top the stock up to TARGET_DAYS of use, within tank space and cash.
   const held = total(plant.crudeStock) + plant.inboundBarrels;
@@ -169,6 +151,52 @@ function refinerBids(
     orderId: ids(), agentId: company.agentId, node: best.node, side: 'BID', limitPrice: price, qty, qtyRemaining: qty,
     deliveryRegion: company.region, avoidChokepoints: [...view.avoid],
   }];
+}
+
+/** Each node the plant can refine, valued as §6.2 rules 1–2 describe. */
+function valueNodes(company: Refiner | IntegratedMajor, plant: PlantState, view: MarketView, cfg: Config): NodeChoice[] {
+  const ctx: ClearContext = { routes: view.routes, tick: view.tick, config: cfg };
+  const choices: NodeChoice[] = [];
+  for (const nodeName of NODE_NAMES) {
+    const node = view.nodes[nodeName];
+    if (node === undefined || !acceptedGrades(plant.techTier).includes(node.grade)) continue;
+    const quotes: Quote[] = previousClose(node, company.region, ctx, view.avoid);
+    const cheapest = quotes[0];
+    const transit = cheapest?.route.totalTransit ?? view.routes.route(node.markerRegion, company.region, view.avoid)?.totalTransit ?? 0;
+    const value = productValue(node.grade, view.expectedPrices) - YIELDS[node.grade].opex;
+    choices.push({ node: nodeName, deliveredMax: value - cfg.CARRY_RATE * transit, referenceLanded: cheapest?.landed ?? null });
+  }
+  return choices;
+}
+
+/** §6.2 rule 3: the best margin over the reference; with no reference anywhere, the highest value. */
+function bestNode(company: Refiner | IntegratedMajor, plant: PlantState, view: MarketView, cfg: Config): NodeChoice | null {
+  const choices = valueNodes(company, plant, view, cfg);
+  if (choices.length === 0) return null;
+  const withRef = choices.filter((c) => c.referenceLanded !== null);
+  return withRef.length > 0
+    ? withRef.reduce((a, b) => (b.deliveredMax - (b.referenceLanded ?? 0) > a.deliveredMax - (a.referenceLanded ?? 0) ? b : a))
+    : choices.reduce((a, b) => (b.deliveredMax > a.deliveredMax ? b : a));
+}
+
+/** Lowest run rate the throttle will cut to (spec §6.5). */
+export const THROTTLE_FLOOR = 0.30;
+/** How far the throttle moves the run rate in a day (spec §6.5). */
+export const THROTTLE_STEP = 0.10;
+
+/**
+ * The crack-spread throttle (spec §6.5), run every day before orders: if a barrel delivered from
+ * the cheapest origin of the best node is worth less than it costs, cut the run rate 10% towards a
+ * 30% floor; otherwise raise it 10%, never above the cap cards set. With no price reference it holds.
+ */
+export function updateThrottle(company: Refiner | IntegratedMajor, view: MarketView, cfg: Config): void {
+  const plant = company.kind === 'INTEGRATED' ? company.plant : company;
+  const best = bestNode(company, plant, view, cfg);
+  if (best === null || best.referenceLanded === null) return;
+  const next = best.deliveredMax < best.referenceLanded
+    ? Math.max(THROTTLE_FLOOR, plant.utilization - THROTTLE_STEP)
+    : Math.min(plant.utilizationCap, plant.utilization + THROTTLE_STEP);
+  plant.utilization = Math.round(next * 100) / 100;   // keep to whole percent, free of float drift
 }
 
 // ─── Traders (spec §6.4) ─────────────────────────────────────────────────────────────────────

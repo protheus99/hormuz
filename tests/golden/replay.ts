@@ -1,7 +1,7 @@
 // Golden replay harness (spec §14.6). Runs a small, fully scripted economy built from every engine
-// part that exists so far — product prices, integrated transfers, refining, seeded order pricing,
-// batch clearing, settlement, the lane graph and cargo logistics, with a Hormuz closure from day
-// 150 to 180 — and fingerprints its state every day.
+// part that exists so far — product prices, extraction and decline, integrated transfers, refining,
+// maintenance and breakdowns, seeded order pricing, batch clearing, settlement, the lane graph and
+// cargo logistics, with a Hormuz closure from day 150 to 180 — and fingerprints its state every day.
 //
 // Until the tick orchestrator exists (Phase 6), this stands in for S0, with scripted orders in place
 // of the §6 decision rules. From Phase 6 the harness runs `step()` on S0 instead, and the recorded
@@ -9,7 +9,7 @@
 //
 // It imports only the engine and plain data, never Node, so the same file runs in a browser.
 
-import { applyDecline, extract, internalTransfer, refine } from '../../src/engine/agents';
+import { advancePlant, applyDecline, extract, internalTransfer, refine } from '../../src/engine/agents';
 import { clear, createNode, submit, type ExchangeNode } from '../../src/engine/clearing';
 import { createIntegrated, createProducer, createRefiner, plantOf, total, wellOf } from '../../src/engine/companies';
 import { DEFAULT_CONFIG } from '../../src/engine/config';
@@ -64,6 +64,7 @@ export function runGoldenReplay(seed = GOLDEN_SEED, days = GOLDEN_DAYS, inspect?
   const nodes: ExchangeNode[] = [createNode('DME'), createNode('NC')];
   const sink = createRetailSink(seed, config);
   const ai = rngFor(seed, 'ai');
+  const events = rngFor(seed, 'events');
   const ledger = createLedger();
   const cargo: Cargo[] = [];
   const baseline = agents.reduce((s, a) => s + (plantOf(a)?.processingCapacity ?? 0), 0) * config.PRODUCT_PRICES.BASE_UTILIZATION;
@@ -81,6 +82,7 @@ export function runGoldenReplay(seed = GOLDEN_SEED, days = GOLDEN_DAYS, inspect?
     routes.resetTick();
 
     for (const a of agents) {
+      if (a.kind === 'REFINER' || a.kind === 'INTEGRATED') advancePlant(a, events, ledger, day, config);
       if (a.kind === 'PRODUCER' || a.kind === 'INTEGRATED') {
         applyDecline(a, config);
         extract(a, ledger, day, config);

@@ -1318,7 +1318,8 @@ export function productValue(grade: Grade, prices: Readonly<Record<Product, numb
 export function decideOrders(a: Agent, index: number, view: MarketView, cfg: Config): Order[];   // §6.1–6.4; index gives stable order IDs
 
 // agents.ts
-export function defaultOperations(a: Agent, w: World, cfg: Config): void;             // §6.5
+export function advancePlant(r: Refiner | IntegratedMajor, events: Rng, ledger, tick, cfg): void;   // §6.5 maintenance, breakdowns, works; one draw per plant per day
+// rules.ts: updateThrottle(r, view, cfg) is the §6.5 crack-spread throttle, run before orders
 export function extract(p: Producer | IntegratedMajor, ledger: FeeLedger, tick: Tick, cfg: Config): ExtractResult;   // cost to the ledger
 export function applyDecline(p: Producer | IntegratedMajor, cfg: Config): void;
 export function setExtractionRate(p: Producer | IntegratedMajor, rate: number, ledger: FeeLedger, tick: Tick, cfg: Config): void;   // shut-in, restart and ramp

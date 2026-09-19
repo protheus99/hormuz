@@ -196,6 +196,7 @@ function buildPlant(owner: CompanySpec, region: RegionName, pl: PlantSpec): Plan
     utilizationCap: 1,
     online: true,
     outageTicksRemaining: 0,
+    maintenanceTicksRemaining: 0,
     worksTicksRemaining: 0,
     worksFactor: 1,
     daysSinceMaintenance: 0,
