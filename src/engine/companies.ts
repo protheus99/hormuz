@@ -223,9 +223,18 @@ export function createTrader(s: TraderSpec): Trader {
   const hubs: Partial<Record<RegionName, HubHolding>> = {};
   for (const o of s.offices) {
     requireNonNegative(s, { [`${o.region} capacity`]: o.capacity });
-    hubs[o.region] = { capacity: o.capacity, stock: emptyStock(), escrow: emptyStock() };
+    hubs[o.region] = { capacity: o.capacity, stock: emptyStock(), escrow: emptyStock(), inbound: emptyStock(), cost: emptyStock() };
   }
   return { ...base(s), kind: AgentKind.TRADER, offices: regions, hubs, priceMemory: {} };
+}
+
+/**
+ * What a barrel of one grade in a hub cost, delivered: the hub's cost basis spread over the barrels
+ * it holds and has on the way (spec §6.4). Zero when it holds none.
+ */
+export function averageCost(hub: HubHolding, grade: Grade): number {
+  const barrels = hub.stock[grade] + hub.escrow[grade] + hub.inbound[grade];
+  return barrels > 0 ? Math.max(0, hub.cost[grade] / barrels) : 0;
 }
 
 /** Total barrels across every grade. */

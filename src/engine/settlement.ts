@@ -11,7 +11,7 @@
 // the same decimals in a different sequence can leave a residue like 1e-10, and invariant 4
 // requires exactly zero.
 
-import { availableCash, acceptedGrades, plantOf, wellOf } from './companies';
+import { availableCash, acceptedGrades, averageCost, plantOf, wellOf } from './companies';
 import { FeeKind } from './enums';
 import { recordFee, type FeeLedger } from './economics';
 import { NODES } from '../data/nodes';
@@ -60,7 +60,10 @@ export function settleFills(fills: readonly Fill[], agents: ReadonlyMap<AgentId,
 
     const goods = f.fobPrice * f.qty;
     const freight = f.freight * f.qty;
-    const originTariff = REGIONS[f.originRegion].infrastructureTariff * f.qty;
+    // A region's infrastructure tariff is paid once, when crude enters it. Crude leaving a trading
+    // hub it was delivered into has already paid, so its resale pays no origin tariff (spec §7.1).
+    const fromHub = seller.kind === 'TRADER' && seller.hubs[f.originRegion] !== undefined;
+    const originTariff = fromHub ? 0 : REGIONS[f.originRegion].infrastructureTariff * f.qty;
     buyer.cash -= goods + freight;
     seller.cash += goods - originTariff;
     recordFee(ledger, { tick: f.tick, agentId: buyer.agentId, kind: FeeKind.FREIGHT, amount: freight });
@@ -68,6 +71,13 @@ export function settleFills(fills: readonly Fill[], agents: ReadonlyMap<AgentId,
 
     const plant = plantOf(buyer);
     if (plant) plant.inboundBarrels += f.qty;
+    const hub = buyer.kind === 'TRADER' ? buyer.hubs[f.deliveryRegion] : undefined;
+    if (hub) {
+      hub.inbound[grade] += f.qty;
+      hub.cost[grade] += f.qty * f.landedPrice;
+    }
+    const sellerHub = seller.kind === 'TRADER' ? seller.hubs[f.originRegion] : undefined;
+    if (sellerHub) sellerHub.cost[grade] -= f.qty * averageCost(sellerHub, grade);
     cargo.push(newCargo({
       cargoId: makeCargoId(f.node, f.tick, i),
       ownerId: buyer.agentId,

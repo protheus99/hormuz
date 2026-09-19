@@ -8,7 +8,7 @@
 
 import { actualCost, effectiveUtilization, fillRatio, setExtractionRate } from './agents';
 import { previousClose, referencePrice, type ClearContext, type ExchangeNode, type Quote } from './clearing';
-import { acceptedGrades, availableCash, total } from './companies';
+import { acceptedGrades, availableCash, averageCost, total } from './companies';
 import type { Config } from './config';
 import { productValue, YIELDS, type FeeLedger, type ProductPrices } from './economics';
 import {
@@ -311,9 +311,10 @@ function traderOrders(trader: Trader, view: MarketView, cfg: Config, ids: () => 
   for (const office of trader.offices) {
     const hub = trader.hubs[office];
     if (hub === undefined) continue;
-    const fill = hub.capacity > 0 ? (total(hub.stock) + total(hub.escrow)) / hub.capacity : 1;
+    // Crude already on its way counts as held: it will need the space, and it is already bought.
+    const fill = hub.capacity > 0 ? (total(hub.stock) + total(hub.escrow) + total(hub.inbound)) / hub.capacity : 1;
     const shift = -2 * cfg.HALF_SPREAD * (fill - 0.5);
-    const freePerGrade = Math.max(0, hub.capacity - total(hub.stock) - total(hub.escrow)) / nodeNames.length;
+    const freePerGrade = Math.max(0, hub.capacity - total(hub.stock) - total(hub.escrow) - total(hub.inbound)) / nodeNames.length;
 
     for (const name of nodeNames) {
       const node = view.nodes[name] as ExchangeNode;
@@ -322,13 +323,16 @@ function traderOrders(trader: Trader, view: MarketView, cfg: Config, ids: () => 
       const held = hub.stock[node.grade];
       const askQty = lots(trend === 'rich' ? held : held / 2, lot);
       if (askQty > 0) {
-        const price = roundUp(Math.max(0.01, referenceFob(node, office, view) + cfg.HALF_SPREAD + shift));
+        // Never sell below what the barrels cost delivered, plus the export tariff and the spread —
+        // unless the hub is nearly full, when space matters more than the margin (spec §6.4).
+        const floor = fill >= cfg.TRADER_CLEAR_FILL ? 0 : averageCost(hub, node.grade) + cfg.HALF_SPREAD;
+        const price = roundUp(Math.max(0.01, floor, referenceFob(node, office, view) + cfg.HALF_SPREAD + shift));
         orders.push({ orderId: ids(), agentId: trader.agentId, node: name, side: 'ASK', limitPrice: price, qty: askQty, qtyRemaining: askQty, originRegion: office });
       }
 
-      // Buy delivered into this office only below what the crude resells for here, net of the export
-      // tariff paid on resale: every filled round trip clears at least the full spread. It fills only
-      // when crude from elsewhere lands cheaper than the local price — a gap between regions.
+      // Buy delivered into this office well below what the crude resells for here: a margin the
+      // size of the region's tariff, plus the spread. It fills only when crude from elsewhere lands
+      // cheaper than the local price — a gap between regions — which is the trader's whole edge.
       const price = roundDown(referenceFob(node, office, view) - REGIONS[office].infrastructureTariff - cfg.HALF_SPREAD + shift);
       if (!(price > 0)) continue;
       const room = Math.min(freePerGrade, budget / price, cashPerSlot / price);

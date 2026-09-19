@@ -10,7 +10,7 @@ import { acceptedGrades, plantOf, total } from './companies';
 import type { Config } from './config';
 import { FeeKind, type Grade } from './enums';
 import { recordFee, type FeeLedger } from './economics';
-import type { Agent, AgentId, Cargo, CargoId, Tick } from './model';
+import type { Agent, AgentId, Cargo, CargoId, RegionName, Tick } from './model';
 import { advanceCargo, type LaneGraph } from './transport';
 import { REGIONS } from '../data/regions';
 
@@ -62,7 +62,7 @@ export function runLogistics(
     if (c.demurrageTicks >= config.DEMURRAGE_MAX_TICKS) {
       const revenue = c.qty * distressPrice(c.grade) * (1 - config.DISTRESS_DISCOUNT);
       owner.cash += revenue;
-      releaseInbound(owner, c.qty);
+      releaseInbound(owner, c.qty, c.destination, c.grade);
       forcedSales.push({ cargoId: c.cargoId, ownerId: owner.agentId, barrels: c.qty, revenue });
       c.qty = 0;
     }
@@ -95,7 +95,7 @@ function unload(c: Cargo, owner: Agent, ledger: FeeLedger, tick: Tick): number {
   if (qty === 0) return 0;
   tanks.add(qty);
   c.qty -= qty;
-  releaseInbound(owner, qty);
+  releaseInbound(owner, qty, c.destination, c.grade);
   const tariff = REGIONS[c.destination].infrastructureTariff * qty;
   owner.cash -= tariff;
   recordFee(ledger, { tick, agentId: owner.agentId, kind: FeeKind.DESTINATION_TARIFF, amount: tariff });
@@ -126,10 +126,12 @@ function tanksAt(owner: Agent, c: Cargo): { free: number; add: (qty: number) => 
   throw new Error(`${owner.name} has no tanks in ${c.destination} for cargo ${c.cargoId}`);
 }
 
-/** Barrels no longer on their way stop counting towards a refinery's inbound total (spec §6.2). */
-function releaseInbound(owner: Agent, qty: number): void {
+/** Barrels no longer on their way stop counting towards a refinery's or hub's inbound total (spec §6.2, §6.4). */
+function releaseInbound(owner: Agent, qty: number, destination: RegionName, grade: Grade): void {
   const plant = plantOf(owner);
   if (plant) plant.inboundBarrels = Math.max(0, plant.inboundBarrels - qty);
+  const hub = owner.kind === 'TRADER' ? owner.hubs[destination] : undefined;
+  if (hub) hub.inbound[grade] = Math.max(0, hub.inbound[grade] - qty);
 }
 
 function ownerOf(agents: ReadonlyMap<AgentId, Agent>, c: Cargo): Agent {

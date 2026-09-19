@@ -49,6 +49,7 @@ export interface Config {
   readonly AGGRESSION: number;             // integrated deficit bids above delivered_max
   readonly HALF_SPREAD: number;            // $/bbl either side of the marker for trader quotes
   readonly STORAGE_CARRY: number;          // $/bbl per tick of holding stock
+  readonly TRADER_CLEAR_FILL: number;      // hub fill above which a trader sells even at a loss
   readonly HOLD_TICKS: number;             // ticks a storage trade expects to hold
   readonly MAX_RISK_LIMIT: number;         // $ a trader may hold in open positions (Appetite: Medium)
 
@@ -157,6 +158,7 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
   AGGRESSION: 0.05,
   HALF_SPREAD: 0.40,
   STORAGE_CARRY: 0.06,
+  TRADER_CLEAR_FILL: 0.90,
   HOLD_TICKS: 30,
   MAX_RISK_LIMIT: 5_000_000,
 
@@ -208,7 +210,7 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
     LARGE: { RATE: 15_000, CAPACITY: 200_000 },
   },
   CHARTER_MIN_TICKS: 30,
-  OFFICE_COST: { OPEN: 250_000, PER_TICK: 2_500 },
+  OFFICE_COST: { OPEN: 250_000, PER_TICK: 1_000 },
 
   DEAL_VOLUME: { min: 1_000, max: 10_000 },
   DEAL_TERMS: [30, 90],

@@ -4,7 +4,7 @@
 // each action does to the world and what it costs.
 
 import { internalTransfer, startMaintenance } from './agents';
-import { acceptedGrades, CLOSED_TO_NEW_REFINING, integrate, integrationPlant, plantCost, plantOf, total, wellOf } from './companies';
+import { acceptedGrades, averageCost, CLOSED_TO_NEW_REFINING, integrate, integrationPlant, plantCost, plantOf, total, wellOf } from './companies';
 import type { Config } from './config';
 import { cancelDeal, signDeal, type DealTerms } from './deals';
 import { FeeKind, type Grade, type Side } from './enums';
@@ -306,7 +306,11 @@ export function applyAction(w: World, agentId: AgentId, action: Action): void {
       if (a.offices.includes(action.region)) throw new Error(`${a.name} already has an office in ${action.region}`);
       charge(w, a, cfg.OFFICE_COST.OPEN, FeeKind.OFFICE, tick);
       a.offices.push(action.region);
-      a.hubs[action.region] = { capacity: OFFICE_HUB_CAPACITY, stock: { LIGHT_SWEET: 0, MEDIUM: 0, HEAVY_SOUR: 0 }, escrow: { LIGHT_SWEET: 0, MEDIUM: 0, HEAVY_SOUR: 0 } };
+      a.hubs[action.region] = {
+        capacity: OFFICE_HUB_CAPACITY, stock: { LIGHT_SWEET: 0, MEDIUM: 0, HEAVY_SOUR: 0 },
+        escrow: { LIGHT_SWEET: 0, MEDIUM: 0, HEAVY_SOUR: 0 },
+        inbound: { LIGHT_SWEET: 0, MEDIUM: 0, HEAVY_SOUR: 0 }, cost: { LIGHT_SWEET: 0, MEDIUM: 0, HEAVY_SOUR: 0 },
+      };
       return;
     }
     case 'SELL_AT_SEA': {
@@ -320,6 +324,11 @@ export function applyAction(w: World, agentId: AgentId, action: Action): void {
         w.totals.forceSold += qty;
         w.totals.forcedSaleRevenue += qty * price;
         if (plant) plant.inboundBarrels = Math.max(0, plant.inboundBarrels - qty);
+        const hub = a.kind === 'TRADER' ? a.hubs[c.destination] : undefined;
+        if (hub) {
+          hub.cost[c.grade] -= qty * averageCost(hub, c.grade);
+          hub.inbound[c.grade] = Math.max(0, hub.inbound[c.grade] - qty);
+        }
       }
       w.cargo = w.cargo.filter((c) => c.qty > 0);
       return;

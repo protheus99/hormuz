@@ -392,7 +392,7 @@ One tick is **one day**. Verification runs use 365 ticks; games run 1–5 years 
 
 Each grade trades on one exchange node, but orders carry location:
 
-- **Asks are FOB (free on board) at the seller's origin.** The seller receives the trade price and pays its own origin tariff.
+- **Asks are FOB (free on board) at the seller's origin.** The seller receives the trade price and pays its own origin tariff. A region's infrastructure tariff is paid **once, when crude enters it** (D37): crude resold out of a trading hub in the region it was delivered into pays no origin tariff, because it paid the destination tariff on arrival. Without this a trader paid both tariffs — about $5/bbl against a spread of $0.80 — and no trader could ever cover its costs.
 - **Bids are delivered prices to the buyer's region.** The buyer pays freight along the route plus the destination tariff.
 - A bid and an ask can trade when `bid ≥ landed`, where `landed = ask + route_freight(origin → destination) + destination_tariff`. If no usable route exists — for example, Hormuz closed and bypass pipelines full — that pair cannot trade.
 
@@ -728,7 +728,9 @@ After internal clearing, surplus production is offered under §6.1 with a floor 
 
 Traders act only in office and leased-storage regions.
 
-- **Arbitrage between regions (D35):** at each office region and for each grade, an ask FOB from the hub at `ref + HALF_SPREAD` and a bid delivered into it at `ref − origin tariff − HALF_SPREAD`, where `ref` is the office's previous close or offer. Every filled round trip therefore clears at least the full spread after the tariff on resale, and bids fill only when crude from elsewhere lands below the local price — a gap between regions. Both are shifted by `−2 × HALF_SPREAD × (hub fill − 0.5)` so an empty hub quotes keen to buy and a full one keen to sell. Asks offer half the grade's stock; bids use half the room left — the least of free tank space, the unused `MAX_RISK_LIMIT` (holdings valued at markers) and cash, shared across every office and grade.
+- **Arbitrage between regions (D35):** at each office region and for each grade, an ask FOB from the hub at `ref + HALF_SPREAD` and a bid delivered into it at `ref − origin tariff − HALF_SPREAD`, where `ref` is the office's previous close or offer. The bid keeps a margin the size of the region's tariff, so bids fill only when crude from elsewhere lands well below the local price — a gap between regions, which is the trader's whole edge. Both are shifted by `−2 × HALF_SPREAD × (hub fill − 0.5)` so an empty hub quotes keen to buy and a full one keen to sell. Asks offer half the grade's stock; bids use half the room left — the least of free tank space, the unused `MAX_RISK_LIMIT` (holdings valued at markers) and cash, shared across every office and grade.
+- **Never at a loss (D37):** each hub keeps what its barrels cost delivered, by grade, counting those still at sea. An ask is never priced below that cost plus `HALF_SPREAD`, unless the hub is more than `TRADER_CLEAR_FILL` (90%) full, when clearing space matters more than the margin. Without this floor traders sold medium crude into falling markets at about $2.70 a barrel below cost.
+- **Barrels on the way count as held (D37):** crude bought for a hub and still at sea takes up its room and its risk budget, so a trader stops buying before its tanks are spoken for. Without it traders overbought and paid demurrage while their cargo floated.
 - **Storage arbitrage:** if `marker < 20-day average − STORAGE_CARRY × HOLD_TICKS`, bids use all the room left instead of half; if `marker > 20-day average`, asks offer all the stock instead of half. The 20-day memory is updated in phase 7.
 - **Committed capital:** capital committed through cards (price gaps, crisis bets, distressed cargo) adds targeted bids and asks for the committed period.
 
@@ -863,7 +865,8 @@ Placeholders for balancing. "× labor" scales with the region's `labor_cost_inde
 | `DEMURRAGE_RATE`, `DEMURRAGE_MAX_TICKS` | $0.25 per bbl per tick, 15 ticks | Delivery overflow |
 | `DISTRESS_DISCOUNT` | 20% below marker | Forced sales |
 | `CHARTER_RATE`, capacity, `CHARTER_MIN_TICKS` | Small $6,000/tick, 50,000 bbl; Large $15,000/tick, 200,000 bbl; 30 ticks | Charters; chartered cargo pays no per-barrel freight but does pay chokepoint surcharges |
-| `OFFICE_COST` | $250,000 to open, $2,500 per tick | Trading offices |
+| `OFFICE_COST` | $250,000 to open, $1,000 per tick (D37) | Trading offices |
+| `TRADER_CLEAR_FILL` | 90% | Hub fill above which a trader sells below cost |
 | `DUMP_DISCOUNT` | 20% below the reference, never below cash cost | Producer dumps (§6.1 rule 5) |
 | `CHOKEPOINT_THROUGHPUT` | 100% / 75% / 50% / 0% for `OPEN` / `TENSION` / `DELAYED` / `CLOSED` | Strait throughput (§3.5) |
 | `CREDIT_ASSET_SHARE` | 5 × capital assets | Credit line (G6) |
@@ -1071,6 +1074,7 @@ The build proceeds on these. Changing one means updating the sections it names.
 | D25 | Disruptions are staged events (`RUMOR → TENSION → DISRUPTION → RECOVERY`), with a `TENSION` chokepoint status (G7.1) |
 | D35 | Owner decisions 2026-09-19: chokepoint throughput falls in steps with status (a closure stops 100% of the strait but redirection by bypass stays possible, so the bypasses keep their capacity); producers dump at a discount to the reference, not at cash cost; the AI trader arbitrages between regions with tariff-aware spreads, from two offices at lower running cost; starting cash raised and credit lines 10× larger; insolvency is recoverable, because the world has too few companies to lose them |
 | D34 | Refiners grow through processing units, tier upgrades, storage and one second refinery in another refining region (not the Gulf); rival buyouts are out of scope. Chosen over a single site, which left refiners no late game, and over acquisitions, which add valuation and merger rules a teenager should not need |
+| D37 | Phase 12 trading balance: a region's infrastructure tariff is paid once, when crude enters it, so a hub's resale pays none (§3.3); a trader never sells below what its barrels cost until its hub is 90% full; barrels at sea count as held; offices cost $1,000 a tick. Together these took the trader from about −$1.5M a year on autopilot to roughly break-even, and the AI trader to a small profit |
 | D36 | Phase 9 choices: starting companies have a size floor (G2); AI companies answer operating cards from per-temperament odds tables rather than scoring each option (G4.6); "Charter a tanker", "Keep cargo afloat" and "Build a second refinery" wait for the charter and multi-plant systems (Phase 11), so D34's second refinery is not yet playable |
 | D33 | Every chokepoint is live. Each of the seven has its own event profile; warning scales with severity; the deck never disrupts a chokepoint and its bypass together on Easy or Normal; each year hits at least one chokepoint the player depends on; the campaign features six of the seven (G7.1, G7.2) |
 

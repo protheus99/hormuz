@@ -241,6 +241,13 @@ export interface HubHolding {
   stock: Stock;
   /** Barrels locked by today's asks from this region. */
   escrow: Stock;
+  /** Barrels bought for this hub and still on their way, so bids leave room for them (spec §6.4). */
+  inbound: Stock;
+  /**
+   * What the barrels held and on their way cost, delivered, by grade ($ in total). A trader prices
+   * its asks off this, so it never sells at a loss while it has room to wait (spec §6.4).
+   */
+  cost: Stock;
 }
 
 export interface Trader extends CompanyBase {

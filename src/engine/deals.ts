@@ -5,7 +5,7 @@
 // the oil is loaded and carries the route risk; the seller pays its export tariff, and pays the
 // buyer SHORTFALL_RATE for any barrels it could not load. Deal trades never touch marker prices.
 
-import { acceptedGrades, plantOf, wellOf } from './companies';
+import { acceptedGrades, averageCost, plantOf, wellOf } from './companies';
 import type { Config } from './config';
 import { FeeKind, type Grade, type Personality } from './enums';
 import type { ExchangeNode } from './clearing';
@@ -147,6 +147,13 @@ export function deliverDeals(
       recordFee(ledger, { tick, agentId: seller.agentId, kind: FeeKind.ORIGIN_TARIFF, amount: tariff });
       const plant = plantOf(buyer);
       if (plant && buyer.region === deal.deliveryRegion) plant.inboundBarrels += qty;
+      const hub = buyer.kind === 'TRADER' ? buyer.hubs[deal.deliveryRegion] : undefined;
+      if (hub) {
+        hub.inbound[deal.grade] += qty;
+        hub.cost[deal.grade] += qty * deal.price;
+      }
+      const sellerHub = seller.kind === 'TRADER' ? seller.hubs[deal.originRegion] : undefined;
+      if (sellerHub) sellerHub.cost[deal.grade] -= qty * averageCost(sellerHub, deal.grade);
     }
     if (shortfall > 0) {
       // Compensation is a transfer between the two companies, not a cost to the economy.
