@@ -85,10 +85,13 @@ export const CORE_PORTFOLIO: readonly PortfolioEntry[] = [
 
 // ─── Global portfolio (spec §10.2; the default world for games) ──────────────────────────────
 
-/** §10.2 defaults: 3 days of producer storage, starting 25% full; producers start with $2.0M. */
+/**
+ * Producers hold 10 days of output, starting 25% full, with $2.0M. §10.2's 3 days overflowed on
+ * any slow trading day, halting producers within two weeks of a calm start (Phase 7 calibration).
+ */
 const producer = (id: string, region: RegionName, grade: Grade, capacity: number, cost: number): PortfolioEntry => ({
   kind: 'PRODUCER', id, name: id.replace(/_/g, ' '), region, cash: 2_000_000,
-  well: { grade, extractionCapacity: capacity, baseExtractionCost: cost, storageCapacity: 3 * capacity },
+  well: { grade, extractionCapacity: capacity, baseExtractionCost: cost, storageCapacity: 10 * capacity },
 });
 
 /**
