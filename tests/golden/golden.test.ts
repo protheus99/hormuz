@@ -9,11 +9,12 @@
 import { describe, expect, it } from 'vitest';
 import { runGoldenReplay } from './replay';
 
-// Verified identical in Node 24 and Chrome 152 (`npm run golden:browser`) on 2026-09-18.
+// Verified identical in Node 24 and Chrome 152 (`npm run golden:browser`) on 2026-09-18,
+// after the replay moved onto the real lane graph and cargo logistics (Phase 4).
 const GOLDEN = {
-  day1: '82b08e25cddec49d3ddec6a9127e8b67',
-  day30: 'ec6152deedde7e4ac770dc17b08cfb6c',
-  final: '99f3d16ac22d5fe5a087126a2914c792',
+  day1: '0be1edc1da27f1a0216549538b7ecc55',
+  day30: '74ae5c3542d16175eb831ceefb32d4c6',
+  final: '037803e7e81dcff17befddb2107f3760',
 };
 
 describe('golden replay', () => {
@@ -30,6 +31,7 @@ describe('golden replay', () => {
     expect(run.daily).toHaveLength(365);
     expect(run.summary.fills).toBeGreaterThan(100);
     expect(run.summary.refined).toBeGreaterThan(1_000_000);
+    expect(run.summary.heldCargoDays).toBeGreaterThan(0);   // the Hormuz closure held cargo
     expect(new Set(run.daily).size).toBe(365);
   });
 

@@ -12,12 +12,12 @@
 // requires exactly zero.
 
 import { availableCash, acceptedGrades, plantOf, wellOf } from './companies';
-import { CargoStatus, FeeKind } from './enums';
+import { FeeKind } from './enums';
 import { recordFee, type FeeLedger } from './economics';
 import { NODES } from '../data/nodes';
 import { REGIONS } from '../data/regions';
 import {
-  makeCargoId, type Agent, type AgentId, type Cargo, type Fill, type Order, type PlantState, type RegionName, type WellState,
+  makeCargoId, newCargo, type Agent, type AgentId, type Cargo, type Fill, type Order, type PlantState, type RegionName, type WellState,
 } from './model';
 import type { Grade } from './enums';
 
@@ -68,7 +68,7 @@ export function settleFills(fills: readonly Fill[], agents: ReadonlyMap<AgentId,
 
     const plant = plantOf(buyer);
     if (plant) plant.inboundBarrels += f.qty;
-    cargo.push({
+    cargo.push(newCargo({
       cargoId: makeCargoId(f.node, f.tick, i),
       ownerId: buyer.agentId,
       grade,
@@ -78,8 +78,7 @@ export function settleFills(fills: readonly Fill[], agents: ReadonlyMap<AgentId,
       route: f.route,
       dispatchTick: f.tick,
       dealId: f.dealId,
-      status: CargoStatus.MOVING,
-    });
+    }));
   });
   return cargo;
 }

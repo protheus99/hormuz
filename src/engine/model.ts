@@ -216,13 +216,26 @@ export interface Cargo {
   readonly cargoId: CargoId;
   readonly ownerId: AgentId;
   readonly grade: Grade;
-  readonly qty: number;
+  /** Barrels still aboard. Falls as a floating cargo is unloaded bit by bit. */
+  qty: number;
   readonly origin: RegionName;
   readonly destination: RegionName;
   readonly route: Route;
   readonly dispatchTick: Tick;
   readonly dealId: DealId | null;
   status: CargoStatus;
+  /** Index into route.edges of the edge being crossed, or waited at; equals its length on arrival. */
+  leg: number;
+  /** Ticks left on the current edge; 0 means waiting to enter edge `leg`. */
+  ticksLeft: number;
+  /** Ticks spent floating offshore waiting for tank space (spec §5). */
+  demurrageTicks: number;
+}
+
+/** A new cargo at the start of its route. Delivery inside one region still takes one tick (spec §5). */
+export function newCargo(fields: Omit<Cargo, 'status' | 'leg' | 'ticksLeft' | 'demurrageTicks'>): Cargo {
+  const local = fields.route.edges.length === 0;
+  return { ...fields, status: 'MOVING', leg: 0, ticksLeft: local ? 1 : 0, demurrageTicks: 0 };
 }
 
 /** Deterministic cargo IDs: the node and tick that created it, then its position in that settlement. */

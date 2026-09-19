@@ -1,4 +1,4 @@
-// Conservation under random trading and refining (spec §9 invariants 1, 2, 4 and 5; Phases 2–3).
+// Conservation under random trading, refining and shipping (spec §9 invariants 1, 2, 4 and 5; Phases 2–4).
 // fast-check builds random multi-day markets and checks after every day that no barrel or
 // dollar has been created or destroyed by accident.
 
@@ -11,18 +11,9 @@ import { DEFAULT_CONFIG } from '../../src/engine/config';
 import { createLedger, createRetailSink, updatePrices } from '../../src/engine/economics';
 import { NODE_FOR_GRADE } from '../../src/data/nodes';
 import { makeOrderId, type Agent, type AgentId, type Cargo, type NodeName, type Order, type RegionName, type TechTier } from '../../src/engine/model';
-import { StubRouteProvider } from '../../src/engine/routes';
+import { runLogistics } from '../../src/engine/logistics';
+import { buildLaneGraph, LaneRouteProvider, setChokepoint } from '../../src/engine/transport';
 import { placeOrder, releaseEscrow, settleFills } from '../../src/engine/settlement';
-
-const network = () =>
-  new StubRouteProvider([
-    { origin: 'Middle_East', destination: 'Coastal_Asia', freight: 9.8, transit: 16, chokepoints: ['HORMUZ'] },
-    { origin: 'Middle_East', destination: 'Coastal_Asia', freight: 10.9, transit: 16, capacityPerTick: 6000 },
-    { origin: 'Gulf_of_Oman', destination: 'Coastal_Asia', freight: 9.0, transit: 15 },
-    { origin: 'Gulf_of_Oman', destination: 'Middle_East', freight: 0.8, transit: 2 },
-    { origin: 'Middle_East', destination: 'South_Asia', freight: 3.0, transit: 6 },
-    { origin: 'Gulf_of_Oman', destination: 'South_Asia', freight: 2.2, transit: 5 },
-  ]);
 
 function buildCompanies(tiers: readonly TechTier[]): Agent[] {
   const trader = createTrader({
@@ -55,7 +46,9 @@ type OrderSpec = typeof orderSpec extends fc.Arbitrary<infer T> ? T : never;
 
 const scenario = fc.record({
   tiers: fc.tuple(fc.constantFrom<TechTier>(1, 2, 3), fc.constantFrom<TechTier>(1, 2, 3), fc.constantFrom<TechTier>(1, 2, 3)),
-  days: fc.array(fc.array(orderSpec, { maxLength: 12 }), { minLength: 1, maxLength: 4 }),
+  days: fc.array(fc.array(orderSpec, { maxLength: 8 }), { minLength: 1, maxLength: 24 }),
+  /** Hormuz closed (true) or open on each day; missing days are open. */
+  hormuz: fc.array(fc.boolean(), { maxLength: 24 }),
 });
 
 /** Turns a random spec into an order the company could plausibly place. */
@@ -92,25 +85,32 @@ function barrelsHeld(agents: readonly Agent[], cargo: readonly Cargo[]): number 
 
 describe('conservation (spec §9)', () => {
   it('never creates or destroys barrels or cash, and clears all escrow every day', () => {
-    // Each day: integrated majors move crude to their own plants, every plant refines, then the
-    // market trades. Barrels leave only by being refined; cash changes only by retail revenue
-    // coming in and recorded fees going out.
+    // Each day on the real lane graph: Hormuz opens or closes, cargo moves and unloads, integrated
+    // majors move crude to their own plants, every plant refines, then the market trades. Barrels
+    // leave only by being refined or sold off from a stranded cargo; cash changes only by retail
+    // and forced-sale revenue coming in and recorded fees going out.
     fc.assert(
-      fc.property(scenario, ({ tiers, days }) => {
+      fc.property(scenario, ({ tiers, days, hormuz }) => {
         const agents = buildCompanies(tiers);
         const byId = new Map<AgentId, Agent>(agents.map((a) => [a.agentId, a]));
         const nodes: Record<'DME' | 'NC', ExchangeNode> = { DME: createNode('DME'), NC: createNode('NC') };
         const ledger = createLedger();
         const sink = createRetailSink('conservation', DEFAULT_CONFIG);
+        const graph = buildLaneGraph(DEFAULT_CONFIG);
+        const routes = new LaneRouteProvider(graph);
         let refined = 0;
         let revenue = 0;
+        let soldOff = 0;
         const cargo: Cargo[] = [];
         const barrelsAtStart = barrelsHeld(agents, cargo);
         const cashAtStart = agents.reduce((s, a) => s + a.cash, 0);
 
         days.forEach((specs, day) => {
-          const routes = network();
+          setChokepoint(graph, 'HORMUZ', hormuz[day] === true ? 'CLOSED' : 'OPEN');
+          routes.resetTick();
           if (day > 0) updatePrices(sink, 30_000, DEFAULT_CONFIG);
+          const report = runLogistics(cargo, byId, graph, ledger, day, DEFAULT_CONFIG, () => 60);
+          for (const sale of report.forcedSales) { soldOff += sale.barrels; revenue += sale.revenue; }
           for (const a of agents) {
             if (a.kind === 'INTEGRATED') internalTransfer(a);
             if (a.kind === 'REFINER' || a.kind === 'INTEGRATED') {
@@ -137,8 +137,8 @@ describe('conservation (spec §9)', () => {
           releaseEscrow(agents);
 
           // Invariant 1: every barrel not yet refined is somewhere — storage, tanks, a hub, or at sea.
-          expect(barrelsHeld(agents, cargo)).toBe(barrelsAtStart - refined);
-          // Invariant 2: cash changed only by retail revenue in and recorded fees out.
+          expect(barrelsHeld(agents, cargo)).toBe(barrelsAtStart - refined - soldOff);
+          // Invariant 2: cash changed only by retail and forced-sale revenue in and recorded fees out.
           const cashNow = agents.reduce((s, a) => s + a.cash, 0);
           expect(cashNow - cashAtStart).toBeCloseTo(revenue - ledger.total, 4);
           // Invariant 4: no escrow survives the day.

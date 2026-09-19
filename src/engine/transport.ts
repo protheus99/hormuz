@@ -15,7 +15,7 @@ import { REGIONS } from '../data/regions';
 import type { Config } from './config';
 import { ChokepointStatus, EdgeMode } from './enums';
 import { MinHeap } from './heap';
-import { asEdgeId, type AgentId, type ChokepointName, type EdgeId, type RegionName, type Route } from './model';
+import { asEdgeId, type AgentId, type Cargo, type ChokepointName, type EdgeId, type RegionName, type Route } from './model';
 import type { RouteProvider } from './routes';
 
 export interface ChokepointState {
@@ -209,6 +209,38 @@ function toRoute(g: LaneGraph, path: readonly Edge[]): Route {
     if (e.chokepoint !== null) chokepoints.push(e.chokepoint);
   }
   return { edges: path.map((e) => e.id), totalFreight, totalTransit, chokepoints };
+}
+
+/** What happened to a cargo this tick. */
+export type CargoAdvance = 'MOVING' | 'HELD' | 'ARRIVED';
+
+/**
+ * Moves one cargo forward by one tick (spec §5 phase 4). A cargo crosses its route edge by edge.
+ * Entering an edge whose chokepoint is CLOSED is impossible, so the cargo waits at the entry as
+ * HELD until it reopens; a DELAYED chokepoint adds its delay on entry. Status changes on the
+ * route never reroute a cargo already at sea: its owner decides that through cards.
+ */
+export function advanceCargo(c: Cargo, g: LaneGraph): CargoAdvance {
+  if (c.status === 'FLOATING') return 'ARRIVED';   // already at its destination, waiting for tank space
+  if (c.ticksLeft === 0) {
+    const edge = findEdge(g, c.route.edges[c.leg] as EdgeId);
+    if (edge.chokepoint !== null && g.chokepoints[edge.chokepoint].status === ChokepointStatus.CLOSED) {
+      c.status = 'HELD';
+      return 'HELD';
+    }
+    c.ticksLeft = crossing(g, edge).transit;
+    c.status = 'MOVING';
+  }
+  c.ticksLeft -= 1;
+  if (c.ticksLeft > 0) return 'MOVING';
+  c.leg += 1;
+  if (c.leg >= c.route.edges.length) return 'ARRIVED';
+  const next = findEdge(g, c.route.edges[c.leg] as EdgeId);
+  if (next.chokepoint !== null && g.chokepoints[next.chokepoint].status === ChokepointStatus.CLOSED) {
+    c.status = 'HELD';
+    return 'HELD';
+  }
+  return 'MOVING';
 }
 
 /**

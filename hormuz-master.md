@@ -677,7 +677,7 @@ Owns the regions, nodes, lane graph, companies, deals, cargo, retail sink, RNG s
 | 6 | **Settlement & dispatch** | Each fill settles: cash moves, the seller pays origin tariff, the buyer pays freight, pipeline capacity is reserved, and cargo is dispatched. |
 | 7 | **Accounting & metrics** | Storage, fixed operating, lease, charter, office and demurrage costs and credit interest are charged; invariants are checked; metrics are recorded. The game layer then runs card detection and checks auto-pause. |
 
-**Delivery overflow.** Cargo can arrive after its buyer's circumstances change — a refinery that bought a ten-day buffer and then broke down has consumed nothing when the cargo lands. Rather than breaching storage limits, delivery stops at free space and the remainder stays aboard as `FLOATING` at the destination, charged `DEMURRAGE_RATE` per barrel per tick. It is delivered as space frees up; after `DEMURRAGE_MAX_TICKS` it is force-sold at the marker price less `DISTRESS_DISCOUNT`.
+**Delivery overflow.** Cargo unloads into the owner's tanks at its destination — a refinery's crude tanks or a trader's hub. Cargo can arrive after its buyer's circumstances change — a refinery that bought a ten-day buffer and then broke down has consumed nothing when the cargo lands. Rather than breaching storage limits, delivery stops at free space and the remainder stays aboard as `FLOATING` at the destination, charged `DEMURRAGE_RATE` per barrel per tick. It is delivered as space frees up; after `DEMURRAGE_MAX_TICKS` it is force-sold at the marker price less `DISTRESS_DISCOUNT`. Floating cargo unloads before newly arrived cargo. A forced sale goes to a buyer outside the modelled market: its barrels leave the economy and its revenue enters, so invariants 1 and 2 count forced sales alongside refining and retail revenue. A cargo already at sea is never rerouted automatically; it waits at a closed chokepoint until it reopens or its owner acts through a card.
 
 Cargo dispatched in tick *t* arrives no earlier than tick *t + 1*, so it is refined no earlier than tick *t + 2*.
 
@@ -879,8 +879,8 @@ Greedy surplus-first matching is not the mathematical optimum for this routing p
 
 Checked every tick in Phase 7; the run halts with a descriptive error if one fails.
 
-1. **Barrel conservation:** `total_extracted − total_refined = Σ producer storage + Σ refiner stock + Σ trader and leased storage + Σ cargo` (within 1e-6), counting `MOVING`, `HELD` and `FLOATING` cargo.
-2. **Cash conservation:** the change in total company cash equals retail revenue minus the `FeeLedger`'s external costs. Deal payments, penalties and spot trades are transfers.
+1. **Barrel conservation:** `total_extracted − total_refined − total_force_sold = Σ producer storage + Σ refiner stock + Σ trader and leased storage + Σ cargo` (within 1e-6), counting `MOVING`, `HELD` and `FLOATING` cargo.
+2. **Cash conservation:** the change in total company cash equals retail and forced-sale revenue minus the `FeeLedger`'s external costs. Deal payments, penalties and spot trades are transfers.
 3. **Clearing completeness:** after Phase 5c, no pair of orders with positive surplus and remaining route capacity is left unmatched on any node.
 4. **Escrow:** at the end of every tick, every company's `storage_escrow` and `cash_reserved` are zero.
 5. **Physical bounds:** no negative storage anywhere, and no storage above capacity.
@@ -1136,6 +1136,7 @@ src/
     rng.ts         sfc32, streams, Box-Muller
     heap.ts        binary heap for Dijkstra
     transport.ts   lane graph, routing, cargo movement
+    logistics.ts   delivery, destination tariff, floating cargo, demurrage and forced sales
     routes.ts      RouteProvider interface; StubRouteProvider for Phase 1 and unit tests
     clearing.ts    ExchangeNode, batch clearing, markers (§8)
     companies.ts   building companies, placement rules (§3.4), integration, accepted grades, available cash
@@ -1228,6 +1229,7 @@ Scripts: `dev` (vite), `build` (vite build), `test` (vitest run), `typecheck` (t
 | `engine/model.ts` | enums, `data/` |
 | `engine/config.ts` | model |
 | `engine/transport.ts` | model, config, heap, routes (the interface), `data/lanes` |
+| `engine/logistics.ts` | model, config, transport, companies, economics, data |
 | `engine/routes.ts` | model |
 | `engine/clearing.ts`, `engine/deals.ts` | model, config, routes — only the `RouteProvider` interface, never the lane graph |
 | `engine/economics.ts` | model, config, rng |
@@ -1287,6 +1289,10 @@ export function setChokepoint(g: LaneGraph, c: ChokepointName, status: Chokepoin
 export function setReservation(g: LaneGraph, edge: EdgeId, agentId: AgentId, qty: number, config: Config): void;
 export class LaneRouteProvider implements RouteProvider { constructor(g: LaneGraph); resetTick(): void }   // per-tick route cache
 export function advanceCargo(c: Cargo, g: LaneGraph): CargoAdvance;                    // MOVING | HELD | ARRIVED
+
+// logistics.ts
+export function runLogistics(cargo: Cargo[], agents: ReadonlyMap<AgentId, Agent>, g: LaneGraph, ledger: FeeLedger,
+  tick: Tick, config: Config, distressPrice: (grade: Grade) => number): LogisticsReport;   // phase 4: move, unload, float, force-sell
 
 // deals.ts
 export function priceDeal(w: World, terms: DealTerms): number;

@@ -1,10 +1,11 @@
 // Golden replay harness (spec §14.6). Runs a small, fully scripted economy built from every engine
 // part that exists so far — product prices, integrated transfers, refining, seeded order pricing,
-// batch clearing, settlement — and fingerprints its state every day.
+// batch clearing, settlement, the lane graph and cargo logistics, with a Hormuz closure from day
+// 150 to 180 — and fingerprints its state every day.
 //
-// Until the tick orchestrator exists (Phase 6), this stands in for S0: its own crude extraction
-// and cargo delivery are deliberately simple placeholders. From Phase 6 the harness runs `step()`
-// on S0 instead, and the recorded hash is updated once, in the same commit.
+// Until the tick orchestrator exists (Phase 6), this stands in for S0: its crude extraction is a
+// deliberately simple placeholder. From Phase 6 the harness runs `step()` on S0 instead, and the
+// recorded hash is updated once, in the same commit.
 //
 // It imports only the engine and plain data, never Node, so the same file runs in a browser.
 
@@ -16,7 +17,8 @@ import { createLedger, createRetailSink, productValue, updatePrices, YIELDS } fr
 import { fingerprint } from '../../src/engine/metrics';
 import { makeOrderId, type Agent, type AgentId, type Cargo, type NodeName, type Order } from '../../src/engine/model';
 import { nextFloat, rngFor } from '../../src/engine/rng';
-import { StubRouteProvider } from '../../src/engine/routes';
+import { runLogistics } from '../../src/engine/logistics';
+import { buildLaneGraph, LaneRouteProvider, setChokepoint } from '../../src/engine/transport';
 import { placeOrder, releaseEscrow, settleFills } from '../../src/engine/settlement';
 import { NODES } from '../../src/data/nodes';
 
@@ -29,16 +31,11 @@ export interface ReplayResult {
   /** Fingerprint of the whole run. */
   readonly final: string;
   /** Totals that show the run exercised the engine, for sanity checks. */
-  readonly summary: { readonly fills: number; readonly refined: number; readonly fees: number };
+  readonly summary: { readonly fills: number; readonly refined: number; readonly fees: number; readonly heldCargoDays: number };
 }
 
-const routes = () => new StubRouteProvider([
-  { origin: 'Middle_East', destination: 'Coastal_Asia', freight: 9.8, transit: 16, chokepoints: ['HORMUZ'] },
-  { origin: 'Middle_East', destination: 'South_Asia', freight: 3.0, transit: 6, chokepoints: ['HORMUZ'] },
-  { origin: 'North_Sea', destination: 'Coastal_Asia', freight: 14.5, transit: 38, chokepoints: ['MALACCA'] },
-  { origin: 'North_Sea', destination: 'South_Asia', freight: 12.0, transit: 30, chokepoints: ['SUEZ'] },
-  { origin: 'Middle_East', destination: 'North_Sea', freight: 11.0, transit: 28, chokepoints: ['HORMUZ', 'SUEZ'] },
-]);
+/** Days Hormuz is closed, to exercise held cargo, bypass routing and delivery overflow. */
+const HORMUZ_CLOSED = { from: 150, to: 180 };
 
 function portfolio(): Agent[] {
   return [
@@ -71,23 +68,25 @@ export function runGoldenReplay(seed = GOLDEN_SEED, days = GOLDEN_DAYS, inspect?
   const cargo: Cargo[] = [];
   const baseline = agents.reduce((s, a) => s + (plantOf(a)?.processingCapacity ?? 0), 0) * config.PRODUCT_PRICES.BASE_UTILIZATION;
   const daily: string[] = [];
+  const graph = buildLaneGraph(config);
+  const routes = new LaneRouteProvider(graph);
   let fills = 0;
   let refined = 0;
+  let held = 0;
 
   for (let day = 1; day <= days; day++) {
     updatePrices(sink, baseline, config);
 
-    // Placeholder extraction and delivery until Phases 4–6.
+    setChokepoint(graph, 'HORMUZ', day >= HORMUZ_CLOSED.from && day < HORMUZ_CLOSED.to ? 'CLOSED' : 'OPEN');
+    routes.resetTick();
+
+    // Placeholder extraction until Phase 5.
     for (const a of agents) {
       const well = wellOf(a);
       if (well) well.storage = Math.min(well.storageCapacity - well.storageEscrow, well.storage + well.extractionCapacity);
     }
-    for (const c of cargo) {
-      if (c.status !== 'MOVING' || c.dispatchTick + c.route.totalTransit > day) continue;
-      const plant = plantOf(byId.get(c.ownerId) as Agent);
-      if (plant) { plant.crudeStock[c.grade] += c.qty; plant.inboundBarrels -= c.qty; }
-      (c as { status: Cargo['status'] }).status = 'HELD';   // delivered; kept so the fingerprint covers it
-    }
+    const logistics = runLogistics(cargo, byId, graph, ledger, day, config, (grade) => nodes.find((n) => n.grade === grade)?.markerPrice ?? 0);
+    held += logistics.held;
 
     for (const a of agents) {
       if (a.kind === 'INTEGRATED') internalTransfer(a);
@@ -125,7 +124,7 @@ export function runGoldenReplay(seed = GOLDEN_SEED, days = GOLDEN_DAYS, inspect?
       }
     });
 
-    const ctx = { routes: routes(), tick: day, config };
+    const ctx = { routes, tick: day, config };
     for (const order of orders) {
       try {
         placeOrder(byId.get(order.agentId) as Agent, order);
@@ -146,7 +145,7 @@ export function runGoldenReplay(seed = GOLDEN_SEED, days = GOLDEN_DAYS, inspect?
     inspect?.(day, state);
     daily.push(fingerprint(state));
   }
-  return { daily, final: fingerprint(daily), summary: { fills, refined, fees: ledger.total } };
+  return { daily, final: fingerprint(daily), summary: { fills, refined, fees: ledger.total, heldCargoDays: held } };
 }
 
 function nodeFor(grade: 'LIGHT_SWEET' | 'MEDIUM' | 'HEAVY_SOUR'): NodeName {
