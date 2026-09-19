@@ -84,37 +84,37 @@ export function clear(node: ExchangeNode, ctx: ClearContext): Fill[] {
   for (const bid of bids) {
     for (const ask of asks) {
       if (bid.agentId === ask.agentId) continue;
-      const route = ctx.routes.route(ask.originRegion, bid.deliveryRegion, bid.avoidChokepoints);
-      if (route === null) continue;
-      const tariff = REGIONS[bid.deliveryRegion].infrastructureTariff;
-      const landed = ask.limitPrice + route.totalFreight + tariff;
-      const surplus = bid.limitPrice - landed;
-      if (surplus >= 0) candidates.push({ bid, ask, route, tariff, landed, surplus });
+      const c = candidateFor(bid, ask, ctx);
+      if (c !== null) candidates.push(c);
     }
   }
 
   // Rule 3: best surplus first; ties by lower landed cost, then bid ID, then ask ID.
-  candidates.sort(
-    (a, b) =>
-      b.surplus - a.surplus ||
-      a.landed - b.landed ||
-      compareText(a.bid.orderId, b.bid.orderId) ||
-      compareText(a.ask.orderId, b.ask.orderId),
-  );
+  candidates.sort(byRank);
 
   const lot = ctx.config.LOT_SIZE;
   const fills: Fill[] = [];
-  for (const c of candidates) {
+  // An index loop, because a pair whose route fills up is re-queued further down the list.
+  for (let i = 0; i < candidates.length; i++) {
+    const c = candidates[i] as Candidate;
     // Rule 3 and 5: limited by both orders and by the route's spare capacity today. The buyer
     // ships the cargo (it pays freight), so the buyer's share of reserved capacity applies.
     const capacity = ctx.routes.capacityLeft(c.route, c.bid.agentId);
-    const wanted = Math.min(c.bid.qtyRemaining, c.ask.qtyRemaining, capacity);
-    const qty = Math.floor(wanted / lot) * lot;   // whole lots only
-    if (qty <= 0) continue;
+    const ordersAllow = Math.min(c.bid.qtyRemaining, c.ask.qtyRemaining);
+    const qty = Math.floor(Math.min(ordersAllow, capacity) / lot) * lot;   // whole lots only
+
+    // The route runs out before the orders do: after taking what fits, ask for the next usable
+    // route and, if the pair still creates surplus on it, queue it again at its new rank (spec §3.5).
+    const routeBinds = capacity < ordersAllow && ordersAllow - qty >= lot;
+    if (qty <= 0) {
+      if (routeBinds) requeue(candidates, i, c, ctx);
+      continue;
+    }
 
     ctx.routes.reserve(c.route, qty, c.bid.agentId);
     c.bid.qtyRemaining -= qty;
     c.ask.qtyRemaining -= qty;
+    if (routeBinds) requeue(candidates, i, c, ctx);
 
     // Rule 4: the midpoint. The buyer pays at most its bid; the seller receives at least its ask.
     const fobPrice = c.ask.limitPrice + c.surplus / 2;
@@ -143,6 +143,40 @@ export function clear(node: ExchangeNode, ctx: ClearContext): Fill[] {
   updateMarker(node, fills, ctx);
   recordClose(node, fills);
   return fills;
+}
+
+/** Prices a bid-ask pair on the best route open to the buyer; null if no route or no surplus. */
+function candidateFor(bid: Bid, ask: Ask, ctx: ClearContext): Candidate | null {
+  const route = ctx.routes.route(ask.originRegion, bid.deliveryRegion, bid.avoidChokepoints, bid.agentId);
+  if (route === null) return null;
+  const tariff = REGIONS[bid.deliveryRegion].infrastructureTariff;
+  const landed = ask.limitPrice + route.totalFreight + tariff;
+  const surplus = bid.limitPrice - landed;
+  return surplus >= 0 ? { bid, ask, route, tariff, landed, surplus } : null;
+}
+
+function byRank(a: Candidate, b: Candidate): number {
+  return b.surplus - a.surplus
+    || a.landed - b.landed
+    || compareText(a.bid.orderId, b.bid.orderId)
+    || compareText(a.ask.orderId, b.ask.orderId);
+}
+
+/**
+ * Re-queues a pair whose route filled up, on the next route the buyer can use. It is inserted
+ * after position i in rank order, so the list stays sorted and every pair is tried in turn.
+ * Each re-queue needs a different route, and routing skips full pipelines, so it terminates.
+ */
+function requeue(candidates: Candidate[], i: number, c: Candidate, ctx: ClearContext): void {
+  const next = candidateFor(c.bid, c.ask, ctx);
+  if (next === null || sameRoute(next.route, c.route)) return;
+  let j = i + 1;
+  while (j < candidates.length && byRank(candidates[j] as Candidate, next) <= 0) j++;
+  candidates.splice(j, 0, next);
+}
+
+function sameRoute(a: Route, b: Route): boolean {
+  return a.edges.length === b.edges.length && a.edges.every((e, k) => e === b.edges[k]);
 }
 
 /**

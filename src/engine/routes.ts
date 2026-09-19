@@ -53,13 +53,15 @@ export class StubRouteProvider implements RouteProvider {
     }));
   }
 
-  route(origin: RegionName, destination: RegionName, avoid: readonly ChokepointName[] = []): Route | null {
+  route(origin: RegionName, destination: RegionName, avoid: readonly ChokepointName[] = [], agentId?: AgentId): Route | null {
     // Delivery inside one region: no freight, but still at least one tick (spec §5: T+1).
     if (origin === destination) return { edges: [], totalFreight: 0, totalTransit: 1, chokepoints: [] };
 
     const usable = this.entries
       .filter((e) => e.origin === origin && e.destination === destination)
       .filter((e) => !e.route.chokepoints.some((c) => avoid.includes(c)))
+      // Asked for a company, skip routes already full today, as the lane graph does.
+      .filter((e) => agentId === undefined || this.capacityLeft(e.route, agentId) > 0)
       .map((e) => e.route);
 
     // Cheapest freight first, then the shorter trip. sort() is stable, so remaining ties keep
