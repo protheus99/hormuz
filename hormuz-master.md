@@ -701,7 +701,7 @@ For each node whose grade the refinery accepts:
 2. `delivered_max = product_value − opex(grade) − CARRY_RATE × transit` from the cheapest origin.
 3. Bid on the node with the largest `delivered_max − reference_landed`, where `reference_landed` is the cheapest previous-close landed price. With no reference on any node, bid on the node with the highest `delivered_max`.
 
-**Quantity:** `need = TARGET_DAYS × processing_capacity × effective_utilization − (stock + inbound, including deal cargo)`, capped by free storage and available cash. An offline refinery needs nothing and bids nothing.
+**Quantity:** `need = (TARGET_DAYS + transit) × processing_capacity × effective_utilization − (stock + inbound, including deal cargo)`, capped by free storage and available cash, where `transit` is the voyage from the chosen node's cheapest origin. Barrels at sea count as held, so the target must also cover what the plant uses while they sail; without the transit term a refinery 25 days from supply buys 10 days of crude and runs dry for two weeks (found in Phase 7). `starvation` uses the same target. An offline refinery needs nothing and bids nothing.
 
 **Price:** `bid = min(delivered_max, reference_landed × (1 + URGENCY × starvation))`, where `starvation = 1 − (stock + inbound) ÷ target_stock`.
 

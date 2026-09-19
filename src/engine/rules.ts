@@ -122,6 +122,8 @@ interface NodeChoice {
   readonly deliveredMax: number;
   /** Cheapest previous-close landed price, or null when this node has no reference. */
   readonly referenceLanded: number | null;
+  /** Days at sea from the cheapest origin (or the marker region, with no reference). */
+  readonly transit: number;
 }
 
 function refinerBids(
@@ -133,9 +135,11 @@ function refinerBids(
   const best = bestNode(company, plant, view, cfg);
   if (best === null) return [];
 
-  // Quantity: top the stock up to TARGET_DAYS of use, within tank space and cash.
+  // Quantity: keep TARGET_DAYS of use in the tanks when today's purchase lands. Barrels at sea
+  // count as held, so the target also covers what the plant will use while this cargo sails.
   const held = total(plant.crudeStock) + plant.inboundBarrels;
-  const target = cfg.TARGET_DAYS * plant.processingCapacity * utilization;
+  const dailyUse = plant.processingCapacity * utilization;
+  const target = (cfg.TARGET_DAYS + best.transit) * dailyUse;
   const ceiling = best.deliveredMax * (1 + aggression);
   const starvation = target > 0 ? clamp01(1 - held / target) : 0;
   const price = roundDown(best.referenceLanded === null
@@ -164,7 +168,7 @@ function valueNodes(company: Refiner | IntegratedMajor, plant: PlantState, view:
     const cheapest = quotes[0];
     const transit = cheapest?.route.totalTransit ?? view.routes.route(node.markerRegion, company.region, view.avoid)?.totalTransit ?? 0;
     const value = productValue(node.grade, view.expectedPrices) - YIELDS[node.grade].opex;
-    choices.push({ node: nodeName, deliveredMax: value - cfg.CARRY_RATE * transit, referenceLanded: cheapest?.landed ?? null });
+    choices.push({ node: nodeName, deliveredMax: value - cfg.CARRY_RATE * transit, referenceLanded: cheapest?.landed ?? null, transit });
   }
   return choices;
 }

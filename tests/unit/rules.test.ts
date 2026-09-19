@@ -86,8 +86,17 @@ describe('refiner bids (spec §6.2)', () => {
   });
 
   it('part stocked: less urgency, and only the tank space left', () => {
-    // 20,000 held: starvation 0.75 → 62.10 × 1.06 = 65.826; 5,000 of space.
-    expect(brief(decideOrders(straits(20_000), 1, view, DEFAULT_CONFIG))).toEqual([['BID', 'DME', 65.82, 5_000]]);
+    // The target covers 10 days in the tanks plus the 16 days at sea: 26 × 8,000 = 208,000.
+    // 20,000 held: starvation 1 − 20,000 / 208,000 = 0.904 → 62.10 × (1 + 0.08 × 0.904) = 66.590.
+    expect(brief(decideOrders(straits(20_000), 1, view, DEFAULT_CONFIG))).toEqual([['BID', 'DME', 66.59, 5_000]]);
+  });
+
+  it('counts consumption during the voyage: a plant 16 days from supply wants more than 10 days’ stock', () => {
+    // 90,000 held (tanks enlarged to allow it) is more than 10 days but less than 10 + 16.
+    const r = straits(0, 10_000_000);   // enough cash that only the target limits it
+    r.crudeStorageCapacity = 300_000;
+    r.inboundBarrels = 90_000;
+    expect(decideOrders(r, 1, view, DEFAULT_CONFIG)[0]?.qty).toBe(118_000);
   });
 
   it('offline: needs nothing, bids nothing', () => {
