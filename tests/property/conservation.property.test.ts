@@ -1,4 +1,4 @@
-// Conservation under random trading, refining and shipping (spec §9 invariants 1, 2, 4 and 5; Phases 2–4).
+// Conservation under random trading, refining and shipping (spec §9 invariants 1, 2, 4, 5 and 7; Phases 2–4).
 // fast-check builds random multi-day markets and checks after every day that no barrel or
 // dollar has been created or destroyed by accident.
 
@@ -85,6 +85,7 @@ function barrelsHeld(agents: readonly Agent[], cargo: readonly Cargo[]): number 
 
 describe('conservation (spec §9)', () => {
   it('never creates or destroys barrels or cash, and clears all escrow every day', () => {
+    let runsUsingBypass = 0;
     // Each day on the real lane graph: Hormuz opens or closes, cargo moves and unloads, integrated
     // majors move crude to their own plants, every plant refines, then the market trades. Barrels
     // leave only by being refined or sold off from a stranded cargo; cash changes only by retail
@@ -101,6 +102,7 @@ describe('conservation (spec §9)', () => {
         let refined = 0;
         let revenue = 0;
         let soldOff = 0;
+        let bypassUsed = false;
         const cargo: Cargo[] = [];
         const barrelsAtStart = barrelsHeld(agents, cargo);
         const cashAtStart = agents.reduce((s, a) => s + a.cash, 0);
@@ -136,6 +138,14 @@ describe('conservation (spec §9)', () => {
           }
           releaseEscrow(agents);
 
+          // Invariant 7: no pipeline carried more than its capacity today, in both directions together.
+          for (const e of graph.edges) {
+            if (e.capacity === null) continue;
+            const used = Object.values(e.usedBy).reduce<number>((sum, q) => sum + (q ?? 0), 0);
+            expect(used, e.id).toBeLessThanOrEqual(e.capacity);
+            if (hormuz[day] === true && used > 0) bypassUsed = true;
+          }
+
           // Invariant 1: every barrel not yet refined is somewhere — storage, tanks, a hub, or at sea.
           expect(barrelsHeld(agents, cargo)).toBe(barrelsAtStart - refined - soldOff);
           // Invariant 2: cash changed only by retail and forced-sale revenue in and recorded fees out.
@@ -155,8 +165,11 @@ describe('conservation (spec §9)', () => {
             if (plant) expect(total(plant.crudeStock)).toBeLessThanOrEqual(plant.crudeStorageCapacity);
           }
         });
+        if (bypassUsed) runsUsingBypass += 1;
       }),
       { numRuns: 200 },
     );
+    // The scenarios must really exercise capacity: some runs ship through a bypass during a closure.
+    expect(runsUsingBypass).toBeGreaterThan(0);
   });
 });
