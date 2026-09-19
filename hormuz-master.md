@@ -1311,7 +1311,9 @@ export function productValue(grade: Grade, prices: Readonly<Record<Product, numb
 // agents.ts
 export function decideOrders(a: Agent, view: MarketView, cfg: Config): Order[];        // §6.1–6.4
 export function defaultOperations(a: Agent, w: World, cfg: Config): void;             // §6.5
-export function extract(p: Producer, region: Region, cfg: Config): ExtractResult;
+export function extract(p: Producer | IntegratedMajor, ledger: FeeLedger, tick: Tick, cfg: Config): ExtractResult;   // cost to the ledger
+export function applyDecline(p: Producer | IntegratedMajor, cfg: Config): void;
+export function setExtractionRate(p: Producer | IntegratedMajor, rate: number, ledger: FeeLedger, tick: Tick, cfg: Config): void;   // shut-in, restart and ramp
 export function refine(r: Refiner | IntegratedMajor, sink: RetailSink, ledger: FeeLedger, tick: Tick): RefineResult;   // best margin first; opex to the ledger
 export function effectiveUtilization(r: Refiner): number;
 export function internalTransfer(m: IntegratedMajor): number;                        // Phase 2 of the tick; barrels moved, no cash

@@ -1,10 +1,12 @@
 // What companies do each day (spec §4.8–4.11, §6).
-// Phase 3 adds refining; extraction, the decision rules and default operations join in Phase 5.
+// Phase 3 added refining; Phase 5 adds extraction, the decision rules and default operations.
 
-import { acceptedGrades, total } from './companies';
+import { acceptedGrades, total, wellOf } from './companies';
+import type { Config } from './config';
+import { REGIONS } from '../data/regions';
 import { FeeKind, GRADES, type Grade } from './enums';
 import { productValue, recordFee, sellToSink, YIELDS, type FeeLedger, type RetailSink } from './economics';
-import type { IntegratedMajor, PlantState, Refiner, Tick } from './model';
+import type { IntegratedMajor, PlantState, Producer, Refiner, Tick, WellState } from './model';
 
 /**
  * The share of capacity a refinery can run at today (spec §4.9): zero when offline or broken down,
@@ -73,4 +75,71 @@ export function internalTransfer(m: IntegratedMajor): number {
   well.storage -= qty;
   plant.crudeStock[well.grade] += qty;
   return qty;
+}
+
+// ─── Extraction (spec §4.8, §5 phase 1) ──────────────────────────────────────────────────────
+
+export interface ExtractResult {
+  readonly barrels: number;
+  /** Paid out as extraction cost. */
+  readonly cost: number;
+}
+
+/** A producer's cash cost per barrel: base cost × the region's labor index (spec §4.8). */
+export function actualCost(company: Producer | IntegratedMajor): number {
+  return (wellOf(company) as WellState).baseExtractionCost * REGIONS[company.region].laborCostIndex;
+}
+
+/** Storage fill including barrels locked by today's asks (spec §4.8). */
+export function fillRatio(well: WellState): number {
+  return well.storageCapacity === 0 ? 1 : (well.storage + well.storageEscrow) / well.storageCapacity;
+}
+
+/**
+ * Pumps today's crude (spec §5 phase 1): capacity × extraction rate × ramp factor, up to the free
+ * storage — production halts when tanks are full. A shut-in field pumps nothing. After a restart
+ * the ramp factor climbs 1/RAMP_TICKS a day back to full output.
+ */
+export function extract(company: Producer | IntegratedMajor, ledger: FeeLedger, tick: Tick, config: Config): ExtractResult {
+  const well = wellOf(company) as WellState;
+  if (well.shutIn) return { barrels: 0, cost: 0 };
+  let ramp = 1;
+  if (well.rampTicksRemaining > 0) {
+    ramp = (config.RAMP_TICKS - well.rampTicksRemaining + 1) / config.RAMP_TICKS;
+    well.rampTicksRemaining -= 1;
+  }
+  const free = Math.max(0, well.storageCapacity - well.storage - well.storageEscrow);
+  const barrels = Math.min(well.extractionCapacity * well.extractionRate * ramp, free);
+  const cost = barrels * actualCost(company);
+  well.storage += barrels;
+  company.cash -= cost;
+  recordFee(ledger, { tick, agentId: company.agentId, kind: FeeKind.EXTRACTION, amount: cost });
+  return { barrels, cost };
+}
+
+/** Field decline (spec §4.8, §6.5): capacity falls by the region's DECLINE_RATE each tick. */
+export function applyDecline(company: Producer | IntegratedMajor, config: Config): void {
+  const well = wellOf(company) as WellState;
+  well.extractionCapacity *= 1 - config.DECLINE_RATE[REGIONS[company.region].declineClass];
+}
+
+/**
+ * Changes a field's output, as the "Prices below your cost" and "Prices have recovered" cards do
+ * (spec G4.4). Below SHUT_IN_THRESHOLD the wells shut in. Raising output on a shut-in field
+ * restarts it: RESTART_COST per bbl/day of capacity, then a RAMP_TICKS ramp.
+ */
+export function setExtractionRate(company: Producer | IntegratedMajor, rate: number, ledger: FeeLedger, tick: Tick, config: Config): void {
+  if (!(rate >= 0 && rate <= 1)) throw new Error(`Extraction rate must be between 0 and 1, got ${rate}`);
+  const well = wellOf(company) as WellState;
+  well.extractionRate = rate;
+  if (rate < config.SHUT_IN_THRESHOLD) {
+    well.shutIn = true;
+    well.rampTicksRemaining = 0;
+  } else if (well.shutIn) {
+    const cost = config.RESTART_COST * well.extractionCapacity;
+    company.cash -= cost;
+    recordFee(ledger, { tick, agentId: company.agentId, kind: FeeKind.RESTART, amount: cost });
+    well.shutIn = false;
+    well.rampTicksRemaining = config.RAMP_TICKS;
+  }
 }

@@ -123,6 +123,8 @@ export const FeeKind = {
   DESTINATION_TARIFF: 'DESTINATION_TARIFF',
   REFINING_OPEX: 'REFINING_OPEX',
   DEMURRAGE: 'DEMURRAGE',
+  EXTRACTION: 'EXTRACTION',
+  RESTART: 'RESTART',
 } as const;
 export type FeeKind = (typeof FeeKind)[keyof typeof FeeKind];
 export const FEE_KINDS: readonly FeeKind[] = Object.values(FeeKind);

@@ -151,6 +151,14 @@ export interface WellState {
   storage: number;
   /** Barrels locked by today's asks; zero at the end of every tick (invariant 4). */
   storageEscrow: number;
+  /** Highest capacity reached; the "Wells declining" card compares against it (spec G4.4). */
+  peakCapacity: number;
+  /** Share of capacity pumped, 0–1, set by cards (spec §4.8). */
+  extractionRate: number;
+  /** True when output was cut below SHUT_IN_THRESHOLD; nothing is pumped until a restart. */
+  shutIn: boolean;
+  /** Days left ramping back up after a restart. */
+  rampTicksRemaining: number;
 }
 
 /** A refinery and its crude tanks (spec §4.9). */

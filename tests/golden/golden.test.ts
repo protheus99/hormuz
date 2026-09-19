@@ -9,12 +9,12 @@
 import { describe, expect, it } from 'vitest';
 import { runGoldenReplay } from './replay';
 
-// Verified identical in Node 24 and Chrome 152 (`npm run golden:browser`) on 2026-09-18,
-// after the replay moved onto the real lane graph and cargo logistics (Phase 4).
+// Recorded in Node 24 after extraction and field decline joined the replay (Phase 5). Last verified
+// identical in Chrome 152 (`npm run golden:browser`) at the end of Phase 4; re-check at each phase end.
 const GOLDEN = {
-  day1: '0be1edc1da27f1a0216549538b7ecc55',
-  day30: '74ae5c3542d16175eb831ceefb32d4c6',
-  final: '037803e7e81dcff17befddb2107f3760',
+  day1: '07bb5542eadf1f35892cbf2e9ef28103',
+  day30: '25dcfffbc4f14e962ffe4c3f55de4b4e',
+  final: '249510403d7c8122b58c31cc944b2a06',
 };
 
 describe('golden replay', () => {

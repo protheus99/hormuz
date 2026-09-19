@@ -3,13 +3,13 @@
 // batch clearing, settlement, the lane graph and cargo logistics, with a Hormuz closure from day
 // 150 to 180 — and fingerprints its state every day.
 //
-// Until the tick orchestrator exists (Phase 6), this stands in for S0: its crude extraction is a
-// deliberately simple placeholder. From Phase 6 the harness runs `step()` on S0 instead, and the
-// recorded hash is updated once, in the same commit.
+// Until the tick orchestrator exists (Phase 6), this stands in for S0, with scripted orders in place
+// of the §6 decision rules. From Phase 6 the harness runs `step()` on S0 instead, and the recorded
+// hash is updated once, in the same commit.
 //
 // It imports only the engine and plain data, never Node, so the same file runs in a browser.
 
-import { internalTransfer, refine } from '../../src/engine/agents';
+import { applyDecline, extract, internalTransfer, refine } from '../../src/engine/agents';
 import { clear, createNode, submit, type ExchangeNode } from '../../src/engine/clearing';
 import { createIntegrated, createProducer, createRefiner, plantOf, total, wellOf } from '../../src/engine/companies';
 import { DEFAULT_CONFIG } from '../../src/engine/config';
@@ -80,10 +80,11 @@ export function runGoldenReplay(seed = GOLDEN_SEED, days = GOLDEN_DAYS, inspect?
     setChokepoint(graph, 'HORMUZ', day >= HORMUZ_CLOSED.from && day < HORMUZ_CLOSED.to ? 'CLOSED' : 'OPEN');
     routes.resetTick();
 
-    // Placeholder extraction until Phase 5.
     for (const a of agents) {
-      const well = wellOf(a);
-      if (well) well.storage = Math.min(well.storageCapacity - well.storageEscrow, well.storage + well.extractionCapacity);
+      if (a.kind === 'PRODUCER' || a.kind === 'INTEGRATED') {
+        applyDecline(a, config);
+        extract(a, ledger, day, config);
+      }
     }
     const logistics = runLogistics(cargo, byId, graph, ledger, day, config, (grade) => nodes.find((n) => n.grade === grade)?.markerPrice ?? 0);
     held += logistics.held;

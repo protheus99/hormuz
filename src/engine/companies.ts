@@ -116,11 +116,17 @@ export function integrate(p: Producer, plant: PlantSpec): IntegratedMajor {
   const spec = { id: p.agentId, name: p.name, region: p.region, cash: p.cash };
   if (CLOSED_TO_NEW_REFINING.includes(p.region)) fail(spec, `no new refineries may be built in ${p.region} (spec §10.3)`);
   if (p.storageEscrow !== 0 || p.cashReserved !== 0) fail(spec, 'integration must happen between ticks, with no escrow held');
-  const { kind, grade, extractionCapacity, fieldMaxCapacity, baseExtractionCost, storageCapacity, storage, storageEscrow, ...company } = p;
+  const {
+    kind, grade, extractionCapacity, fieldMaxCapacity, baseExtractionCost, storageCapacity, storage, storageEscrow,
+    peakCapacity, extractionRate, shutIn, rampTicksRemaining, ...company
+  } = p;
   return {
     ...company,
     kind: AgentKind.INTEGRATED,
-    well: { grade, extractionCapacity, fieldMaxCapacity, baseExtractionCost, storageCapacity, storage, storageEscrow },
+    well: {
+      grade, extractionCapacity, fieldMaxCapacity, baseExtractionCost, storageCapacity, storage, storageEscrow,
+      peakCapacity, extractionRate, shutIn, rampTicksRemaining,
+    },
     plant: buildPlant(spec, p.region, plant),
   };
 }
@@ -163,6 +169,10 @@ function buildWell(owner: CompanySpec, region: RegionName, w: WellSpec): WellSta
     storageCapacity: w.storageCapacity,
     storage,
     storageEscrow: 0,
+    peakCapacity: w.extractionCapacity,
+    extractionRate: 1,
+    shutIn: false,
+    rampTicksRemaining: 0,
   };
 }
 
