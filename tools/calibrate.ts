@@ -12,14 +12,15 @@ import { actualCost } from '../src/engine/agents';
 import { plantOf, wellOf } from '../src/engine/companies';
 import { createWorld, step, type PersonalityMix, type ScheduledEvent, type World } from '../src/engine/world';
 
-const { values } = parseArgs({ options: {
+// strict: false, so importing this file from a test runner with its own flags never throws.
+const { values } = parseArgs({ strict: false, options: {
   seeds: { type: 'string', default: '3' },
   ticks: { type: 'string', default: '365' },
   mix: { type: 'string', default: 'EVEN' },
 } });
-const mix = values.mix === 'NONE' ? undefined : (values.mix as PersonalityMix);
-const seeds = Array.from({ length: Number(values.seeds) }, (_, i) => `cal-${i + 1}`);
-const ticks = Number(values.ticks);
+const mix = values.mix === 'NONE' ? undefined : ((values.mix ?? 'EVEN') as PersonalityMix);
+const seeds = Array.from({ length: Number(values.seeds ?? 3) }, (_, i) => `cal-${i + 1}`);
+const ticks = Number(values.ticks ?? 365);
 
 const S4: ScheduledEvent[] = [
   { tick: 150, kind: 'CHOKEPOINT', chokepoint: 'HORMUZ', status: 'CLOSED' },

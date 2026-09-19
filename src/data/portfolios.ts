@@ -89,9 +89,11 @@ export const CORE_PORTFOLIO: readonly PortfolioEntry[] = [
  * Producers hold 10 days of output, starting 25% full, with $2.0M. §10.2's 3 days overflowed on
  * any slow trading day, halting producers within two weeks of a calm start (Phase 7 calibration).
  */
+export const PRODUCER_STORAGE_DAYS = 10;
+
 const producer = (id: string, region: RegionName, grade: Grade, capacity: number, cost: number): PortfolioEntry => ({
   kind: 'PRODUCER', id, name: id.replace(/_/g, ' '), region, cash: 2_000_000,
-  well: { grade, extractionCapacity: capacity, baseExtractionCost: cost, storageCapacity: 10 * capacity },
+  well: { grade, extractionCapacity: capacity, baseExtractionCost: cost, storageCapacity: PRODUCER_STORAGE_DAYS * capacity },
 });
 
 /**
@@ -118,8 +120,16 @@ const refiner = (id: string, region: RegionName, techTier: 1 | 2 | 3, capacity: 
  * refining, a 5.2% surplus at BASE_UTILIZATION (§10.3).
  */
 export const GLOBAL_PORTFOLIO: readonly PortfolioEntry[] = [
-  // The core refineries get the same working capital as the rest of the world.
-  ...CORE_PORTFOLIO.map((p) => (p.kind === 'REFINER' ? { ...p, cash: REFINER_CASH_PER_BBL_DAY * p.plant.processingCapacity } : p)),
+  // In the game world the core companies follow the global defaults: refineries get the same
+  // working capital, and producers outside the Gulf the same 10 days of storage. The Gulf keeps
+  // its tight tanks so a Hormuz closure fills them within days (§10.3).
+  ...CORE_PORTFOLIO.map((p): PortfolioEntry => {
+    if (p.kind === 'REFINER') return { ...p, cash: REFINER_CASH_PER_BBL_DAY * p.plant.processingCapacity };
+    if ((p.kind === 'PRODUCER' || p.kind === 'INTEGRATED') && p.region !== 'Middle_East') {
+      return { ...p, well: { ...p.well, storageCapacity: PRODUCER_STORAGE_DAYS * p.well.extractionCapacity } };
+    }
+    return p;
+  }),
   refiner('Marshaven_Refining', 'US_Gulf_Coast', 3, 10_000),
   producer('Tarvale_Sands', 'Western_Canada', 'HEAVY_SOUR', 5_000, 30),
   producer('Campeche_Energia', 'Mexico_Gulf', 'HEAVY_SOUR', 4_000, 20),
