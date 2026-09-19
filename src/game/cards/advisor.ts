@@ -9,7 +9,7 @@ import { plantOf, total, wellOf } from '../../engine/companies';
 import type { Agent, AgentId, Fill } from '../../engine/model';
 import { nextFloat } from '../../engine/rng';
 import { netWorth, type World } from '../../engine/world';
-import { chooseForAi, AI_CARD_TYPES } from '../../ai/scoring';
+import { chooseForAi, AI_CARD_TYPES, AI_GROWTH_TYPES } from '../../ai/scoring';
 import { cardText } from '../../content/cards';
 import { CARD_DEFS, CATALOG, type CardContext, type CardDef, type OptionSpec, type Situation } from './catalog';
 import { projectOptions } from './projection';
@@ -331,22 +331,30 @@ export function refreshOpportunities(w: World, state: AdvisorState): void {
 
 // ─── AI companies ────────────────────────────────────────────────────────────────────────────
 
-/** AI companies receive the same operating cards and answer at once (spec G4.6). */
+/** How often an AI company considers each growth Opportunity (the GROWTH odds are per look). */
+const AI_GROWTH_INTERVAL = 30;
+
+/**
+ * AI companies receive the same cards and answer at once (spec G4.6): operating cards from Phase 9,
+ * growth cards from Phase 11. Growth is paid from cash in hand, never from credit.
+ */
 function answerAsAi(w: World, state: AdvisorState, me: Agent): void {
   const ctx = context(w, state, me);
-  for (const type of AI_CARD_TYPES) {
+  for (const type of [...AI_CARD_TYPES, ...AI_GROWTH_TYPES]) {
     const def = CARD_DEFS.get(type as CardType);
     if (!def || !def.kinds.includes(me.kind)) continue;
     const key = cooldownKey(me.agentId, def.type);
     if ((state.cooldowns[key] ?? 0) > w.tick) continue;
     const s = def.detect(ctx);
     if (s === null) continue;
+    const growth = AI_GROWTH_TYPES.includes(type);
+    state.cooldowns[key] = w.tick + (growth && !def.raised ? AI_GROWTH_INTERVAL : w.config.CARD_COOLDOWN);
     const { yes, maybe } = def.options(ctx, s);
     const hasMaybe = maybe !== null && maybe.actions.length > 0;
     const choice = chooseForAi(def.type, me.personality, hasMaybe, nextFloat(w.rng.ai));
     const actions = choice === 'YES' ? yes.actions : choice === 'MAYBE' && maybe ? maybe.actions : [];
-    const affordable = actions.reduce((sum, a) => sum + actionCost(w, me.agentId, a).total, 0) <= me.cash - me.cashReserved + me.creditLimit - me.creditDrawn;
-    if (affordable) apply(w, me.agentId, actions);
-    state.cooldowns[key] = w.tick + w.config.CARD_COOLDOWN;
+    const cost = actions.reduce((sum, a) => sum + actionCost(w, me.agentId, a).total, 0);
+    const available = growth ? me.cash - me.cashReserved : me.cash - me.cashReserved + me.creditLimit - me.creditDrawn;
+    if (cost <= available) apply(w, me.agentId, actions);
   }
 }

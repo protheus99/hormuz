@@ -379,7 +379,9 @@ export const CATALOG: readonly CardDef[] = [
     detect: ({ w, me }) => {
       const plant = plantOf(me);
       if (!plant || plant.lastMargin <= 2 * w.config.FIXED_COST_RATE.REFINER) return null;
-      if (plant.daysSinceMaintenance < w.config.MAINT_INTERVAL - 30 || plant.maintenanceHoldUntil > w.tick || plant.fullRunUntil >= w.tick) return null;
+      // Only while maintenance is coming due: an overdue plant is not offered another deferral.
+      const since = plant.daysSinceMaintenance;
+      if (since < w.config.MAINT_INTERVAL - 30 || since >= w.config.MAINT_INTERVAL || plant.maintenanceHoldUntil > w.tick || plant.fullRunUntil >= w.tick) return null;
       return { key: 'strong', data: { margin: money(plant.lastMargin) } };
     },
     options: () => ({

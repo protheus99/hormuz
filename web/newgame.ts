@@ -13,12 +13,12 @@ const LENGTHS: readonly { days: number | null; label: string }[] = [
   { days: 365, label: '1 year' }, { days: 1095, label: '3 years' }, { days: 1825, label: '5 years' }, { days: null, label: 'No end' },
 ];
 
-interface Choice { mode: 'CAMPAIGN' | 'SANDBOX'; scenario: ScenarioId; type: PlayType; region: string; name: string; difficulty: Difficulty; length: number | null; second: string }
+interface Choice { mode: 'CAMPAIGN' | 'SANDBOX'; scenario: ScenarioId; type: PlayType; region: string; name: string; difficulty: Difficulty; length: number | null; second: string; volatile: boolean }
 
 const LEVEL_WORDS = { EASY: 'Tutorial', MEDIUM: 'Medium', HARD: 'Hard' } as const;
 
 export function showNewGame(root: Element, hasSave: boolean, start: (s: GameSettings) => void, resume: () => void): void {
-  const state: Choice = { mode: 'CAMPAIGN', scenario: 'P1', type: 'PRODUCER', region: 'US_Permian', name: 'Lone Star Crude', difficulty: 'NORMAL', length: 365, second: '' };
+  const state: Choice = { mode: 'CAMPAIGN', scenario: 'P1', type: 'PRODUCER', region: 'US_Permian', name: 'Lone Star Crude', difficulty: 'NORMAL', length: 365, second: '', volatile: false };
   const campaignMode = () => state.mode === 'CAMPAIGN';
 
   const render = () => {
@@ -74,6 +74,7 @@ export function showNewGame(root: Element, hasSave: boolean, start: (s: GameSett
           <label>Length
             <select id="length">${LENGTHS.map((l) => html`<option value="${l.days ?? ''}" ${l.days === state.length ? 'selected' : ''}>${l.label}</option>`)}</select>
           </label>
+          <label style="flex-direction:row;align-items:center;gap:8px;margin-top:22px"><input type="checkbox" id="volatile" ${state.volatile ? 'checked' : ''}> Volatile markets</label>
         </div>`}
         <div class="actions">
           ${hasSave ? html`<button class="btn" id="resume">Continue saved game</button>` : ''}
@@ -99,6 +100,7 @@ export function showNewGame(root: Element, hasSave: boolean, start: (s: GameSett
     root.querySelector('#second')?.addEventListener('change', () => { state.second = value('second'); });
     root.querySelector('#difficulty')?.addEventListener('change', () => { state.difficulty = value('difficulty') as Difficulty; });
     root.querySelector('#length')?.addEventListener('change', () => { state.length = value('length') === '' ? null : Number(value('length')); });
+    root.querySelector('#volatile')?.addEventListener('change', (e) => { state.volatile = (e.target as HTMLInputElement).checked; });
     root.querySelector('#resume')?.addEventListener('click', resume);
     root.querySelector('#start')?.addEventListener('click', () => {
       if (state.name.trim() === '') return;
@@ -107,6 +109,7 @@ export function showNewGame(root: Element, hasSave: boolean, start: (s: GameSett
         playType: state.type, region: state.region as GameSettings['region'], companyName: state.name.trim(),
         difficulty: state.difficulty, lengthDays: state.length,
         ...(campaignMode() ? { scenario: state.scenario } : {}),
+        ...(!campaignMode() && state.volatile ? { volatile: true } : {}),
         ...(state.type === 'TRADER' && state.second !== '' ? { secondOffice: state.second as GameSettings['region'] } : {}),
       });
     });

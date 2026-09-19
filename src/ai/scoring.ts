@@ -25,11 +25,29 @@ const OPERATING: Readonly<Record<string, Readonly<Record<Personality, Weights>>>
 export const AI_CARD_TYPES: readonly string[] = Object.keys(OPERATING);
 
 /**
+ * Growth cards (spec G4.6, Phase 11). Raised ones are answered when they arise; Opportunities are
+ * considered once a month, so the odds are monthly. Aggressive companies grow, Conservative ones
+ * store and insure.
+ */
+const GROWTH: Readonly<Record<string, Readonly<Record<Personality, Weights>>>> = {
+  WELLS_DECLINING: { CONSERVATIVE: [0.3, 0.5, 0.2], BALANCED: [0.5, 0.4, 0.1], AGGRESSIVE: [0.7, 0.3, 0] },
+  EXPORT_CLOSURE_RISK: { CONSERVATIVE: [0.7, 0.3, 0], BALANCED: [0.4, 0.4, 0.2], AGGRESSIVE: [0.1, 0.3, 0.6] },
+  UPGRADE_TIER: { CONSERVATIVE: [0.03, 0, 0.97], BALANCED: [0.06, 0, 0.94], AGGRESSIVE: [0.12, 0, 0.88] },
+  ADD_UNIT: { CONSERVATIVE: [0.02, 0, 0.98], BALANCED: [0.05, 0, 0.95], AGGRESSIVE: [0.1, 0, 0.9] },
+  EXPAND_STORAGE: { CONSERVATIVE: [0.08, 0.1, 0.82], BALANCED: [0.04, 0.08, 0.88], AGGRESSIVE: [0.02, 0.04, 0.94] },
+  EXPAND_TANKS: { CONSERVATIVE: [0.08, 0.1, 0.82], BALANCED: [0.04, 0.08, 0.88], AGGRESSIVE: [0.02, 0.04, 0.94] },
+  LEASE_STORAGE: { CONSERVATIVE: [0.02, 0.05, 0.93], BALANCED: [0.04, 0.08, 0.88], AGGRESSIVE: [0.08, 0.1, 0.82] },
+  OPEN_OFFICE: { CONSERVATIVE: [0.01, 0, 0.99], BALANCED: [0.03, 0, 0.97], AGGRESSIVE: [0.06, 0, 0.94] },
+};
+
+export const AI_GROWTH_TYPES: readonly string[] = Object.keys(GROWTH);
+
+/**
  * The AI's answer to a card. `draw` is one uniform number in [0, 1) from the AI stream; a card with
  * no Maybe gives Maybe's weight to Yes. A company without a temperament answers as Balanced.
  */
 export function chooseForAi(cardType: string, personality: Personality | null, hasMaybe: boolean, draw: number): AiChoice {
-  const table = OPERATING[cardType];
+  const table = OPERATING[cardType] ?? GROWTH[cardType];
   if (table === undefined) return 'NO';
   const [yes, maybe] = table[personality ?? 'BALANCED'];
   const yesShare = hasMaybe ? yes : yes + maybe;

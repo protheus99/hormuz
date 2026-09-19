@@ -10,6 +10,7 @@ import type { ScenarioId } from '../content/scenarios';
 import { GLOBAL_PORTFOLIO, PRODUCER_CASH, PRODUCER_STORAGE_DAYS, REFINER_CASH_PER_BBL_DAY, TRADER_CASH, type PortfolioEntry } from '../data/portfolios';
 import { REGIONS, type RegionName } from '../data/regions';
 import type { Grade } from '../engine/enums';
+import { DEFAULT_CONFIG } from '../engine/config';
 import type { AgentId } from '../engine/model';
 import { createWorld, creditLimit, type PersonalityMix, type World } from '../engine/world';
 
@@ -33,6 +34,8 @@ export interface GameSettings {
   readonly secondOffice?: RegionName;
   /** A campaign scenario (spec G7.2); its setup overrides the type, region, length and difficulty. */
   readonly scenario?: ScenarioId;
+  /** The "Volatile markets" modifier (spec G8): product price volatility doubled. */
+  readonly volatile?: boolean;
 }
 
 /** The player's company always has this id. */
@@ -51,11 +54,11 @@ const DEFAULT_REFINER_CAPACITY = 5_000;
  */
 const MIN_START_CAPACITY = { PRODUCER: 2_000, REFINER: 2_500 } as const;
 
-/** Spec G8. */
-export const DIFFICULTY: Readonly<Record<Difficulty, { readonly cash: number; readonly credit: number; readonly mix: PersonalityMix }>> = {
-  EASY: { cash: 1.5, credit: 1.5, mix: 'MOSTLY_CONSERVATIVE' },
-  NORMAL: { cash: 1.0, credit: 1.0, mix: 'EVEN' },
-  HARD: { cash: 0.75, credit: 0.5, mix: 'MOSTLY_AGGRESSIVE' },
+/** Spec G8. `report` scales the market report's cost and its error. */
+export const DIFFICULTY: Readonly<Record<Difficulty, { readonly cash: number; readonly credit: number; readonly mix: PersonalityMix; readonly report: { readonly cost: number; readonly noise: number } }>> = {
+  EASY: { cash: 1.5, credit: 1.5, mix: 'MOSTLY_CONSERVATIVE', report: { cost: 0.5, noise: 0.5 } },
+  NORMAL: { cash: 1.0, credit: 1.0, mix: 'EVEN', report: { cost: 1, noise: 1 } },
+  HARD: { cash: 0.75, credit: 0.5, mix: 'MOSTLY_AGGRESSIVE', report: { cost: 2, noise: 1.5 } },
 };
 
 /** Regions where each play type may start (spec §3.4). */
@@ -72,7 +75,15 @@ export function newGameWorld(s: GameSettings): World {
   if (!regionsFor(s.playType).includes(s.region)) throw new Error(`A ${s.playType.toLowerCase()} cannot start in ${s.region}`);
   const difficulty = DIFFICULTY[s.difficulty ?? 'NORMAL'];
   const { portfolio, player } = withPlayer(GLOBAL_PORTFOLIO, s, difficulty.cash);
-  const world = createWorld({ seed: s.seed, portfolio: [...portfolio, player], personalityMix: difficulty.mix });
+  const sigma = DEFAULT_CONFIG.PRODUCT_PRICES.SIGMA;
+  const world = createWorld({
+    seed: s.seed, portfolio: [...portfolio, player], personalityMix: difficulty.mix,
+    config: {
+      REPORT_COST: DEFAULT_CONFIG.REPORT_COST * difficulty.report.cost,
+      REPORT_NOISE: DEFAULT_CONFIG.REPORT_NOISE * difficulty.report.noise,
+      ...(s.volatile ? { PRODUCT_PRICES: { SIGMA: { GASOLINE: 2 * sigma.GASOLINE, DIESEL: 2 * sigma.DIESEL, FUEL_OIL: 2 * sigma.FUEL_OIL } } } : {}),
+    },
+  });
 
   // Difficulty scales the player's credit base amount (G8); the rest of the line is unchanged.
   const company = world.agents.find((a) => a.agentId === PLAYER_ID);
