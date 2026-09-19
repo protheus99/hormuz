@@ -214,7 +214,7 @@ export function createTrader(s: TraderSpec): Trader {
     requireNonNegative(s, { [`${o.region} capacity`]: o.capacity });
     hubs[o.region] = { capacity: o.capacity, stock: emptyStock(), escrow: emptyStock() };
   }
-  return { ...base(s), kind: AgentKind.TRADER, offices: regions, hubs };
+  return { ...base(s), kind: AgentKind.TRADER, offices: regions, hubs, priceMemory: {} };
 }
 
 /** Total barrels across every grade. */

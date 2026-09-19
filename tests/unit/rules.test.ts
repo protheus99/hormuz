@@ -7,10 +7,10 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createNode, type ExchangeNode } from '../../src/engine/clearing';
-import { createIntegrated, createProducer, createRefiner } from '../../src/engine/companies';
+import { createIntegrated, createProducer, createRefiner, createTrader } from '../../src/engine/companies';
 import { configFor, DEFAULT_CONFIG, type Config } from '../../src/engine/config';
 import { isBid, type Order, type Producer, type Refiner } from '../../src/engine/model';
-import { decideOrders, type MarketView } from '../../src/engine/rules';
+import { decideOrders, rememberMarkers, type MarketView } from '../../src/engine/rules';
 import { buildLaneGraph, LaneRouteProvider } from '../../src/engine/transport';
 
 let nodes: { DME: ExchangeNode; NC: ExchangeNode; NYMEX: ExchangeNode };
@@ -146,5 +146,72 @@ describe('integrated majors (spec §6.3)', () => {
     // Floor: 12 × 0.75 + 0.20 tariff + no margin = 9.20.
     expect(brief(orders.filter((o) => o.side === 'ASK'))).toEqual([['ASK', 'DME', 9.2, 5_000]]);
     expect(orders.filter((o) => o.side === 'BID')).toHaveLength(1);
+  });
+});
+
+describe('trader quotes (spec §6.4)', () => {
+  // One office in Middle_East (50,000 bbl of tanks, $0.20 tariff) and only the DME node, with
+  // yesterday's close at 58.60 and the marker at 62: landed reference 58.60 + 0.20 = 58.80.
+  const dmeOnly = (): MarketView => ({ ...view, nodes: { DME: nodes.DME } });
+  const tidemere = (heavy = 0, cash = 2_000_000) => {
+    const t = createTrader({ id: 'tidemere', name: 'Tidemere', region: 'Middle_East', cash, offices: [{ region: 'Middle_East', capacity: 50_000 }] });
+    const hub = t.hubs.Middle_East;
+    if (hub) hub.stock.HEAVY_SOUR = heavy;
+    return t;
+  };
+
+  it('empty hub: no ask, and a keen bid for half its room', () => {
+    // fill 0 → shift +0.40: bid 58.80 − 0.40 + 0.40 = 58.80. Room: cash 2M / 58.80 = 34,013 → half, 17,000.
+    expect(brief(decideOrders(tidemere(), 4, dmeOnly(), DEFAULT_CONFIG))).toEqual([['BID', 'DME', 58.8, 17_000]]);
+  });
+
+  it('part-full hub: offers half its stock above the reference and bids below it', () => {
+    // 20,000 held, fill 0.4 → shift +0.08. Ask 58.60 + 0.40 + 0.08; bid 58.80 − 0.40 + 0.08.
+    // Bid room: 30,000 free, (5M − 20,000 × 62) / 58.48 = 64,295, 2M / 58.48 = 34,199 → half of 30,000.
+    expect(brief(decideOrders(tidemere(20_000), 4, dmeOnly(), DEFAULT_CONFIG))).toEqual([
+      ['ASK', 'DME', 59.08, 10_000],
+      ['BID', 'DME', 58.48, 15_000],
+    ]);
+  });
+
+  it('full hub: quotes lower, keen to sell', () => {
+    const [ask] = decideOrders(tidemere(50_000), 4, dmeOnly(), DEFAULT_CONFIG);
+    expect(ask?.limitPrice).toBe(58.6 + 0.4 - 0.4);
+    expect(ask?.qty).toBe(25_000);
+  });
+
+  it('marker above its 20-day average: offers all its stock', () => {
+    const t = tidemere(20_000);
+    t.priceMemory.DME = Array.from({ length: 20 }, () => 55);
+    expect(decideOrders(t, 4, dmeOnly(), DEFAULT_CONFIG)[0]?.qty).toBe(20_000);
+  });
+
+  it('marker well below its average: bids for all its room (storage play)', () => {
+    const t = tidemere();
+    t.priceMemory.DME = Array.from({ length: 20 }, () => 70);   // 62 < 70 − 0.06 × 30
+    expect(decideOrders(t, 4, dmeOnly(), DEFAULT_CONFIG)[0]?.qty).toBe(34_000);
+  });
+
+  it('stays within MAX_RISK_LIMIT: a Low appetite bids less than a High one', () => {
+    const qty = (appetite: 'LOW' | 'HIGH') => {
+      const cfg = configFor({ risk: 'BALANCED', selling: 'BALANCED', stockpile: 'NORMAL', appetite }, DEFAULT_CONFIG);
+      return decideOrders(tidemere(20_000, 50_000_000), 4, dmeOnly(), cfg).find((o) => o.side === 'BID')?.qty ?? 0;
+    };
+    // Low: (2M − 1.24M) / 58.48 = 12,996 of room → 6,000. High is limited only by tank space.
+    expect(qty('LOW')).toBe(6_000);
+    expect(qty('HIGH')).toBe(15_000);
+  });
+
+  it('insolvent: asks but never bids', () => {
+    const t = tidemere(20_000);
+    t.insolvent = true;
+    expect(decideOrders(t, 4, dmeOnly(), DEFAULT_CONFIG).map((o) => o.side)).toEqual(['ASK']);
+  });
+
+  it('remembers the last 20 markers', () => {
+    const t = tidemere();
+    for (let d = 0; d < 25; d++) { nodes.DME.markerPrice = 60 + d; rememberMarkers(t, dmeOnly().nodes); }
+    expect(t.priceMemory.DME).toHaveLength(20);
+    expect(t.priceMemory.DME?.[0]).toBe(65);
   });
 });

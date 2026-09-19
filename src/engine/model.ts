@@ -227,6 +227,8 @@ export interface Trader extends CompanyBase {
   /** Regions the trader can buy into and sell from (spec §4.11). */
   offices: RegionName[];
   hubs: Partial<Record<RegionName, HubHolding>>;
+  /** Each node's marker over the last 20 days, oldest first, for storage plays (spec §6.4). */
+  priceMemory: Partial<Record<NodeName, number[]>>;
 }
 
 export type Agent = Producer | Refiner | IntegratedMajor | Trader;

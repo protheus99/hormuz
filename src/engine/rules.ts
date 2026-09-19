@@ -13,7 +13,7 @@ import type { Config } from './config';
 import { productValue, YIELDS, type ProductPrices } from './economics';
 import {
   makeOrderId, type Agent, type Ask, type Bid, type ChokepointName, type IntegratedMajor, type NodeName, type Order,
-  type PlantState, type Producer, type Refiner, type Tick, type WellState,
+  type PlantState, type Producer, type Refiner, type Tick, type Trader, type WellState,
 } from './model';
 import type { RouteProvider } from './routes';
 import { NODE_FOR_GRADE, NODE_NAMES } from '../data/nodes';
@@ -51,7 +51,22 @@ export function decideOrders(agent: Agent, index: number, view: MarketView, cfg:
         ...refinerBids(agent, agent.plant, view, cfg, cfg.AGGRESSION, ids),
       ];
     case 'TRADER':
-      return [];
+      return traderOrders(agent, view, cfg, ids);
+  }
+}
+
+/** Days of marker history a trader keeps (spec §6.4). */
+export const PRICE_MEMORY_DAYS = 20;
+
+/** Adds today's markers to a trader's memory, keeping the last PRICE_MEMORY_DAYS (spec §5 phase 7). */
+export function rememberMarkers(trader: Trader, nodes: Readonly<Partial<Record<NodeName, ExchangeNode>>>): void {
+  for (const name of NODE_NAMES) {
+    const node = nodes[name];
+    if (node === undefined) continue;
+    const memory = trader.priceMemory[name] ?? [];
+    memory.push(node.markerPrice);
+    if (memory.length > PRICE_MEMORY_DAYS) memory.shift();
+    trader.priceMemory[name] = memory;
   }
 }
 
@@ -154,6 +169,81 @@ function refinerBids(
     orderId: ids(), agentId: company.agentId, node: best.node, side: 'BID', limitPrice: price, qty, qtyRemaining: qty,
     deliveryRegion: company.region, avoidChokepoints: [...view.avoid],
   }];
+}
+
+// ─── Traders (spec §6.4) ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Market making at every office, for every grade: an ask from the hub and a bid delivered into it,
+ * HALF_SPREAD either side of the local reference and shifted away from inventory — an empty hub
+ * quotes higher (keen to buy), a full one lower (keen to sell). Asks offer half the stock, or all of
+ * it when the marker is above its 20-day average. Bids use half the room left — the least of free
+ * tank space, the rest of MAX_RISK_LIMIT and cash, shared across every office and grade — or all
+ * of it when the marker sits below its average by more than the cost of holding stock for HOLD_TICKS.
+ */
+function traderOrders(trader: Trader, view: MarketView, cfg: Config, ids: () => ReturnType<typeof makeOrderId>): Order[] {
+  const lot = cfg.LOT_SIZE;
+  const ctx: ClearContext = { routes: view.routes, tick: view.tick, config: cfg };
+  const nodeNames = NODE_NAMES.filter((n) => view.nodes[n] !== undefined);
+  if (nodeNames.length === 0) return [];
+
+  // Everything held, valued at today's markers, counts against the risk limit.
+  let position = 0;
+  for (const hub of Object.values(trader.hubs)) {
+    if (hub === undefined) continue;
+    for (const name of nodeNames) {
+      const node = view.nodes[name] as ExchangeNode;
+      position += (hub.stock[node.grade] + hub.escrow[node.grade]) * node.markerPrice;
+    }
+  }
+  const slots = trader.offices.length * nodeNames.length;
+  const budget = Math.max(0, cfg.MAX_RISK_LIMIT - position) / slots;
+  const cashPerSlot = trader.insolvent ? 0 : Math.max(0, availableCash(trader)) / slots;
+
+  const orders: Order[] = [];
+  for (const office of trader.offices) {
+    const hub = trader.hubs[office];
+    if (hub === undefined) continue;
+    const fill = hub.capacity > 0 ? (total(hub.stock) + total(hub.escrow)) / hub.capacity : 1;
+    const shift = -2 * cfg.HALF_SPREAD * (fill - 0.5);
+    const freePerGrade = Math.max(0, hub.capacity - total(hub.stock) - total(hub.escrow)) / nodeNames.length;
+
+    for (const name of nodeNames) {
+      const node = view.nodes[name] as ExchangeNode;
+      const trend = markerTrend(trader, name, node.markerPrice, cfg);
+
+      const held = hub.stock[node.grade];
+      const askQty = lots(trend === 'rich' ? held : held / 2, lot);
+      if (askQty > 0) {
+        const price = roundUp(Math.max(0.01, referenceFob(node, office, view) + cfg.HALF_SPREAD + shift));
+        orders.push({ orderId: ids(), agentId: trader.agentId, node: name, side: 'ASK', limitPrice: price, qty: askQty, qtyRemaining: askQty, originRegion: office });
+      }
+
+      const landed = previousClose(node, office, ctx, view.avoid)[0]?.landed
+        ?? referenceFob(node, office, view) + REGIONS[office].infrastructureTariff;
+      const price = roundDown(landed - cfg.HALF_SPREAD + shift);
+      if (!(price > 0)) continue;
+      const room = Math.min(freePerGrade, budget / price, cashPerSlot / price);
+      const bidQty = lots(trend === 'cheap' ? room : room / 2, lot);
+      if (bidQty > 0) {
+        orders.push({
+          orderId: ids(), agentId: trader.agentId, node: name, side: 'BID', limitPrice: price, qty: bidQty, qtyRemaining: bidQty,
+          deliveryRegion: office, avoidChokepoints: [...view.avoid],
+        });
+      }
+    }
+  }
+  return orders;
+}
+
+/** Where today's marker sits against the trader's 20-day memory (spec §6.4 storage arbitrage). */
+function markerTrend(trader: Trader, node: NodeName, marker: number, cfg: Config): 'cheap' | 'rich' | 'normal' {
+  const memory = trader.priceMemory[node];
+  if (memory === undefined || memory.length === 0) return 'normal';
+  const average = memory.reduce((s, x) => s + x, 0) / memory.length;
+  if (marker < average - cfg.STORAGE_CARRY * cfg.HOLD_TICKS) return 'cheap';
+  if (marker > average) return 'rich';
+  return 'normal';
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────────────────────

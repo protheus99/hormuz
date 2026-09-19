@@ -715,8 +715,8 @@ After internal clearing, surplus production is offered under §6.1 with a floor 
 
 Traders act only in office and leased-storage regions.
 
-- **Market making:** at each office region, a bid and an ask around `marker ± HALF_SPREAD`, skewed away from current inventory and sized within `max_risk_limit`.
-- **Storage arbitrage:** if `marker < 20-day average − STORAGE_CARRY × HOLD_TICKS`, add to bid size; if `marker > 20-day average` and inventory is held, add to ask size.
+- **Market making:** at each office region and for each grade, an ask FOB from the hub and a bid delivered into it, `HALF_SPREAD` either side of the local previous close (landed, for the bid), shifted by `−2 × HALF_SPREAD × (hub fill − 0.5)` so an empty hub quotes keen to buy and a full one keen to sell. Asks offer half the grade's stock; bids use half the room left — the least of free tank space, the unused `MAX_RISK_LIMIT` (holdings valued at markers) and cash, shared across every office and grade.
+- **Storage arbitrage:** if `marker < 20-day average − STORAGE_CARRY × HOLD_TICKS`, bids use all the room left instead of half; if `marker > 20-day average`, asks offer all the stock instead of half. The 20-day memory is updated in phase 7.
 - **Committed capital:** capital committed through cards (price gaps, crisis bets, distressed cargo) adds targeted bids and asks for the committed period.
 
 ### 6.5 Default operations
