@@ -57,6 +57,15 @@ h3 { font-size: 14px; }
 .newgame fieldset { border: 0; padding: 0; margin: 0 0 20px; }
 .newgame legend { font-weight: 600; margin-bottom: 8px; }
 .types { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.scenarios { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; max-height: 360px; overflow: auto; }
+.goal .cond { display: flex; gap: 8px; align-items: baseline; padding: 3px 0; }
+.goal .tick { width: 16px; font-weight: 700; }
+.goal .MET { color: var(--good); }
+.goal .FAILED { color: var(--bad); }
+.goal .PENDING { color: var(--text-3); }
+.result { padding: 10px 12px; border-radius: 6px; font-weight: 600; margin-bottom: 8px; }
+.result.WON { background: var(--good-soft); color: var(--good); }
+.result.LOST { background: var(--bad-soft); color: var(--bad); }
 .type { border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; text-align: left; background: var(--panel-2); }
 .type strong { display: block; margin-bottom: 4px; }
 .type.active { border-color: var(--accent); background: var(--accent-soft); }

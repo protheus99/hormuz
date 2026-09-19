@@ -12,6 +12,7 @@ import {
 } from './cards/advisor';
 import type { Card, CardType } from './cards/types';
 import { createDeck, deckDay, priceNews, type DeckState, type ScriptedEvent } from './events';
+import { applySetup, campaignDay, campaignView, createCampaign, scenario, scriptedActions, scriptFor, type CampaignState } from './campaign';
 import { cardText } from '../content/cards';
 import { detectAlerts, pausesAt, rememberForAlerts, type Alert, type AlertMemory, type Severity } from './alerts';
 import { applyCommand, rejectReason, type Command, type CommandResult, type LoggedCommand } from './commands';
@@ -58,6 +59,7 @@ export interface SaveData {
   readonly deck: DeckState;
   /** Scripted events (campaign scenarios); empty in Sandbox. */
   readonly script: readonly ScriptedEvent[];
+  readonly campaign: CampaignState | null;
 }
 
 export class GameSession {
@@ -73,6 +75,7 @@ export class GameSession {
     advisor: AdvisorState;
     deck: DeckState;
     script: readonly ScriptedEvent[];
+    campaign: CampaignState | null;
   };
 
   private constructor(data: SaveData) {
@@ -80,22 +83,34 @@ export class GameSession {
     this.state = {
       settings: copy.settings, world: copy.world, log: [...copy.log], history: [...copy.history],
       alerts: [...copy.alerts], memory: copy.memory, seq: copy.seq, pauseAt: copy.pauseAt, advisor: copy.advisor,
-      deck: copy.deck, script: copy.script,
+      deck: copy.deck, script: copy.script, campaign: copy.campaign,
     };
   }
 
   /** Starts a new game (spec G2, G9). */
-  static async newGame(settings: GameSettings): Promise<GameSession> {
+  static async newGame(requested: GameSettings): Promise<GameSession> {
+    const sc = requested.scenario !== undefined ? scenario(requested.scenario) : null;
+    const settings: GameSettings = sc === null ? requested : {
+      ...requested,
+      playType: sc.playType ?? requested.playType,
+      region: sc.region ?? requested.region,
+      lengthDays: sc.lengthDays,
+      difficulty: sc.difficulty,
+      ...(sc.setup?.techTier === 1 || sc.setup?.techTier === 2 ? { techTier: sc.setup.techTier } : {}),
+      ...(sc.setup?.secondOffice !== undefined ? { secondOffice: sc.setup.secondOffice } : {}),
+    };
     const world = newGameWorld(settings);
     // In a game, operating decisions (maintenance, output cuts) are cards for every company (G4.6).
     world.cardsActive = true;
     const me = world.agents.find((a) => a.agentId === PLAYER_ID);
+    if (sc && me) applySetup(world, sc, me);
     const regions = me?.kind === 'TRADER' ? me.offices : me ? [me.region] : [];
     return new GameSession({
       version: 2, settings, world, log: [], history: [dailyPrices(world)], alerts: [],
       memory: rememberForAlerts(world, PLAYER_ID), seq: 0, pauseAt: 'HIGH', advisor: createAdvisor(world),
-      deck: createDeck(world, settings.seed, settings.difficulty ?? 'NORMAL', true, regions, me?.kind ?? 'PRODUCER'),
-      script: [],
+      deck: createDeck(world, settings.seed, settings.difficulty ?? 'NORMAL', sc?.randomEvents ?? true, regions, me?.kind ?? 'PRODUCER'),
+      script: sc ? scriptFor(sc, settings.seed) : [],
+      campaign: sc ? createCampaign(world, sc, sc.lengthDays) : null,
     });
   }
 
@@ -126,6 +141,7 @@ export class GameSession {
       opportunities: (me ? availableOpportunities(s.world, s.advisor, me) : []).map((type) => ({ type, title: cardText(type, {}).title })),
       reports: s.advisor.memory.reports.filter((r) => r.agentId === playerId),
       news: [...s.deck.news].reverse(),
+      campaign: s.campaign ? campaignView(s.world, s.campaign) : null,
     };
     return structuredClone(buildPlayerView(s.world, playerId, s.history, s.alerts, s.settings.lengthDays ?? null, cards));
   }
@@ -181,7 +197,7 @@ export class GameSession {
     return structuredClone({
       version: 2 as const, settings: s.settings, world: s.world, log: s.log, history: s.history,
       alerts: s.alerts, memory: s.memory, seq: s.seq, pauseAt: s.pauseAt, advisor: s.advisor,
-      deck: s.deck, script: s.script,
+      deck: s.deck, script: s.script, campaign: s.campaign,
     });
   }
 
@@ -197,22 +213,28 @@ export class GameSession {
     const problems: string[] = [];
     for (const entry of s.log.filter((c) => c.tick === tick).sort((a, b) => a.seq - b.seq)) problems.push(...applyCommand(s.world, entry, s.advisor));
     deckDay(s.world, s.deck, s.script);
+    if (s.campaign) scriptedActions(s.world, scenario(s.campaign.id));
     const report = step(s.world);
     const cards = advise(s.world, s.advisor, report.fills);
     refreshOpportunities(s.world, s.advisor);
     s.history.push(dailyPrices(s.world));
     priceNews(s.deck, s.history);
+    const decided = s.campaign?.result ?? null;
+    if (s.campaign) campaignDay(s.world, s.campaign, s.advisor, report.fills, report.deliveries);
     const alerts = detectAlerts(s.world, PLAYER_ID, s.memory);
     for (const p of problems) alerts.push({ tick: s.world.tick, severity: 'MEDIUM', message: `Part of your decision could not be carried out: ${p}` });
     for (const c of cards) if (c.agentId === PLAYER_ID) alerts.push({ tick: s.world.tick, severity: 'INFO', message: `New decision: ${c.title}` });
     s.memory = rememberForAlerts(s.world, PLAYER_ID);
-    if (this.ended()) alerts.push({ tick: s.world.tick, severity: 'CRITICAL', message: 'The game has ended.' });
+    if (s.campaign && decided === null && s.campaign.result !== null) {
+      alerts.push({ tick: s.world.tick, severity: 'CRITICAL', message: `${s.campaign.result === 'WON' ? 'Scenario won' : 'Scenario lost'}: ${s.campaign.reason}` });
+    } else if (this.ended()) alerts.push({ tick: s.world.tick, severity: 'CRITICAL', message: 'The game has ended.' });
     s.alerts.push(...alerts);
     if (s.alerts.length > ALERTS_KEPT) s.alerts.splice(0, s.alerts.length - ALERTS_KEPT);
     return { alerts, cards };
   }
 
   private ended(): boolean {
+    if (this.state.campaign?.result) return true;
     const length = this.state.settings.lengthDays;
     return length !== undefined && length !== null && this.state.world.tick >= length;
   }

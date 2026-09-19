@@ -53,7 +53,17 @@ export function inboxPanel(view: PlayerView, answered: ReadonlyMap<string, strin
   const raised = view.cards.filter((c) => !c.opportunity);
   const opened = view.cards.filter((c) => c.opportunity);
   const openTypes = new Set(opened.map((c) => c.type as string));
+  const c = view.campaign;
+  const ticks = { MET: '✓', FAILED: '✗', PENDING: '•' } as const;
   return html`
+    ${c ? html`<section class="panel goal">
+      <h2>${c.title} <span class="small muted">${c.daysLeft} days left</span></h2>
+      ${c.result ? html`<div class="result ${c.result}">${c.result === 'WON' ? 'Scenario won!' : 'Scenario lost.'} ${c.reason}</div>` : ''}
+      <p class="small">${c.goal}</p>
+      ${c.conditions.map((x) => html`<div class="cond"><span class="tick ${x.status}">${ticks[x.status]}</span><span>${x.progress}</span></div>`)}
+      <div class="small muted" style="margin-top:6px">Milestones</div>
+      ${c.milestones.map((m) => html`<div class="cond small"><span class="tick ${m.done ? 'MET' : 'PENDING'}">${m.done ? '✓' : '•'}</span><span>${m.label} <span class="muted">(reward: ${m.reward})</span></span></div>`)}
+    </section>` : ''}
     <section class="panel">
       <h2>Decisions <span class="small muted">${raised.length} open</span></h2>
       ${raised.length === 0 ? html`<p class="inbox-empty">No decisions waiting. The company is running itself.</p>` : raised.map((c) => card(c, answered.get(c.id), openDetails.has(c.id)))}

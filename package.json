@@ -2,7 +2,7 @@
   "name": "hormuz",
   "version": "0.0.0",
   "private": true,
-  "description": "Hormuz — an oil company strategy game on the GEMS market engine",
+  "description": "Hormuz \u2014 an oil company strategy game on the GEMS market engine",
   "type": "module",
   "engines": {
     "node": ">=22"
@@ -22,7 +22,8 @@
     "golden:browser": "vite tests/golden --port 5174 --strictPort",
     "scenario": "tsx tools/run-scenario.ts",
     "calibrate": "tsx tools/calibrate.ts",
-    "report": "tsx tools/report.ts"
+    "report": "tsx tools/report.ts",
+    "campaign": "tsx tools/campaign.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

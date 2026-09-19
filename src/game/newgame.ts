@@ -6,6 +6,7 @@
 // the region has no such rival, it starts at a standard size. Difficulty sets the rivals'
 // personalities, and the player's starting cash and credit (G8).
 
+import type { ScenarioId } from '../content/scenarios';
 import { GLOBAL_PORTFOLIO, PRODUCER_CASH, PRODUCER_STORAGE_DAYS, REFINER_CASH_PER_BBL_DAY, TRADER_CASH, type PortfolioEntry } from '../data/portfolios';
 import { REGIONS, type RegionName } from '../data/regions';
 import type { Grade } from '../engine/enums';
@@ -30,6 +31,8 @@ export interface GameSettings {
   readonly techTier?: 1 | 2;
   /** Trader only: a second office region. */
   readonly secondOffice?: RegionName;
+  /** A campaign scenario (spec G7.2); its setup overrides the type, region, length and difficulty. */
+  readonly scenario?: ScenarioId;
 }
 
 /** The player's company always has this id. */

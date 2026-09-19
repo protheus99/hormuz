@@ -284,6 +284,11 @@ function effect(w: World, state: AdvisorState, agentId: AgentId, e: NonNullable<
   m.reports.push({ tick: w.tick, agentId, asOf: oldest.tick, byRegion });
 }
 
+/** A free market report (a campaign reward, spec G7.2). */
+export function grantReport(w: World, state: AdvisorState, agentId: AgentId): void {
+  effect(w, state, agentId, { report: true });
+}
+
 // ─── Opportunities ───────────────────────────────────────────────────────────────────────────
 
 /** Opportunities a company could open today (spec G4.1). */

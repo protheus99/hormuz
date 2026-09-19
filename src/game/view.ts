@@ -11,6 +11,7 @@ import type { AgentId, CompanySettings, DealId } from '../engine/model';
 import { netWorth, type World } from '../engine/world';
 import type { Alert } from './alerts';
 import type { Card, CardType } from './cards/types';
+import type { CampaignView } from './campaign';
 
 /** What the view needs from the advisor: this player's cards, Opportunities and reports. */
 export interface CardsView {
@@ -19,6 +20,8 @@ export interface CardsView {
   readonly reports: readonly { readonly tick: number; readonly asOf: number; readonly byRegion: Readonly<Partial<Record<string, number>>> }[];
   /** News, newest first (spec G7.1). */
   readonly news: readonly { readonly tick: number; readonly headline: string; readonly body: string }[];
+  /** The campaign scenario's goal and milestones, or null in Sandbox (spec G7.2). */
+  readonly campaign: CampaignView | null;
 }
 
 /** One day of public prices, kept by the session for charts. */
@@ -85,6 +88,7 @@ export interface PlayerView {
   /** Market reports bought (spec G5). */
   readonly reports: CardsView['reports'];
   readonly news: CardsView['news'];
+  readonly campaign: CardsView['campaign'];
 }
 
 export function buildPlayerView(
@@ -143,6 +147,7 @@ export function buildPlayerView(
     opportunities: [...cards.opportunities],
     reports: [...cards.reports],
     news: [...cards.news],
+    campaign: cards.campaign,
   };
 }
 
