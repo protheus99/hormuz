@@ -129,6 +129,11 @@ export const FeeKind = {
   FIXED_COST: 'FIXED_COST',
   OFFICE: 'OFFICE',
   CREDIT_INTEREST: 'CREDIT_INTEREST',
+  CAPITAL: 'CAPITAL',
+  LEASE: 'LEASE',
+  RESERVATION: 'RESERVATION',
+  REPORT: 'REPORT',
+  REPAIR: 'REPAIR',
 } as const;
 export type FeeKind = (typeof FeeKind)[keyof typeof FeeKind];
 export const FEE_KINDS: readonly FeeKind[] = Object.values(FeeKind);

@@ -15,7 +15,9 @@ import { nextFloat, type Rng } from './rng';
  * this, so an offline refinery stops buying.
  */
 export function effectiveUtilization(r: PlantState): number {
-  if (!r.online || r.outageTicksRemaining > 0 || r.maintenanceTicksRemaining > 0) return 0;
+  if (!r.online || r.maintenanceTicksRemaining > 0) return 0;
+  // A partial restart keeps part of a broken-down plant running (spec G4.4 "Breakdown").
+  if (r.outageTicksRemaining > 0) return Math.min(r.utilization, r.utilizationCap, r.limpShare);
   return Math.min(r.utilization, r.utilizationCap);
 }
 
@@ -43,9 +45,10 @@ export function refine(company: Refiner | IntegratedMajor, sink: RetailSink, led
   let opex = 0;
 
   const margin = (g: Grade) => productValue(g, sink.prices) - YIELDS[g].opex;
+  const preferred = r.crudePreference !== null && (r.crudePreference.weight === 'ALL' || tick % 2 === 0) ? r.crudePreference.grade : null;
   const order = acceptedGrades(r.techTier)
     .slice()
-    .sort((a, b) => margin(b) - margin(a) || GRADES.indexOf(a) - GRADES.indexOf(b));
+    .sort((a, b) => Number(b === preferred) - Number(a === preferred) || margin(b) - margin(a) || GRADES.indexOf(a) - GRADES.indexOf(b));
 
   for (const grade of order) {
     const qty = Math.min(room, r.crudeStock[grade]);
@@ -158,7 +161,7 @@ export function breakdownHazard(plant: PlantState, config: Config): number {
  * running plant may break down. Exactly one draw is taken from the events stream per plant per
  * day, whatever the plant's state, so one plant's history never shifts another's.
  */
-export function advancePlant(company: Refiner | IntegratedMajor, rng: Rng, ledger: FeeLedger, tick: Tick, config: Config): void {
+export function advancePlant(company: Refiner | IntegratedMajor, rng: Rng, ledger: FeeLedger, tick: Tick, config: Config, autoMaintenance = true): void {
   const plant = company.kind === 'INTEGRATED' ? company.plant : company;
   const roll = nextFloat(rng);
 
@@ -168,6 +171,7 @@ export function advancePlant(company: Refiner | IntegratedMajor, rng: Rng, ledge
   }
   if (plant.outageTicksRemaining > 0) {
     plant.outageTicksRemaining -= 1;
+    if (plant.outageTicksRemaining === 0) plant.limpShare = 0;
     return;
   }
   if (plant.maintenanceTicksRemaining > 0) {
@@ -178,11 +182,10 @@ export function advancePlant(company: Refiner | IntegratedMajor, rng: Rng, ledge
   if (!plant.online) return;
 
   plant.daysSinceMaintenance += 1;
-  if (plant.daysSinceMaintenance >= config.MAINT_INTERVAL) {
-    plant.maintenanceTicksRemaining = config.MAINT_TICKS;
-    const cost = config.MAINT_COST * plant.processingCapacity;
-    company.cash -= cost;
-    recordFee(ledger, { tick, agentId: company.agentId, kind: FeeKind.MAINTENANCE, amount: cost });
+  const scheduled = plant.maintenanceAt !== null && tick >= plant.maintenanceAt;
+  const due = autoMaintenance && plant.daysSinceMaintenance >= config.MAINT_INTERVAL && tick >= plant.maintenanceHoldUntil;
+  if (scheduled || due) {
+    startMaintenance(company, ledger, tick, config);
     return;
   }
   if (roll < breakdownHazard(plant, config)) {
@@ -191,4 +194,14 @@ export function advancePlant(company: Refiner | IntegratedMajor, rng: Rng, ledge
     const share = roll / breakdownHazard(plant, config);
     plant.outageTicksRemaining = min + Math.min(max - min, Math.floor(share * (max - min + 1)));
   }
+}
+
+/** Takes a plant offline for MAINT_TICKS at MAINT_COST (spec §6.5; the "Maintenance due" card). */
+export function startMaintenance(company: Refiner | IntegratedMajor, ledger: FeeLedger, tick: Tick, config: Config): void {
+  const plant = company.kind === 'INTEGRATED' ? company.plant : company;
+  plant.maintenanceAt = null;
+  plant.maintenanceTicksRemaining = config.MAINT_TICKS;
+  const cost = config.MAINT_COST * plant.processingCapacity;
+  company.cash -= cost;
+  recordFee(ledger, { tick, agentId: company.agentId, kind: FeeKind.MAINTENANCE, amount: cost });
 }

@@ -202,6 +202,10 @@ function buildPlant(owner: CompanySpec, region: RegionName, pl: PlantSpec): Plan
     worksTicksRemaining: 0,
     worksFactor: 1,
     daysSinceMaintenance: 0,
+    maintenanceHoldUntil: 0,
+    maintenanceAt: null,
+    limpShare: 0,
+    crudePreference: null,
   };
 }
 

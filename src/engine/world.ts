@@ -5,6 +5,7 @@
 // states — so it saves as JSON and forks with structuredClone (spec G4.5, G9). The only object
 // with behavior, the route provider, is rebuilt at the start of every tick from the lane graph.
 
+import { advanceProjects, chargeLeases, type CapitalProject, type Lease, type ReservationRecord, type StandingOrder } from './actions';
 import { advancePlant, applyDecline, extract, internalTransfer, refine } from './agents';
 import { clear, createNode, submit, type ExchangeNode } from './clearing';
 import {
@@ -17,7 +18,7 @@ import {
 } from './economics';
 import { FeeKind, type ChokepointStatus, type Grade, type Personality, type Product } from './enums';
 import { runLogistics, type LogisticsReport } from './logistics';
-import type { Agent, AgentId, Cargo, ChokepointName, Deal, Fill, NodeName, Tick } from './model';
+import { makeOrderId, type Agent, type AgentId, type Cargo, type ChokepointName, type Deal, type Fill, type NodeName, type Order, type Tick } from './model';
 import { nextFloat, rngFor, type Rng } from './rng';
 import { decideOrders, recordSales, rememberMarkers, updateOutput, updateThrottle, type MarketView } from './rules';
 import { placeOrder, releaseEscrow, settleFills } from './settlement';
@@ -89,6 +90,16 @@ export interface World {
   distressDays: Partial<Record<AgentId, number>>;
   /** Every company that has ever been insolvent, with the first tick it happened (D11: recorded). */
   insolvencies: Partial<Record<AgentId, Tick>>;
+  /** Capital projects under way, leases, standing orders and pipeline reservations (actions.ts). */
+  projects: CapitalProject[];
+  leases: Lease[];
+  standingOrders: StandingOrder[];
+  reservations: ReservationRecord[];
+  /**
+   * True when decision cards drive maintenance and output cuts (a game session, Phase 9). Engine-only
+   * runs leave it false, and the §6.5 defaults do those jobs instead.
+   */
+  cardsActive: boolean;
 }
 
 /** What happened in one tick, for metrics and tests. */
@@ -133,6 +144,11 @@ export function createWorld(s: WorldSettings): World {
     },
     distressDays: {},
     insolvencies: {},
+    projects: [],
+    leases: [],
+    standingOrders: [],
+    reservations: [],
+    cardsActive: false,
   };
   return world;
 }
@@ -144,13 +160,15 @@ export function step(w: World): TickReport {
   const cfg = w.config;
   w.ledger.entries = [];
   const feesBefore = w.ledger.total;
-  const byId = new Map<AgentId, Agent>(w.agents.map((a) => [a.agentId, a]));
+  let byId = new Map<AgentId, Agent>(w.agents.map((a) => [a.agentId, a]));
 
-  // Phase 0: scheduled events, product prices, plant upkeep, field decline, empty pipelines.
+  // Phase 0: scheduled events, capital projects, product prices, plant upkeep, field decline, empty pipelines.
   applyEvents(w, byId);
+  advanceProjects(w);
+  byId = new Map<AgentId, Agent>(w.agents.map((a) => [a.agentId, a]));   // a finished refinery may have replaced a producer
   updatePrices(w.sink, baselineOutput(w), cfg);
   for (const a of w.agents) {
-    if (a.kind === 'REFINER' || a.kind === 'INTEGRATED') advancePlant(a, w.rng.events, w.ledger, tick, cfg);
+    if (a.kind === 'REFINER' || a.kind === 'INTEGRATED') advancePlant(a, w.rng.events, w.ledger, tick, cfg, !w.cardsActive);
     if (a.kind === 'PRODUCER' || a.kind === 'INTEGRATED') applyDecline(a, cfg);
   }
   const routes = new LaneRouteProvider(w.graph);
@@ -203,6 +221,18 @@ export function step(w: World): TickReport {
       submit(w.nodes[order.node], order, cfg);
       if (order.side === 'ASK') asked.add(a.agentId);
     }
+    // Orders cards added: emergency purchases, fire sales, committed capital (actions.ts).
+    w.standingOrders.filter((o) => o.agentId === a.agentId).forEach((o, k) => {
+      const order: Order = o.side === 'BID'
+        ? { orderId: makeOrderId(index, 500 + k), agentId: a.agentId, node: o.node, side: 'BID', limitPrice: o.price, qty: o.qty, qtyRemaining: o.qty, deliveryRegion: o.region, avoidChokepoints: avoidFor(a.settings.risk, w.graph) }
+        : { orderId: makeOrderId(index, 500 + k), agentId: a.agentId, node: o.node, side: 'ASK', limitPrice: o.price, qty: o.qty, qtyRemaining: o.qty, originRegion: o.region };
+      try {
+        placeOrder(a, order);
+      } catch {
+        return;   // no longer affordable or no longer held: skipped today
+      }
+      submit(w.nodes[order.node], order, cfg);
+    });
   });
 
   // Phase 5c and 6: each node clears once; fills settle and ship.
@@ -217,8 +247,9 @@ export function step(w: World): TickReport {
 
   // Phase 7: running costs, credit, trader memory, AI output cuts, insolvency, invariants.
   chargeRunningCosts(w, tick);
+  chargeLeases(w);
   settleCredit(w, tick);
-  for (const a of w.agents) if (a.kind === 'PRODUCER' || a.kind === 'INTEGRATED') updateOutput(a, w.nodes, w.ledger, tick, cfg);
+  if (!w.cardsActive) for (const a of w.agents) if (a.kind === 'PRODUCER' || a.kind === 'INTEGRATED') updateOutput(a, w.nodes, w.ledger, tick, cfg);
   for (const a of w.agents) if (a.kind === 'TRADER') rememberMarkers(a, w.nodes);
   updateInsolvency(w);
   checkInvariants(w, deliveries);
@@ -414,6 +445,15 @@ function chargeRunningCosts(w: World, tick: Tick): void {
  * DRILL_COST and tanks at STORAGE_COST, all times the region's labor index.
  */
 export function creditLimit(a: Agent, cfg: Config): number {
+  const base = a.kind === 'TRADER' ? cfg.CREDIT_BASE.TRADER : plantOf(a) ? cfg.CREDIT_BASE.REFINER : cfg.CREDIT_BASE.PRODUCER;
+  return cfg.CREDIT_ASSET_SHARE * capitalAssets(a, cfg) + base;
+}
+
+/**
+ * A company's capital assets at replacement cost (spec G6): the plant at FACTORY_COST plus its tier
+ * upgrades, wells at DRILL_COST and tanks at STORAGE_COST, all times the region's labor index.
+ */
+export function capitalAssets(a: Agent, cfg: Config): number {
   const labor = REGIONS[a.region].laborCostIndex;
   const well = wellOf(a);
   const plant = plantOf(a);
@@ -428,8 +468,7 @@ export function creditLimit(a: Agent, cfg: Config): number {
       if (hub) assets += cfg.STORAGE_COST * hub.capacity * REGIONS[region as keyof typeof REGIONS].laborCostIndex;
     }
   }
-  const base = a.kind === 'TRADER' ? cfg.CREDIT_BASE.TRADER : plant ? cfg.CREDIT_BASE.REFINER : cfg.CREDIT_BASE.PRODUCER;
-  return cfg.CREDIT_ASSET_SHARE * assets + base;
+  return assets;
 }
 
 /**
@@ -504,4 +543,24 @@ export function barrelsHeld(agents: readonly Agent[], cargo: readonly Cargo[]): 
     if (a.kind === 'TRADER') for (const hub of Object.values(a.hubs)) if (hub) sum += total(hub.stock) + total(hub.escrow);
   }
   return sum;
+}
+
+/**
+ * Net worth (spec G6): cash, plus crude held and at sea at its grade's marker, plus capital assets
+ * at replacement cost and projects at what has been paid, less credit drawn.
+ */
+export function netWorth(w: World, a: Agent): number {
+  const marker = (g: Grade) => markerFor(w, g);
+  let value = a.cash - a.creditDrawn;
+  const well = wellOf(a);
+  const plant = plantOf(a);
+  if (well) value += (well.storage + well.storageEscrow) * marker(well.grade);
+  if (plant) for (const g of ['LIGHT_SWEET', 'MEDIUM', 'HEAVY_SOUR'] as const) value += plant.crudeStock[g] * marker(g);
+  if (a.kind === 'TRADER') {
+    for (const hub of Object.values(a.hubs)) if (hub) for (const g of ['LIGHT_SWEET', 'MEDIUM', 'HEAVY_SOUR'] as const) value += (hub.stock[g] + hub.escrow[g]) * marker(g);
+  }
+  for (const c of w.cargo) if (c.ownerId === a.agentId) value += c.qty * marker(c.grade);
+  value += capitalAssets(a, w.config);
+  for (const p of w.projects) if (p.agentId === a.agentId) value += p.totalCost - p.dailyCost * p.ticksLeft;
+  return value;
 }

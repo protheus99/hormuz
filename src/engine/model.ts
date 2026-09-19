@@ -203,6 +203,14 @@ export interface PlantState {
   worksTicksRemaining: number;
   worksFactor: number;
   daysSinceMaintenance: number;
+  /** Maintenance may not start before this tick (a card delayed it). */
+  maintenanceHoldUntil: number;
+  /** Maintenance forced to start at this tick (a card scheduled it), or null. */
+  maintenanceAt: number | null;
+  /** During a breakdown, the share of capacity a partial restart keeps running (0: none). */
+  limpShare: number;
+  /** A card's crude-mix choice: favour one grade always, or on alternate days (spec G4.4). */
+  crudePreference: { readonly grade: Grade; readonly weight: 'ALL' | 'HALF' } | null;
 }
 
 export interface Producer extends CompanyBase, WellState {
