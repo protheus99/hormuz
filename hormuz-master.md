@@ -1,7 +1,7 @@
 # HORMUZ MASTER PLAN
 ## Game Design, Engine Specification & Build Plan
 
-**Status:** In build — engine Phases 0–6 complete, Phase 7 (global portfolio and balancing) next. This is the single source of truth for the Hormuz game and its market engine (GEMS, the Global Energy Market Simulator). It supersedes all earlier GEMS specifications and prototypes.
+**Status:** In build — engine Phases 0–7 complete; Phase 8 (game session) under way. This is the single source of truth for the Hormuz game and its market engine (GEMS, the Global Energy Market Simulator). It supersedes all earlier GEMS specifications and prototypes.
 **Build:** TypeScript. `src/engine/` in Phases 1–7, then `src/game/` and `web/` in Phases 8–13 (§14).
 
 Anything not written here is out of scope. Every number in this document — labor indices, tariffs, transit times, freight rates, capacities, costs, scenario targets — is an **illustrative placeholder** to be tuned for play, not market data. There are no open decisions (§12).
@@ -1157,7 +1157,11 @@ src/
     metrics.ts     recorders, CSV, canonical serializer
   data/            regions, lanes, portfolios (TypeScript `as const`)
   game/
-    session.ts     GameSession, clock, commands, views, saves
+    session.ts     GameSession: new game, clock (advance, speeds, auto-pause), saves, replay
+    newgame.ts     game settings, the player's company (G2), difficulty (G8)
+    commands.ts    player commands, validation, the replay log
+    view.ts        PlayerView: public information and the player's own company only (G5)
+    alerts.ts      plain-language alerts and auto-pause severities (G3)
     advisor/       detectors, option builders, projections
     campaign.ts    scenario loading, goals, milestones
     events.ts      event cards and stages
@@ -1348,6 +1352,18 @@ export function createRecorder(): Recorder;
 export function record(r: Recorder, w: World, report: TickReport): void;               // one row of §11.1 headline series per tick
 export function toCsv(r: Recorder): string;
 export function canonical(value: unknown): string;                                    // §14.6
+
+// game/session.ts (all methods async; spec G9)
+export class GameSession {
+  static newGame(settings: GameSettings): Promise<GameSession>;       // play type, region, name, difficulty, length
+  static load(data: SaveData): Promise<GameSession>;                   // versioned plain-JSON snapshot
+  static replay(settings: GameSettings, log: readonly LoggedCommand[], toTick: number): Promise<GameSession>;
+  getView(playerId): Promise<PlayerView>;
+  submit(playerId, command: Command): Promise<CommandResult>;         // applies at the next tick, stamped in the log
+  advance(ticks: number): Promise<AdvanceResult>;                      // stops early on an auto-pause alert
+  setPauseLevel(level: Severity): Promise<void>;                       // critical alerts always pause
+  save(): Promise<SaveData>;
+}
 
 // game/advisor
 export function detect(w: World, id: AgentId): Situation[];

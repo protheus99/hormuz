@@ -4,7 +4,7 @@
 // deliberate 28% surplus of production over refining, because it exists to exercise the engine,
 // not to model a realistic market. The global portfolio (§10.2) is the default world for games.
 
-import type { Grade, Personality } from '../engine/enums';
+import type { Controller, Grade, Personality } from '../engine/enums';
 import type { RegionName } from './regions';
 
 interface CompanyData {
@@ -13,6 +13,8 @@ interface CompanyData {
   readonly region: RegionName;
   readonly cash: number;
   readonly personality?: Personality;
+  /** HUMAN for the player's company; AI when omitted. */
+  readonly controller?: Controller;
 }
 
 export interface WellData {

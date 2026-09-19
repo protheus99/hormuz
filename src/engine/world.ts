@@ -318,7 +318,7 @@ export function checkInvariants(w: World, deliveries: readonly DealDelivery[] = 
 
 /** Deals a personality from the mix, using the ai stream, unless the data names one. */
 function withPersonality(p: PortfolioEntry, mix: PersonalityMix | undefined, ai: Rng): PortfolioEntry {
-  if (mix === undefined || p.personality !== undefined) return p;
+  if (mix === undefined || p.personality !== undefined || p.controller === 'HUMAN') return p;
   const [conservative, balanced] = MIX_WEIGHTS[mix];
   const roll = nextFloat(ai);
   const personality: Personality = roll < conservative ? 'CONSERVATIVE' : roll < conservative + balanced ? 'BALANCED' : 'AGGRESSIVE';
@@ -326,7 +326,11 @@ function withPersonality(p: PortfolioEntry, mix: PersonalityMix | undefined, ai:
 }
 
 function build(p: PortfolioEntry): Agent {
-  const base = { id: p.id, name: p.name, region: p.region, cash: p.cash, ...(p.personality ? { personality: p.personality } : {}) };
+  const base = {
+    id: p.id, name: p.name, region: p.region, cash: p.cash,
+    ...(p.personality ? { personality: p.personality } : {}),
+    ...(p.controller ? { controller: p.controller } : {}),
+  };
   switch (p.kind) {
     case 'PRODUCER':
       return createProducer({ ...base, ...p.well });

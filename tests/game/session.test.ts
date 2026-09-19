@@ -1,0 +1,168 @@
+// The game session (spec G2, G3, G5, G8, G9; Phase 8 acceptance: a save reloads to an identical
+// state; a replay reproduces the same game at any speed; commands apply at the next tick; views
+// never expose rival data).
+
+import { describe, expect, it } from 'vitest';
+import { GLOBAL_PORTFOLIO } from '../../src/data/portfolios';
+import { fingerprint } from '../../src/engine/metrics';
+import { wellOf } from '../../src/engine/companies';
+import { msPerDay } from '../../src/game/session';
+import { GameSession, type SaveData } from '../../src/game/session';
+import { newGameWorld, PLAYER_ID, regionsFor, type GameSettings } from '../../src/game/newgame';
+
+const producerGame: GameSettings = { seed: 'game-1', playType: 'PRODUCER', region: 'Russia_West', companyName: 'Northwind Oil' };
+const worldOf = async (s: GameSession) => (await s.save()).world;
+
+describe('starting a game (spec G2, G8)', () => {
+  it('adds the player’s company at about 17.5% of its region, taken from the largest rival', () => {
+    const w = newGameWorld(producerGame);
+    const player = w.agents.find((a) => a.agentId === PLAYER_ID);
+    const volga = w.agents.find((a) => a.agentId === 'Volga_Export');
+    expect(player).toMatchObject({ name: 'Northwind Oil', region: 'Russia_West', controller: 'HUMAN', personality: null, kind: 'PRODUCER' });
+    expect(wellOf(player as never)?.extractionCapacity).toBe(1500);   // 17.5% of 9,000, in 500s
+    expect(wellOf(volga as never)?.extractionCapacity).toBe(7500);
+  });
+
+  it('leaves the world’s total production and refining unchanged (spec §10.3)', () => {
+    const production = (settings: GameSettings) => newGameWorld(settings).agents.reduce((s, a) => s + (wellOf(a)?.extractionCapacity ?? 0), 0);
+    const global = GLOBAL_PORTFOLIO.reduce((s, p) => s + ('well' in p ? p.well.extractionCapacity : 0), 0);
+    expect(production(producerGame)).toBe(global);
+  });
+
+  it('starts a refiner in a region with no rival refiner at the standard size', () => {
+    const w = newGameWorld({ seed: 'g', playType: 'REFINER', region: 'North_Sea', companyName: 'Fjord Refining', techTier: 1 });
+    const player = w.agents.find((a) => a.agentId === PLAYER_ID);
+    expect(player).toMatchObject({ kind: 'REFINER', processingCapacity: 5000, techTier: 1 });
+  });
+
+  it('refuses a region the play type cannot start in, and a blank name', () => {
+    expect(regionsFor('PRODUCER')).not.toContain('Coastal_Asia');
+    expect(() => newGameWorld({ ...producerGame, region: 'Coastal_Asia' })).toThrow(/cannot start in Coastal_Asia/);
+    expect(() => newGameWorld({ ...producerGame, companyName: '  ' })).toThrow(/needs a name/);
+  });
+
+  it('gives an easy game more cash and credit, and a hard one less', () => {
+    const cash = (difficulty: 'EASY' | 'HARD') => newGameWorld({ ...producerGame, difficulty }).agents.find((a) => a.agentId === PLAYER_ID);
+    const normal = newGameWorld(producerGame).agents.find((a) => a.agentId === PLAYER_ID);
+    expect(cash('EASY')?.cash).toBe((normal?.cash ?? 0) * 1.5);
+    expect(cash('HARD')?.cash).toBe((normal?.cash ?? 0) * 0.75);
+    expect(cash('HARD')?.creditLimit).toBeLessThan(normal?.creditLimit ?? 0);
+  });
+});
+
+describe('commands (spec G3, G9)', () => {
+  it('queues a setting change for the next tick, not before (Phase 8 acceptance)', async () => {
+    const game = await GameSession.newGame(producerGame);
+    await game.advance(5);
+    expect(await game.submit(PLAYER_ID, { kind: 'SET_SETTING', setting: 'selling', value: 'HOLD_FOR_PRICE' })).toEqual({ ok: true, appliesAt: 6 });
+    expect((await game.getView()).company.settings.selling).toBe('BALANCED');
+    await game.advance(1);
+    expect((await game.getView()).company.settings.selling).toBe('HOLD_FOR_PRICE');
+  });
+
+  it('rejects a setting the company does not have, a value that does not exist, and rivals’ companies', async () => {
+    const game = await GameSession.newGame(producerGame);
+    expect(await game.submit(PLAYER_ID, { kind: 'SET_SETTING', setting: 'appetite', value: 'HIGH' })).toEqual({ ok: false, reason: 'A producer has no appetite setting' });
+    expect(await game.submit(PLAYER_ID, { kind: 'SET_SETTING', setting: 'risk', value: 'RECKLESS' })).toMatchObject({ ok: false });
+    expect(await game.submit('Qasr_Petroleum' as never, { kind: 'SET_SETTING', setting: 'risk', value: 'SAFE' })).toMatchObject({ ok: false, reason: /not a player's company/ });
+  });
+});
+
+describe('the clock (spec G3)', () => {
+  it('pauses on a critical alert, such as a chokepoint closing', async () => {
+    const data = await (await GameSession.newGame(producerGame)).save();
+    const withClosure: SaveData = { ...data, world: { ...data.world, events: [{ tick: 4, kind: 'CHOKEPOINT', chokepoint: 'HORMUZ', status: 'CLOSED' }] } };
+    const game = await GameSession.load(withClosure);
+    const result = await game.advance(30);
+    expect(result).toMatchObject({ tick: 4, ticksRun: 4, ended: false });
+    expect(result.pausedBy).toMatchObject({ severity: 'CRITICAL', message: 'The Strait of Hormuz is closed to shipping.' });
+  });
+
+  it('pauses on a medium alert only if the player asked to', async () => {
+    const data = await (await GameSession.newGame(producerGame)).save();
+    const tension: SaveData = { ...data, world: { ...data.world, events: [{ tick: 3, kind: 'CHOKEPOINT', chokepoint: 'SUEZ', status: 'TENSION' }] } };
+    const relaxed = await GameSession.load(tension);
+    expect((await relaxed.advance(10)).ticksRun).toBe(10);
+    const watchful = await GameSession.load(tension);
+    await watchful.setPauseLevel('MEDIUM');
+    expect((await watchful.advance(10)).ticksRun).toBe(3);
+  });
+
+  it('ends a game of fixed length, and accepts no more commands', async () => {
+    const game = await GameSession.newGame({ ...producerGame, lengthDays: 5 });
+    expect(await game.advance(10)).toMatchObject({ tick: 5, ticksRun: 5, ended: true });
+    expect(await game.submit(PLAYER_ID, { kind: 'SET_SETTING', setting: 'risk', value: 'SAFE' })).toEqual({ ok: false, reason: 'The game has ended' });
+  });
+
+  it('gives the client a pace for each speed', () => {
+    expect([msPerDay(1), msPerDay(2), msPerDay(8)]).toEqual([2000, 1000, 250]);
+    expect(msPerDay(0)).toBe(Number.POSITIVE_INFINITY);
+  });
+});
+
+describe('saves and replays (spec G9; Phase 8 acceptance)', () => {
+  it('reloads a save to an identical state, which then plays on identically', async () => {
+    const game = await GameSession.newGame(producerGame);
+    await game.advance(40);
+    const saved = await game.save();
+    const restored = await GameSession.load(JSON.parse(JSON.stringify(saved)) as SaveData);
+    expect(fingerprint(await worldOf(restored))).toBe(fingerprint(saved.world));
+    await game.advance(30);
+    await restored.advance(30);
+    expect(fingerprint(await worldOf(restored))).toBe(fingerprint(await worldOf(game)));
+  });
+
+  it('replays the same game at any speed', async () => {
+    const sellFast = { kind: 'SET_SETTING', setting: 'selling', value: 'SELL_FAST' } as const;
+    const safe = { kind: 'SET_SETTING', setting: 'risk', value: 'SAFE' } as const;
+
+    // One day at a time, as at ×1…
+    const slow = await GameSession.newGame(producerGame);
+    for (let day = 0; day < 60; day++) {
+      if (day === 10) await slow.submit(PLAYER_ID, sellFast);
+      if (day === 25) await slow.submit(PLAYER_ID, safe);
+      await slow.advance(1);
+    }
+    // …and in big jumps, as with "advance to next event".
+    const fast = await GameSession.newGame(producerGame);
+    await fast.advance(10);
+    await fast.submit(PLAYER_ID, sellFast);
+    await fast.advance(15);
+    await fast.submit(PLAYER_ID, safe);
+    await fast.advance(35);
+    expect(fingerprint(await worldOf(fast))).toBe(fingerprint(await worldOf(slow)));
+
+    const replayed = await GameSession.replay(producerGame, await slow.commandLog(), 60);
+    expect(fingerprint(await worldOf(replayed))).toBe(fingerprint(await worldOf(slow)));
+    expect((await slow.commandLog()).map((c) => c.tick)).toEqual([11, 26]);
+  });
+});
+
+describe('the player’s view (spec G5; Phase 8 acceptance: never exposes rival data)', () => {
+  it('shows public prices and the player’s own company, and rivals only by name, type and region', async () => {
+    const data = await (await GameSession.newGame(producerGame)).save();
+    const secret = 987_654_321.25;
+    const world = structuredClone(data.world);
+    for (const a of world.agents) {
+      if (a.agentId === PLAYER_ID) continue;
+      (world.totals as { startingCash: number }).startingCash += secret - a.cash;   // keep invariant 2 balanced
+      a.cash = secret;
+    }
+    const game = await GameSession.load({ ...data, world });
+    await game.advance(3);
+    const view = await game.getView();
+
+    expect(view.company.id).toBe(PLAYER_ID);
+    expect(view.markets.map((m) => m.node)).toEqual(['NYMEX', 'NC', 'DME']);
+    expect(view.history.length).toBe(4);
+    for (const rival of view.rivals) expect(Object.keys(rival).sort()).toEqual(['kind', 'name', 'region']);
+    const text = JSON.stringify(view);
+    expect(text).not.toContain(String(Math.round(secret)));
+    expect(text).not.toContain('987654');
+  });
+
+  it('refuses a view for a company that is not in the game', async () => {
+    const game = await GameSession.newGame(producerGame);
+    await expect(game.getView('nobody' as never)).rejects.toThrow(/No company nobody/);
+  });
+});
