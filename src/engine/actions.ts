@@ -63,7 +63,8 @@ export type Action =
   | { readonly kind: 'SET_OUTPUT'; readonly rate: number }
   | { readonly kind: 'START_PROJECT'; readonly project: ProjectKind; readonly steps: number }
   | { readonly kind: 'HOLD_PROJECTS'; readonly days: number }
-  | { readonly kind: 'SET_RUN_CAP'; readonly cap: number }
+  | { readonly kind: 'SET_RUN_CAP'; readonly cap: number; readonly days: number }
+  | { readonly kind: 'RUN_FLAT_OUT'; readonly days: number }
   | { readonly kind: 'MAINTAIN_NOW' }
   | { readonly kind: 'SCHEDULE_MAINTENANCE'; readonly inDays: number }
   | { readonly kind: 'DEFER_MAINTENANCE'; readonly days: number }
@@ -197,9 +198,21 @@ export function applyAction(w: World, agentId: AgentId, action: Action): void {
     case 'HOLD_PROJECTS':
       for (const p of w.projects) if (p.agentId === agentId) p.heldUntil = tick + action.days;
       return;
-    case 'SET_RUN_CAP':
-      need(plant, 'refinery').utilizationCap = Math.max(0, Math.min(1, action.cap));
+    case 'SET_RUN_CAP': {
+      const p = need(plant, 'refinery');
+      p.utilizationCap = Math.max(0, Math.min(1, action.cap));
+      p.utilization = Math.min(p.utilization, p.utilizationCap);
+      p.utilizationCapUntil = w.tick + action.days;
       return;
+    }
+    case 'RUN_FLAT_OUT': {
+      const p = need(plant, 'refinery');
+      p.utilizationCap = 1;
+      p.utilizationCapUntil = 0;
+      p.utilization = 1;
+      p.fullRunUntil = w.tick + action.days;
+      return;
+    }
     case 'MAINTAIN_NOW':
       if (a.kind !== 'REFINER' && a.kind !== 'INTEGRATED') throw new Error(`${a.name} has no refinery`);
       startMaintenance(a, w.ledger, tick, cfg);

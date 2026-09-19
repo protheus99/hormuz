@@ -142,8 +142,7 @@ export const OUTPUT_CUT_FILL = 0.8;
  * for OUTPUT_CUT_DAYS, with storage above 80%, cuts to half output; after as many days back above
  * breakeven it restores full output. From Phase 9 the "Prices below your cost" card replaces this.
  */
-export function updateOutput(company: Producer | IntegratedMajor, nodes: MarketView['nodes'], ledger: FeeLedger, tick: Tick, cfg: Config): void {
-  if (company.controller !== 'AI') return;
+export function updateOutput(company: Producer | IntegratedMajor, nodes: MarketView['nodes'], ledger: FeeLedger, tick: Tick, cfg: Config, cutsActive = true): void {
   const well = company.kind === 'INTEGRATED' ? company.well : company;
   const node = nodes[NODE_FOR_GRADE[well.grade]];
   const price = node === undefined ? undefined : referencePrice(node, company.region);
@@ -153,6 +152,9 @@ export function updateOutput(company: Producer | IntegratedMajor, nodes: MarketV
   well.breakevenStreak = netback < breakeven
     ? Math.min(0, well.breakevenStreak) - 1
     : Math.max(0, well.breakevenStreak) + 1;
+  // The streak is always tracked (the cards read it); the automatic cut is for AI companies when
+  // no cards are in play.
+  if (!cutsActive || company.controller !== 'AI') return;
   if (well.breakevenStreak <= -OUTPUT_CUT_DAYS && fillRatio(well) > OUTPUT_CUT_FILL && well.extractionRate > OUTPUT_CUT_RATE) {
     setExtractionRate(company, OUTPUT_CUT_RATE, ledger, tick, cfg);
   } else if (well.breakevenStreak >= OUTPUT_CUT_DAYS && well.extractionRate < 1 && !well.shutIn) {
@@ -174,7 +176,7 @@ export function bidPrice(reference: number | null, ceiling: number, starvation: 
   return Math.min(ceiling, Math.max(premium, climb));
 }
 
-interface NodeChoice {
+export interface NodeChoice {
   readonly node: NodeName;
   /** The most a delivered barrel is worth to this plant from the cheapest origin. */
   readonly deliveredMax: number;
@@ -240,6 +242,14 @@ function bestNode(company: Refiner | IntegratedMajor, plant: PlantState, view: M
     : choices.reduce((a, b) => (b.deliveredMax > a.deliveredMax ? b : a));
 }
 
+/**
+ * The node a refinery would buy on today, with the most a delivered barrel is worth to it and the
+ * cheapest reference landed price (spec §6.2). Cards use it to price emergency purchases.
+ */
+export function refinerQuote(company: Refiner | IntegratedMajor, view: MarketView, cfg: Config): NodeChoice | null {
+  return bestNode(company, company.kind === 'INTEGRATED' ? company.plant : company, view, cfg);
+}
+
 /** Lowest run rate the throttle will cut to (spec §6.5). */
 export const THROTTLE_FLOOR = 0.30;
 /** How far the throttle moves the run rate in a day (spec §6.5). */
@@ -252,11 +262,19 @@ export const THROTTLE_STEP = 0.10;
  */
 export function updateThrottle(company: Refiner | IntegratedMajor, view: MarketView, cfg: Config): void {
   const plant = company.kind === 'INTEGRATED' ? company.plant : company;
+  if (plant.utilizationCapUntil > 0 && view.tick > plant.utilizationCapUntil) {
+    plant.utilizationCap = 1;   // a card's temporary cap has run its course
+    plant.utilizationCapUntil = 0;
+  }
   const best = bestNode(company, plant, view, cfg);
   if (best === null || best.referenceLanded === null) return;
-  const next = best.deliveredMax < best.referenceLanded
+  // The margin the "Refining is losing money" and "Margins are strong" cards watch (spec G4.4).
+  plant.lastMargin = best.deliveredMax - best.referenceLanded;
+  plant.lowMarginDays = plant.lastMargin < cfg.FIXED_COST_RATE.REFINER ? plant.lowMarginDays + 1 : 0;
+  const flatOut = view.tick <= plant.fullRunUntil;
+  const next = best.deliveredMax < best.referenceLanded && !flatOut
     ? Math.max(THROTTLE_FLOOR, plant.utilization - THROTTLE_STEP)
-    : Math.min(plant.utilizationCap, plant.utilization + THROTTLE_STEP);
+    : Math.min(plant.utilizationCap, flatOut ? 1 : plant.utilization + THROTTLE_STEP);
   plant.utilization = Math.round(next * 100) / 100;   // keep to whole percent, free of float drift
 }
 

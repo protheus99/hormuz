@@ -96,9 +96,11 @@ describe('operating actions (spec G4.4)', () => {
 
   it('caps the run rate, and the throttle respects the cap', () => {
     const w = fresh();
-    act(w, 'Huanghai_Petrochem', { kind: 'SET_RUN_CAP', cap: 0.5 });
+    act(w, 'Huanghai_Petrochem', { kind: 'SET_RUN_CAP', cap: 0.5, days: 30 });
     run(w, 10);
     expect(plantOf(get(w, 'Huanghai_Petrochem'))?.utilization).toBeLessThanOrEqual(0.5);
+    run(w, 25);   // the cap lifts after 30 days and the plant climbs back
+    expect(plantOf(get(w, 'Huanghai_Petrochem'))?.utilizationCap).toBe(1);
   });
 
   it('shuts a plant for maintenance now, or on a scheduled day', () => {

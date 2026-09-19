@@ -10,6 +10,14 @@ import type { ChokepointStatus, Grade, Product } from '../engine/enums';
 import type { AgentId, CompanySettings, DealId } from '../engine/model';
 import type { World } from '../engine/world';
 import type { Alert } from './alerts';
+import type { Card, CardType } from './cards/types';
+
+/** What the view needs from the advisor: this player's cards, Opportunities and reports. */
+export interface CardsView {
+  readonly cards: readonly Card[];
+  readonly opportunities: readonly { readonly type: CardType; readonly title: string }[];
+  readonly reports: readonly { readonly tick: number; readonly asOf: number; readonly byRegion: Readonly<Partial<Record<string, number>>> }[];
+}
 
 /** One day of public prices, kept by the session for charts. */
 export interface DailyPrices {
@@ -64,11 +72,17 @@ export interface PlayerView {
   /** Public identity only: rival cash, stock, deals and orders stay hidden (spec G5). */
   readonly rivals: readonly { readonly name: string; readonly kind: string; readonly region: RegionName }[];
   readonly alerts: readonly Alert[];
-  /** Decision cards arrive in Phase 9. */
-  readonly cards: readonly never[];
+  /** Open decision cards, raised and opened (spec G4.1). */
+  readonly cards: readonly Card[];
+  /** Opportunities the player could open today. */
+  readonly opportunities: CardsView['opportunities'];
+  /** Market reports bought (spec G5). */
+  readonly reports: CardsView['reports'];
 }
 
-export function buildPlayerView(w: World, playerId: AgentId, history: readonly DailyPrices[], alerts: readonly Alert[], lengthDays: number | null): PlayerView {
+export function buildPlayerView(
+  w: World, playerId: AgentId, history: readonly DailyPrices[], alerts: readonly Alert[], lengthDays: number | null, cards: CardsView,
+): PlayerView {
   const me = w.agents.find((a) => a.agentId === playerId);
   if (me === undefined) throw new Error(`No company ${playerId} in this game`);
   const well = wellOf(me);
@@ -116,7 +130,9 @@ export function buildPlayerView(w: World, playerId: AgentId, history: readonly D
     })),
     rivals: w.agents.filter((a) => a.agentId !== playerId).map((a) => ({ name: a.name, kind: a.kind, region: a.region })),
     alerts: [...alerts],
-    cards: [],
+    cards: [...cards.cards],
+    opportunities: [...cards.opportunities],
+    reports: [...cards.reports],
   };
 }
 

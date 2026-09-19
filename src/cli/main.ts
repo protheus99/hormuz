@@ -3,10 +3,14 @@
 //
 //   npm run sim -- --type REFINER --region South_Asia --name "Monsoon Refining" --days 180 --every 30
 //
+// New decision cards stop the clock and are printed with their meters. `--answer YES|MAYBE|NO`
+// answers each one that way (falling back to No when that option is missing or unaffordable);
+// without it they are left to expire, which answers No.
+//
 // Like the interface, it only ever talks to the game layer (lint enforces this).
 
 import { parseArgs } from 'node:util';
-import { GameSession, PLAYER_ID, type GameSettings, type PlayerView } from '../game';
+import { GameSession, PLAYER_ID, type Card, type Choice, type GameSettings, type PlayerView } from '../game';
 
 const { values } = parseArgs({
   strict: false,
@@ -18,6 +22,7 @@ const { values } = parseArgs({
     seed: { type: 'string', default: 'cli' },
     days: { type: 'string', default: '90' },
     every: { type: 'string', default: '30' },
+    answer: { type: 'string' },
   },
 });
 
@@ -46,7 +51,17 @@ function show(view: PlayerView): void {
   if (atSea > 0) console.log(`  ${Math.round(atSea).toLocaleString()} bbl of your crude at sea`);
 }
 
+function showCard(card: Card): void {
+  console.log(`  ▶ ${card.title} — ${card.situation}`);
+  for (const o of card.options) {
+    const i = o.impact;
+    const meters = i ? `cash ${money(-i.cash)} · profit ${money(i.profit)}/mo · supply ${i.supply.unit === 'fill' ? `${Math.round(i.supply.value * 100)}%` : i.supply.unit === 'days' ? `${i.supply.value.toFixed(1)} days` : money(i.supply.value)} · risk ${i.risk.toLowerCase()}` : 'no projection';
+    console.log(`     ${o.choice.padEnd(5)} ${o.label} (${meters})${o.affordable ? '' : ' — not enough money yet'}`);
+  }
+}
+
 const game = await GameSession.newGame(settings);
+const policy = values.answer === undefined ? null : (String(values.answer).toUpperCase() as Choice);
 const every = Number(values.every);
 show(await game.getView(PLAYER_ID));
 for (;;) {
@@ -54,5 +69,12 @@ for (;;) {
   const view = await game.getView(PLAYER_ID);
   show(view);
   if (result.pausedBy) console.log(`  ⏸ ${result.pausedBy.message}`);
+  for (const card of result.newCards) {
+    showCard(card);
+    if (policy === null) continue;
+    const choice = card.options.find((o) => o.choice === policy && o.affordable)?.choice ?? 'NO';
+    await game.submit(PLAYER_ID, { kind: 'ANSWER_CARD', cardId: card.id, choice });
+    console.log(`     → ${choice}`);
+  }
   if (result.ended) break;
 }

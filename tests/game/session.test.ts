@@ -12,6 +12,10 @@ import { newGameWorld, PLAYER_ID, regionsFor, type GameSettings } from '../../sr
 
 const producerGame: GameSettings = { seed: 'game-1', playType: 'PRODUCER', region: 'Russia_West', companyName: 'Northwind Oil' };
 const worldOf = async (s: GameSession) => (await s.save()).world;
+/** Runs to a day, past any pauses for new cards (left unanswered). */
+const runTo = async (s: GameSession, tick: number) => {
+  while ((await s.advance(tick - (await worldOf(s)).tick)).tick < tick);
+};
 
 describe('starting a game (spec G2, G8)', () => {
   it('adds the player’s company at about 17.5% of its region, taken from the largest rival', () => {
@@ -19,8 +23,9 @@ describe('starting a game (spec G2, G8)', () => {
     const player = w.agents.find((a) => a.agentId === PLAYER_ID);
     const volga = w.agents.find((a) => a.agentId === 'Volga_Export');
     expect(player).toMatchObject({ name: 'Northwind Oil', region: 'Russia_West', controller: 'HUMAN', personality: null, kind: 'PRODUCER' });
-    expect(wellOf(player as never)?.extractionCapacity).toBe(1500);   // 17.5% of 9,000, in 500s
-    expect(wellOf(volga as never)?.extractionCapacity).toBe(7500);
+    // 17.5% of 9,000 is 1,500; the 2,000 floor applies, so the player can hold a deal (G4.7).
+    expect(wellOf(player as never)?.extractionCapacity).toBe(2000);
+    expect(wellOf(volga as never)?.extractionCapacity).toBe(7000);
   });
 
   it('leaves the world’s total production and refining unchanged (spec §10.3)', () => {
@@ -82,7 +87,7 @@ describe('the clock (spec G3)', () => {
     const data = await (await GameSession.newGame(producerGame)).save();
     const tension: SaveData = { ...data, world: { ...data.world, events: [{ tick: 3, kind: 'CHOKEPOINT', chokepoint: 'SUEZ', status: 'TENSION' }] } };
     const relaxed = await GameSession.load(tension);
-    expect((await relaxed.advance(10)).ticksRun).toBe(10);
+    expect((await relaxed.advance(10)).pausedBy).toBeNull();   // it may still stop for a new card
     const watchful = await GameSession.load(tension);
     await watchful.setPauseLevel('MEDIUM');
     expect((await watchful.advance(10)).ticksRun).toBe(3);
@@ -125,11 +130,11 @@ describe('saves and replays (spec G9; Phase 8 acceptance)', () => {
     }
     // …and in big jumps, as with "advance to next event".
     const fast = await GameSession.newGame(producerGame);
-    await fast.advance(10);
+    await runTo(fast, 10);
     await fast.submit(PLAYER_ID, sellFast);
-    await fast.advance(15);
+    await runTo(fast, 25);
     await fast.submit(PLAYER_ID, safe);
-    await fast.advance(35);
+    await runTo(fast, 60);
     expect(fingerprint(await worldOf(fast))).toBe(fingerprint(await worldOf(slow)));
 
     const replayed = await GameSession.replay(producerGame, await slow.commandLog(), 60);

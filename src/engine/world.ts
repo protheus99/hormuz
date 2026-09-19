@@ -249,7 +249,7 @@ export function step(w: World): TickReport {
   chargeRunningCosts(w, tick);
   chargeLeases(w);
   settleCredit(w, tick);
-  if (!w.cardsActive) for (const a of w.agents) if (a.kind === 'PRODUCER' || a.kind === 'INTEGRATED') updateOutput(a, w.nodes, w.ledger, tick, cfg);
+  for (const a of w.agents) if (a.kind === 'PRODUCER' || a.kind === 'INTEGRATED') updateOutput(a, w.nodes, w.ledger, tick, cfg, !w.cardsActive);
   for (const a of w.agents) if (a.kind === 'TRADER') rememberMarkers(a, w.nodes);
   updateInsolvency(w);
   checkInvariants(w, deliveries);

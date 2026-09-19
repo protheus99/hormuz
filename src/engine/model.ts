@@ -211,6 +211,13 @@ export interface PlantState {
   limpShare: number;
   /** A card's crude-mix choice: favour one grade always, or on alternate days (spec G4.4). */
   crudePreference: { readonly grade: Grade; readonly weight: 'ALL' | 'HALF' } | null;
+  /** A card's run-rate cap lifts after this tick (0: no end). */
+  utilizationCapUntil: number;
+  /** "Run flat out": the throttle does not cut before this tick. */
+  fullRunUntil: number;
+  /** Yesterday's refining margin at the best node, $/bbl, and days in a row it was below fixed cost. */
+  lastMargin: number;
+  lowMarginDays: number;
 }
 
 export interface Producer extends CompanyBase, WellState {

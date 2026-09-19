@@ -1,7 +1,7 @@
 # HORMUZ MASTER PLAN
 ## Game Design, Engine Specification & Build Plan
 
-**Status:** In build — engine Phases 0–7 and the game session (Phase 8) complete; Phase 9 (decision cards) next. This is the single source of truth for the Hormuz game and its market engine (GEMS, the Global Energy Market Simulator). It supersedes all earlier GEMS specifications and prototypes.
+**Status:** In build — engine Phases 0–7, the game session (Phase 8) and decision cards (Phase 9) complete; Phase 10 (interface) next. This is the single source of truth for the Hormuz game and its market engine (GEMS, the Global Energy Market Simulator). It supersedes all earlier GEMS specifications and prototypes.
 **Build:** TypeScript. `src/engine/` in Phases 1–7, then `src/game/` and `web/` in Phases 8–13 (§14).
 
 Anything not written here is out of scope. Every number in this document — labor indices, tariffs, transit times, freight rates, capacities, costs, scenario targets — is an **illustrative placeholder** to be tuned for play, not market data. There are no open decisions (§12).
@@ -37,7 +37,7 @@ Every play type also has **Risk: Bold · Balanced · Safe** (G4.2).
 
 **Integrated Major is a producer's goal, not a starting type.** A producer that builds a refinery becomes integrated through a late-game card (G4.4). Refiners cannot acquire fields; they grow through refining capacity, technology and a second refinery in another region (G4.4, D34). The new plant is a `UNIT_CAPACITY` (2,500 bbl/day) refinery at the **lowest tier that can refine the producer's own crude** — Tier 1 for light sweet, Tier 2 for medium, Tier 3 for heavy sour — with 10 days of crude storage, priced at `FACTORY_COST` plus `TIER_COST` for each tier above 1, all × labor. A Tier 1 plant would leave most integrated producers unable to refine their own oil. Both halves must sit in the same region, so integration is open where a region has both production and refining roles — `US_Gulf_Coast`, `Mexico_Gulf`, `Brazil_Presalt`, `North_Sea`, `Russia_West`, `Southeast_Asia` — and closed in `Middle_East` for the reason in §10.3.
 
-**Market weight.** The player's company starts at 15–20% of its home region's production (Producer) or refining capacity (Refiner). A Trader starts with capital of about 15% of its regions' daily traded value. Growth can take any company to 35–40%. Below that range nothing the player does visibly moves prices (pillar 1). The player's company enters the world by scaling down the largest AI company of the same type in that region, so global balance (§10.3) holds.
+**Market weight.** The player's company starts at 15–20% of its home region's production (Producer) or refining capacity (Refiner). A Trader starts with capital of about 15% of its regions' daily traded value. Growth can take any company to 35–40%. Below that range nothing the player does visibly moves prices (pillar 1). A starting company is never smaller than 2,000 bbl/day (Producer) or 2,500 bbl/day (Refiner), still at most half the rival it is taken from (D36): in thin regions 17.5% came to 1,000 bbl/day, too small ever to hold a deal (`DEAL_VOLUME` min over `DEAL_MAX_SHARE`), and such a company saw no cards in a year. The player's company enters the world by scaling down the largest AI company of the same type in that region, so global balance (§10.3) holds.
 
 ## G3. Time & Pacing
 
@@ -68,7 +68,8 @@ Every decision is a card, whether the game raised it or the player opened it fro
 | **Affordability** | An option costing more than available cash plus unused credit still shows, marked "Not enough money yet" with an estimate of when current profit will cover it ("not at current profit" when profit is zero or negative). It cannot be chosen until affordable; the card is never hidden |
 | **Merging** | Cards with the same cause — one chokepoint event, one deal, one asset — merge into a single card whose options cover everything affected. A situation that arises while a related card is open updates that card instead of adding another |
 | **Details** | An optional expander with the full numbers — $/bbl, route, landed cost — for players who want them |
-| **Limits** | At most `CARD_MAX_OPEN` cards open at once, and a `CARD_COOLDOWN` per card type, so the inbox never floods |
+| **Limits** | At most `CARD_MAX_OPEN` cards open at once, and a `CARD_COOLDOWN` per card type, so the inbox never floods. Urgent cards (breakdown, cash, low stock, full storage, stuck cargo) are checked first, so a full inbox never hides them |
+| **As built** | Opening an Opportunity changes nothing in the world, so it is not a command; answering any card is (`ANSWER_CARD`), and an Opportunity's options are rebuilt from the world when the answer applies, so a replay answers the card the player saw. An action the world no longer allows when the answer applies is skipped with an alert, and the rest still apply |
 
 As the player sees it. Yes is only offered for volume the new route can carry: this deal fits within the Oman pipeline's 3,000 bbl/day, which other companies share.
 
@@ -196,6 +197,8 @@ AI companies receive the same card types from the same detectors, without the te
 | Growth cards (drilling, tiers, units, leases, charters, offices, reservations) | | | ✅ Card scoring |
 
 Balance numbers stay provisional until Phase 12, because until Phase 11 the player has growth decisions no rival has.
+
+**As built (Phase 9).** Each operating card has a table of Yes / Maybe / No odds per temperament (`ai/scoring.ts`), and one draw from the AI stream picks the answer; a card without a Maybe gives Maybe's odds to Yes. In a game (`cardsActive`) the built-in maintenance and output-cut rules of §6.5 are off for every company, so these answers are the only way plants get serviced and output gets cut. AI companies answer at once, share the player's `CARD_COOLDOWN`, and skip an answer they cannot afford.
 
 ### G4.7 Enough decisions
 
@@ -1060,6 +1063,7 @@ The build proceeds on these. Changing one means updating the sections it names.
 | D25 | Disruptions are staged events (`RUMOR → TENSION → DISRUPTION → RECOVERY`), with a `TENSION` chokepoint status (G7.1) |
 | D35 | Owner decisions 2026-09-19: chokepoint throughput falls in steps with status (a closure stops 100% of the strait but redirection by bypass stays possible, so the bypasses keep their capacity); producers dump at a discount to the reference, not at cash cost; the AI trader arbitrages between regions with tariff-aware spreads, from two offices at lower running cost; starting cash raised and credit lines 10× larger; insolvency is recoverable, because the world has too few companies to lose them |
 | D34 | Refiners grow through processing units, tier upgrades, storage and one second refinery in another refining region (not the Gulf); rival buyouts are out of scope. Chosen over a single site, which left refiners no late game, and over acquisitions, which add valuation and merger rules a teenager should not need |
+| D36 | Phase 9 choices: starting companies have a size floor (G2); AI companies answer operating cards from per-temperament odds tables rather than scoring each option (G4.6); "Charter a tanker", "Keep cargo afloat" and "Build a second refinery" wait for the charter and multi-plant systems (Phase 11), so D34's second refinery is not yet playable |
 | D33 | Every chokepoint is live. Each of the seven has its own event profile; warning scales with severity; the deck never disrupts a chokepoint and its bypass together on Easy or Normal; each year hits at least one chokepoint the player depends on; the campaign features six of the seven (G7.1, G7.2) |
 
 **Technology**
@@ -1469,5 +1473,6 @@ The free web version stays available after Steam launches. Schools mostly use Ch
 | 3.1 | 2026-09-18 | Closed the real-world framing decision as D32: real geography, fictional companies, faceless and non-violent event wording, coastline-only map. Renamed nine companies whose names matched or crowded real companies. Removed the refiner's "Buy an oilfield" card: only producers can become integrated. |
 | 3.2 | 2026-09-18 | Made every chokepoint a live risk: an event profile for each of the seven, deck rules, route cards that react to delays as well as tension, a campaign featuring six of the seven, verification runs S13–S17, and a property test that no single closure strands a region. |
 | 3.5 | 2026-09-19 | Phase 7 calibration: price discovery (bids climb towards value as tanks empty; unsold asks decay; closing offers published), refiners count the voyage in stock targets and tank space, credit lines, recoverable insolvency, AI output cuts, personality mixes, the global portfolio's cash and storage, and the D35 decisions. Global S0: markers about 78 / 71 / 63 in grade order on ~90% of days, no insolvencies. |
+| 3.6 | 2026-09-19 | Phase 9: the advisor, 33 card types with text, forked projections, Opportunities, AI answers to operating cards, card answers in the replay log, and the D36 choices. In a calm year the always-Yes bot sees a card every ~16 days as a refiner and ~6 as a trader, but a producer only every ~90 (one deal at a time fills its deal allowance); Phase 11 events and growth cards must close that gap (G4.7). |
 | 3.4 | 2026-09-18 | Settled ten open questions: refiners may build a second refinery (D34); an integrating producer's plant is at the tier its own crude needs; every capacity-limited pipeline has a capacity; processing units are 2,500 bbl/day; Risk covers routes, breakdowns and cash; Supply shows its worst point; related cards merge; Opportunities have no deadline; unaffordable options show when they will be affordable; the example card fits its pipeline. Phase 3 found and fixed a cross-engine price rounding gap (G10). |
 | 3.3 | 2026-09-18 | Set the release path: own site → itch.io → web portals → Steam (via Electron, replacing Tauri) → mobile rebuild (§14.8). Phase 10 now requires a 1280×800 layout; npm replaces pnpm. |

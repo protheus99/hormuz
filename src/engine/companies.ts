@@ -206,6 +206,10 @@ function buildPlant(owner: CompanySpec, region: RegionName, pl: PlantSpec): Plan
     maintenanceAt: null,
     limpShare: 0,
     crudePreference: null,
+    utilizationCapUntil: 0,
+    fullRunUntil: 0,
+    lastMargin: 0,
+    lowMarginDays: 0,
   };
 }
 

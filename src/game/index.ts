@@ -5,3 +5,5 @@ export { DIFFICULTY, PLAYER_ID, regionsFor, type Difficulty, type GameSettings, 
 export type { Command, CommandResult, LoggedCommand } from './commands';
 export type { Alert, Severity } from './alerts';
 export type { DailyPrices, MarketView, OwnCompanyView, PlayerView } from './view';
+export type { Card, CardOption, CardType, Choice, Impact, RiskLevel } from './cards/types';
+export type { CardsView } from './view';

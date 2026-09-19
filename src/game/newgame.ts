@@ -41,6 +41,12 @@ export const PLAYER_SHARE = 0.175;
 /** Standard starting sizes where the region has no rival of the same type, bbl/day. */
 const DEFAULT_PRODUCER_CAPACITY = 3_000;
 const DEFAULT_REFINER_CAPACITY = 5_000;
+/**
+ * The smallest starting company, bbl/day, even where 17.5% of the region is less: a smaller
+ * producer could never hold a deal (DEAL_VOLUME.min over DEAL_MAX_SHARE), and so would see almost
+ * no decisions (spec G4.7).
+ */
+const MIN_START_CAPACITY = { PRODUCER: 2_000, REFINER: 2_500 } as const;
 
 /** Spec G8. */
 export const DIFFICULTY: Readonly<Record<Difficulty, { readonly cash: number; readonly credit: number; readonly mix: PersonalityMix }>> = {
@@ -94,6 +100,7 @@ function withPlayer(global: readonly PortfolioEntry[], s: GameSettings, cashFact
   let capacity = regionTotal > 0
     ? Math.max(500, Math.round((PLAYER_SHARE * regionTotal) / 500) * 500)
     : kind === 'PRODUCER' ? DEFAULT_PRODUCER_CAPACITY : DEFAULT_REFINER_CAPACITY;
+  capacity = Math.max(capacity, MIN_START_CAPACITY[kind]);
   if (largest !== undefined) {
     capacity = Math.min(capacity, Math.floor(size(largest) / 2 / 500) * 500);
     portfolio[portfolio.indexOf(largest)] = shrink(largest, capacity);
