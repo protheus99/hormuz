@@ -135,6 +135,49 @@ describe('refiner bids (spec §6.2)', () => {
 });
 
 describe('integrated majors (spec §6.3)', () => {
+  const sabkhar = (wellStorage = 5_000, plantHeavy = 0) => createIntegrated({
+    id: 'sabkhar', name: 'Sabkhar', region: 'Middle_East', cash: 5_000_000,
+    well: { grade: 'HEAVY_SOUR', extractionCapacity: 4000, baseExtractionCost: 12, storageCapacity: 10_000, storage: wellStorage },
+    plant: { techTier: 3, processingCapacity: 9000, crudeStorageCapacity: 25_000, crudeStock: { HEAVY_SOUR: plantHeavy } },
+  });
+  // At home in Middle_East the reference landed price is 58.60 + 0.20 tariff = 58.80; heavy is worth
+  // 79.00 with no transit, so the deficit ceiling is 79 × 1.05 = 82.95.
+
+  it('normal: sells its surplus at the close and tops its plant up at the reference plus urgency', () => {
+    expect(brief(decideOrders(sabkhar(5_000, 0), 3, view, DEFAULT_CONFIG))).toEqual([
+      ['ASK', 'DME', 58.6, 5_000],
+      ['BID', 'DME', 63.5, 25_000],   // 58.80 × 1.08, rounded down
+    ]);
+  });
+
+  it('plant offline: still sells from its wells, but bids nothing', () => {
+    const m = sabkhar();
+    m.plant.online = false;
+    expect(brief(decideOrders(m, 3, view, DEFAULT_CONFIG))).toEqual([['ASK', 'DME', 58.6, 5_000]]);
+  });
+
+  it('insolvent: sells, never bids', () => {
+    const m = sabkhar();
+    m.insolvent = true;
+    expect(decideOrders(m, 3, view, DEFAULT_CONFIG).map((o) => o.side)).toEqual(['ASK']);
+  });
+
+  it('no reference price: bids up to its delivered maximum raised by AGGRESSION', () => {
+    nodes.DME.lastFobByOrigin = {};
+    const bid = decideOrders(sabkhar(0, 0), 3, view, DEFAULT_CONFIG).find((o) => o.side === 'BID');
+    // No close anywhere: the plant bids on its most valuable node, light sweet (NYMEX), at its ceiling.
+    expect(bid?.node).toBe('NYMEX');
+    const refiner = createRefiner({ id: 'r', name: 'R', region: 'Middle_East', cash: 5e6, techTier: 3, processingCapacity: 9000, crudeStorageCapacity: 25_000 });
+    const plain = decideOrders(refiner, 4, view, DEFAULT_CONFIG)[0];
+    expect(bid?.limitPrice).toBeCloseTo((plain?.limitPrice ?? 0) * 1.05, 1);
+  });
+
+  it('dump threshold: offers the excess above 70% fill at cash cost', () => {
+    // 9,600 of 10,000: excess 2,600 → 2,000 at 9.00; the other 7,000 at the shaded close.
+    const asks = decideOrders(sabkhar(9_600), 3, view, DEFAULT_CONFIG).filter((o) => o.side === 'ASK');
+    expect(brief(asks)).toEqual([['ASK', 'DME', 55.91, 7_000], ['ASK', 'DME', 9, 2_000]]);   // 58.60 × (1 − 0.10 × 0.46)
+  });
+
   it('sells surplus at cost plus tariff with no margin, and bids more aggressively for a deficit', () => {
     const major = createIntegrated({
       id: 'sabkhar', name: 'Sabkhar', region: 'Middle_East', cash: 5_000_000,

@@ -9,8 +9,8 @@
 import { describe, expect, it } from 'vitest';
 import { runGoldenReplay } from './replay';
 
-// Recorded in Node 24 during Phase 5 (extraction, decline, settings, deals, plant upkeep). Last verified
-// identical in Chrome 152 (`npm run golden:browser`) at the end of Phase 4; re-check at each phase end.
+// Recorded in Node 24 at the end of Phase 5 and verified identical in Chrome 152
+// (`npm run golden:browser`). Re-check in a browser at the end of each phase.
 const GOLDEN = {
   day1: '5c434c816472771d8424485b353ce3a2',
   day30: '7e147b64fba497869970a2863f624a34',

@@ -7,7 +7,8 @@ import { createProducer, createRefiner, presetSettings } from '../../src/engine/
 import { configFor, DEFAULT_CONFIG } from '../../src/engine/config';
 import { CHOKEPOINT_STATUSES, type RiskSetting } from '../../src/engine/enums';
 import type { CompanySettings } from '../../src/engine/model';
-import { avoidFor, buildLaneGraph, setChokepoint } from '../../src/engine/transport';
+import { avoidFor, buildLaneGraph, findRoute, setChokepoint } from '../../src/engine/transport';
+import { REGION_NAMES } from '../../src/data/regions';
 
 const middle: CompanySettings = { risk: 'BALANCED', selling: 'BALANCED', stockpile: 'NORMAL', appetite: 'MEDIUM' };
 
@@ -69,6 +70,22 @@ describe('Risk and route avoidance (spec G4.2)', () => {
     expect(avoidFor('BOLD', g)).toEqual([]);
     expect(avoidFor('BALANCED', g)).toEqual(['SUEZ', 'PANAMA']);
     expect(avoidFor('SAFE', g)).toEqual(['HORMUZ', 'SUEZ', 'PANAMA']);
+  });
+
+  it('Safe never routes through more TENSION-or-worse chokepoints than Bold (Phase 5 acceptance)', () => {
+    const statuses = fc.array(fc.constantFrom('OPEN', 'TENSION', 'DELAYED'), { minLength: CHOKEPOINT_NAMES.length, maxLength: CHOKEPOINT_NAMES.length });
+    const pair = fc.tuple(fc.constantFrom(...REGION_NAMES), fc.constantFrom(...REGION_NAMES));
+    fc.assert(fc.property(statuses, pair, (list, [from, to]) => {
+      const g = buildLaneGraph(DEFAULT_CONFIG);
+      CHOKEPOINT_NAMES.forEach((c, i) => setChokepoint(g, c, list[i] ?? 'OPEN', 2, 0.5));
+      const risky = (r: RiskSetting) => {
+        const route = findRoute(g, from, to, avoidFor(r, g));
+        return route === null ? null : route.chokepoints.filter((c) => g.chokepoints[c].status !== 'OPEN').length;
+      };
+      const safe = risky('SAFE');
+      const bold = risky('BOLD');
+      if (safe !== null && bold !== null) expect(safe).toBeLessThanOrEqual(bold);
+    }), { numRuns: 300 });
   });
 
   it('is monotonic for any mix of statuses: Safe avoids everything Balanced does, and Balanced everything Bold does', () => {
