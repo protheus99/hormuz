@@ -128,3 +128,39 @@ export const FeeKind = {
 } as const;
 export type FeeKind = (typeof FeeKind)[keyof typeof FeeKind];
 export const FEE_KINDS: readonly FeeKind[] = Object.values(FeeKind);
+
+/** Company setting: how much chokepoint risk routes may carry (spec G4.2). */
+export const RiskSetting = {
+  BOLD: 'BOLD',
+  BALANCED: 'BALANCED',
+  SAFE: 'SAFE',
+} as const;
+export type RiskSetting = (typeof RiskSetting)[keyof typeof RiskSetting];
+export const RISK_SETTINGS: readonly RiskSetting[] = Object.values(RiskSetting);
+
+/** Producer setting: how eagerly crude is sold (spec G4.2). */
+export const SellingSetting = {
+  SELL_FAST: 'SELL_FAST',
+  BALANCED: 'BALANCED',
+  HOLD_FOR_PRICE: 'HOLD_FOR_PRICE',
+} as const;
+export type SellingSetting = (typeof SellingSetting)[keyof typeof SellingSetting];
+export const SELLING_SETTINGS: readonly SellingSetting[] = Object.values(SellingSetting);
+
+/** Refiner setting: how much crude stock to keep (spec G4.2). */
+export const StockpileSetting = {
+  LEAN: 'LEAN',
+  NORMAL: 'NORMAL',
+  DEEP: 'DEEP',
+} as const;
+export type StockpileSetting = (typeof StockpileSetting)[keyof typeof StockpileSetting];
+export const STOCKPILE_SETTINGS: readonly StockpileSetting[] = Object.values(StockpileSetting);
+
+/** Trader setting: how much capital to put at risk (spec G4.2). */
+export const AppetiteSetting = {
+  LOW: 'LOW',
+  MEDIUM: 'MEDIUM',
+  HIGH: 'HIGH',
+} as const;
+export type AppetiteSetting = (typeof AppetiteSetting)[keyof typeof AppetiteSetting];
+export const APPETITE_SETTINGS: readonly AppetiteSetting[] = Object.values(AppetiteSetting);

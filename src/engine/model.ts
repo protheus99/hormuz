@@ -1,7 +1,9 @@
 // Core engine data shapes (spec §4). Everything here is plain data: it saves to JSON and
 // copies with structuredClone. That is why lists are arrays, never Set: JSON turns a Set into {}.
 
-import type { AgentKind, CargoStatus, Controller, Grade, Personality, Side } from './enums';
+import type {
+  AgentKind, AppetiteSetting, CargoStatus, Controller, Grade, Personality, RiskSetting, SellingSetting, Side, StockpileSetting,
+} from './enums';
 import type { ChokepointName } from '../data/chokepoints';
 import type { NodeName } from '../data/nodes';
 import type { RegionName } from '../data/regions';
@@ -119,6 +121,18 @@ export interface Fill {
 export type Stock = Record<Grade, number>;
 export const emptyStock = (): Stock => ({ LIGHT_SWEET: 0, MEDIUM: 0, HEAVY_SOUR: 0 });
 
+/**
+ * The CEO's standing choices (spec G4.2). Every company carries all four so the record has one
+ * shape; only Risk and the play type's own setting apply — Selling for producers, Stockpile for
+ * refiners, both for integrated majors, Appetite for traders.
+ */
+export interface CompanySettings {
+  risk: RiskSetting;
+  selling: SellingSetting;
+  stockpile: StockpileSetting;
+  appetite: AppetiteSetting;
+}
+
 /** Tier 1 refines Light Sweet; Tier 2 adds Medium; Tier 3 refines everything (spec §4.9). */
 export type TechTier = 1 | 2 | 3;
 
@@ -130,6 +144,7 @@ interface CompanyBase {
   readonly controller: Controller;
   /** AI companies only (spec G8); null for the player. */
   readonly personality: Personality | null;
+  settings: CompanySettings;
   cash: number;
   /** Cash held back by today's bids (spec §5 Phase 5b); zero at the end of every tick (invariant 4). */
   cashReserved: number;
@@ -212,7 +227,6 @@ export interface Trader extends CompanyBase {
   /** Regions the trader can buy into and sell from (spec §4.11). */
   offices: RegionName[];
   hubs: Partial<Record<RegionName, HubHolding>>;
-  maxRiskLimit: number;
 }
 
 export type Agent = Producer | Refiner | IntegratedMajor | Trader;

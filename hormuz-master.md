@@ -90,7 +90,7 @@ Two settings per company, each a single choice among three options — no condit
 | **Risk** (all) | Bold · Balanced · Safe | Chokepoints to avoid: none · at `DELAYED` or worse · at `TENSION` or worse |
 | **Selling** (Producer) | Sell fast · Balanced · Hold for price | `SKEW` 0.20 / 0.10 / 0.05 · `MIN_MARGIN` 0.50 / 1.00 / 3.00 · `DUMP_THRESHOLD` 0.80 / 0.90 / 0.97 |
 | **Stockpile** (Refiner) | Lean · Normal · Deep | `TARGET_DAYS` 5 / 10 / 20 · `URGENCY` 0.12 / 0.08 / 0.05 |
-| **Appetite** (Trader) | Low · Medium · High | `max_risk_limit` $2M / $5M / $10M · `HALF_SPREAD` 0.60 / 0.40 / 0.25 |
+| **Appetite** (Trader) | Low · Medium · High | `MAX_RISK_LIMIT` $2M / $5M / $10M · `HALF_SPREAD` 0.60 / 0.40 / 0.25 |
 
 An integrated company holds both Selling and Stockpile. Run rate, maintenance timing, crude mix, internal allocation and charter use run on defaults (§6.5) and change only through cards.
 
@@ -828,6 +828,7 @@ Placeholders for balancing. "× labor" scales with the region's `labor_cost_inde
 | `TARGET_DAYS`, `URGENCY` | 10, 0.08 (Normal) | Refiner bids (§6.2, G4.2) |
 | `AGGRESSION` | 0.05 | Integrated deficit bids |
 | `HALF_SPREAD`, `STORAGE_CARRY`, `HOLD_TICKS` | $0.40, $0.06 per bbl per tick, 30 | Traders (§6.4) |
+| `MAX_RISK_LIMIT` | $5M (Appetite: Medium) | Trader position limit (§6.4, G4.2) |
 | `SHUT_IN_THRESHOLD` | 25% | Output below this shuts wells in |
 | `RESTART_COST`, `RAMP_TICKS` | $3.00 per bbl/day of capacity, 10 ticks | Producer restart |
 | `FIXED_COST_RATE` | Producer $2.00, refiner $4.00 per bbl/day of capacity per tick | Fixed operating cost |
@@ -1262,7 +1263,8 @@ State is plain data; functions take it as their first argument.
 export interface Config { LOT_SIZE: number; MIN_MARGIN: number; /* …every constant in §7.4 */ }
 export const DEFAULT_CONFIG: Config;
 export function withOverrides(base: Config, o: DeepPartial<Config>): Config;   // new frozen config; base untouched
-export function configFor(a: Agent, base: Config): Config;     // Phase 5: applies settings and personality
+export function configFor(settings: CompanySettings, base: Config): Config;   // Selling, Stockpile, Appetite (G4.2)
+// companies.ts: presetSettings(personality) gives each personality's settings (G8); transport.ts: avoidFor(risk, g) gives Risk's avoid list
 
 // rng.ts
 export interface Rng { a: number; b: number; c: number; d: number }   // the whole sfc32 state, plain data

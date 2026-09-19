@@ -4,7 +4,8 @@
 // Rates and shares are fractions, so 25% is written 0.25.
 // All values are placeholders to be tuned in Phases 7 and 12.
 
-import type { DeclineClass, Product } from './enums';
+import type { AppetiteSetting, DeclineClass, Product, SellingSetting, StockpileSetting } from './enums';
+import type { CompanySettings } from './model';
 
 export interface Range {
   readonly min: number;
@@ -47,6 +48,7 @@ export interface Config {
   readonly HALF_SPREAD: number;            // $/bbl either side of the marker for trader quotes
   readonly STORAGE_CARRY: number;          // $/bbl per tick of holding stock
   readonly HOLD_TICKS: number;             // ticks a storage trade expects to hold
+  readonly MAX_RISK_LIMIT: number;         // $ a trader may hold in open positions (Appetite: Medium)
 
   // Production (spec §4.8)
   readonly SHUT_IN_THRESHOLD: number;      // output below this share of capacity shuts wells in
@@ -148,6 +150,7 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
   HALF_SPREAD: 0.40,
   STORAGE_CARRY: 0.06,
   HOLD_TICKS: 30,
+  MAX_RISK_LIMIT: 5_000_000,
 
   SHUT_IN_THRESHOLD: 0.25,
   RESTART_COST: 3.00,
@@ -265,4 +268,31 @@ function deepFreeze<T>(value: T): T {
     Object.freeze(value);
   }
   return value;
+}
+
+// ─── Company settings (spec G4.2) ────────────────────────────────────────────────────────────
+
+const SELLING: Readonly<Record<SellingSetting, DeepPartial<Config>>> = {
+  SELL_FAST: { SKEW: 0.20, MIN_MARGIN: 0.50, DUMP_THRESHOLD: 0.80 },
+  BALANCED: { SKEW: 0.10, MIN_MARGIN: 1.00, DUMP_THRESHOLD: 0.90 },
+  HOLD_FOR_PRICE: { SKEW: 0.05, MIN_MARGIN: 3.00, DUMP_THRESHOLD: 0.97 },
+};
+const STOCKPILE: Readonly<Record<StockpileSetting, DeepPartial<Config>>> = {
+  LEAN: { TARGET_DAYS: 5, URGENCY: 0.12 },
+  NORMAL: { TARGET_DAYS: 10, URGENCY: 0.08 },
+  DEEP: { TARGET_DAYS: 20, URGENCY: 0.05 },
+};
+const APPETITE: Readonly<Record<AppetiteSetting, DeepPartial<Config>>> = {
+  LOW: { MAX_RISK_LIMIT: 2_000_000, HALF_SPREAD: 0.60 },
+  MEDIUM: { MAX_RISK_LIMIT: 5_000_000, HALF_SPREAD: 0.40 },
+  HIGH: { MAX_RISK_LIMIT: 10_000_000, HALF_SPREAD: 0.25 },
+};
+
+/**
+ * The config one company's rules run with (spec §6, G4.2): the base config with its Selling,
+ * Stockpile and Appetite choices applied. Risk is not a number but a list of chokepoints to avoid,
+ * which depends on today's chokepoint statuses — see avoidFor() in transport.ts.
+ */
+export function configFor(settings: CompanySettings, base: Config): Config {
+  return withOverrides(base, { ...SELLING[settings.selling], ...STOCKPILE[settings.stockpile], ...APPETITE[settings.appetite] });
 }

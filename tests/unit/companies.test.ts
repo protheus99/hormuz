@@ -24,7 +24,7 @@ describe('creating companies (spec §4.7–4.11)', () => {
 
   it('builds a trader with a storage hub in each office', () => {
     const t = createTrader({
-      id: 'tidemere', name: 'Tidemere Trading', region: 'North_Sea', cash: 2_000_000, maxRiskLimit: 5_000_000,
+      id: 'tidemere', name: 'Tidemere Trading', region: 'North_Sea', cash: 2_000_000,
       offices: [{ region: 'North_Sea', capacity: 20_000 }, { region: 'Middle_East', capacity: 30_000 }],
     });
     expect(t.offices).toEqual(['North_Sea', 'Middle_East']);
@@ -69,7 +69,7 @@ describe('placement rules (spec §3.4)', () => {
   });
 
   it('rejects a trader whose home region is not an office', () => {
-    expect(() => createTrader({ id: 't', name: 'T', region: 'Caspian', cash: 1, maxRiskLimit: 1, offices: [{ region: 'North_Sea', capacity: 1 }] }))
+    expect(() => createTrader({ id: 't', name: 'T', region: 'Caspian', cash: 1, offices: [{ region: 'North_Sea', capacity: 1 }] }))
       .toThrow(/must be one of its offices/);
   });
 

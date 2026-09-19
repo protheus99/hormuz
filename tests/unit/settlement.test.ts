@@ -22,7 +22,7 @@ beforeEach(() => {
     techTier: 3, processingCapacity: 8000, crudeStorageCapacity: 25_000,
   });
   tidemere = createTrader({
-    id: 'tidemere', name: 'Tidemere Trading', region: 'Middle_East', cash: 2_000_000, maxRiskLimit: 5_000_000,
+    id: 'tidemere', name: 'Tidemere Trading', region: 'Middle_East', cash: 2_000_000,
     offices: [{ region: 'Middle_East', capacity: 50_000 }],
   });
   ledger = createLedger();

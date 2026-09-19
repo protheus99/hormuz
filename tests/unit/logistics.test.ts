@@ -121,7 +121,7 @@ describe('delivery and overflow (spec §5 "Delivery overflow")', () => {
 
   it('delivers a trader’s cargo into its hub', () => {
     const trader = createTrader({
-      id: 'tidemere', name: 'Tidemere', region: 'Middle_East', cash: 2_000_000, maxRiskLimit: 5e6,
+      id: 'tidemere', name: 'Tidemere', region: 'Middle_East', cash: 2_000_000,
       offices: [{ region: 'Middle_East', capacity: 50_000 }, { region: 'Coastal_Asia', capacity: 10_000 }],
     });
     const cargo = [cargoTo(trader, 'Coastal_Asia', 'Coastal_Asia', 12_000)];

@@ -17,7 +17,7 @@ import { placeOrder, releaseEscrow, settleFills } from '../../src/engine/settlem
 
 function buildCompanies(tiers: readonly TechTier[]): Agent[] {
   const trader = createTrader({
-    id: 'trader', name: 'Trader', region: 'Middle_East', cash: 2_000_000, maxRiskLimit: 5_000_000,
+    id: 'trader', name: 'Trader', region: 'Middle_East', cash: 2_000_000,
     offices: [{ region: 'Middle_East', capacity: 50_000 }, { region: 'Coastal_Asia', capacity: 50_000 }],
   });
   const hub = trader.hubs.Middle_East;

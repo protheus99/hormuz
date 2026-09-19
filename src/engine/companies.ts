@@ -10,7 +10,7 @@ import type { Config } from './config';
 import { REGIONS } from '../data/regions';
 import {
   asAgentId, emptyStock,
-  type Agent, type HubHolding, type IntegratedMajor, type PlantState, type Producer, type RegionName, type Refiner,
+  type Agent, type CompanySettings, type HubHolding, type IntegratedMajor, type PlantState, type Producer, type RegionName, type Refiner,
   type Stock, type TechTier, type Trader, type WellState,
 } from './model';
 
@@ -50,6 +50,8 @@ interface CompanySpec {
   readonly cash: number;
   readonly controller?: Controller;
   readonly personality?: Personality;
+  /** Overrides the personality preset (spec G8); the player's company starts at the middle options. */
+  readonly settings?: Partial<CompanySettings>;
 }
 
 /** A producer's wells and storage. */
@@ -80,7 +82,6 @@ export interface IntegratedSpec extends CompanySpec {
 export interface TraderSpec extends CompanySpec {
   /** Office regions and the storage owned in each. The home region must be one of them. */
   readonly offices: readonly { readonly region: RegionName; readonly capacity: number }[];
-  readonly maxRiskLimit: number;
 }
 
 /**
@@ -206,14 +207,14 @@ export function createTrader(s: TraderSpec): Trader {
   if (regions.length === 0) fail(s, 'a trader needs at least one office');
   if (new Set(regions).size !== regions.length) fail(s, 'offices must be in different regions');
   if (!regions.includes(s.region)) fail(s, `home region ${s.region} must be one of its offices`);
-  requireNonNegative(s, { cash: s.cash, maxRiskLimit: s.maxRiskLimit });
+  requireNonNegative(s, { cash: s.cash });
 
   const hubs: Partial<Record<RegionName, HubHolding>> = {};
   for (const o of s.offices) {
     requireNonNegative(s, { [`${o.region} capacity`]: o.capacity });
     hubs[o.region] = { capacity: o.capacity, stock: emptyStock(), escrow: emptyStock() };
   }
-  return { ...base(s), kind: AgentKind.TRADER, offices: regions, hubs, maxRiskLimit: s.maxRiskLimit };
+  return { ...base(s), kind: AgentKind.TRADER, offices: regions, hubs };
 }
 
 /** Total barrels across every grade. */
@@ -221,14 +222,31 @@ export function total(stock: Stock): number {
   return stock.LIGHT_SWEET + stock.MEDIUM + stock.HEAVY_SOUR;
 }
 
+/**
+ * A personality is a preset over the company settings (spec G8): Conservative is Safe, Hold for
+ * price, Deep, Low; Aggressive is Bold, Sell fast, Lean, High; Balanced takes the middle options.
+ */
+export function presetSettings(personality: Personality | null): CompanySettings {
+  switch (personality) {
+    case Personality.CONSERVATIVE:
+      return { risk: 'SAFE', selling: 'HOLD_FOR_PRICE', stockpile: 'DEEP', appetite: 'LOW' };
+    case Personality.AGGRESSIVE:
+      return { risk: 'BOLD', selling: 'SELL_FAST', stockpile: 'LEAN', appetite: 'HIGH' };
+    default:
+      return { risk: 'BALANCED', selling: 'BALANCED', stockpile: 'NORMAL', appetite: 'MEDIUM' };
+  }
+}
+
 function base(s: CompanySpec) {
   const controller = s.controller ?? Controller.AI;
+  const personality = controller === Controller.AI ? (s.personality ?? Personality.BALANCED) : null;
   return {
     agentId: asAgentId(s.id),
     name: s.name,
     region: s.region,
     controller,
-    personality: controller === Controller.AI ? (s.personality ?? Personality.BALANCED) : null,
+    personality,
+    settings: { ...presetSettings(personality), ...s.settings },
     cash: s.cash,
     cashReserved: 0,
     creditLimit: 0,

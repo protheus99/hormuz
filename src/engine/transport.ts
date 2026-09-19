@@ -13,7 +13,7 @@ import { CHOKEPOINT_NAMES } from '../data/chokepoints';
 import { LANES, type PlaceName } from '../data/lanes';
 import { REGIONS } from '../data/regions';
 import type { Config } from './config';
-import { ChokepointStatus, EdgeMode } from './enums';
+import { CHOKEPOINT_STATUSES, ChokepointStatus, EdgeMode, type RiskSetting } from './enums';
 import { MinHeap } from './heap';
 import { asEdgeId, type AgentId, type Cargo, type ChokepointName, type EdgeId, type RegionName, type Route } from './model';
 import type { RouteProvider } from './routes';
@@ -67,6 +67,16 @@ export function buildLaneGraph(config: Config): LaneGraph {
 export function setChokepoint(g: LaneGraph, name: ChokepointName, status: ChokepointStatus, delayTicks = 0, freightSurcharge = 0): void {
   if (delayTicks < 0 || freightSurcharge < 0) throw new Error(`${name}: delay and surcharge cannot be negative`);
   g.chokepoints[name] = { status, delayTicks, freightSurcharge };
+}
+
+/**
+ * The chokepoints a company's routes avoid today (spec G4.2): Bold avoids none, Balanced those at
+ * DELAYED or worse, Safe those at TENSION or worse. Closed chokepoints are never usable anyway.
+ */
+export function avoidFor(risk: RiskSetting, g: LaneGraph): ChokepointName[] {
+  if (risk === 'BOLD') return [];
+  const from = CHOKEPOINT_STATUSES.indexOf(risk === 'SAFE' ? ChokepointStatus.TENSION : ChokepointStatus.DELAYED);
+  return CHOKEPOINT_NAMES.filter((c) => CHOKEPOINT_STATUSES.indexOf(g.chokepoints[c].status) >= from);
 }
 
 /** Clears today's pipeline use (spec §5 phase 0). Reservations persist. */
