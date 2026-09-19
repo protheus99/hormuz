@@ -1,7 +1,12 @@
-// Verification scenarios on the core portfolio (spec §11.2). Global-portfolio scenarios (S6, S8,
-// S13–S17) join with the global portfolio in Phase 7.
+// Verification scenarios (spec §11.2): the core-portfolio runs, then the global-portfolio runs.
 
+import { CHOKEPOINT_NAMES, type ChokepointName } from '../src/data/chokepoints';
 import type { ScheduledEvent } from '../src/engine/world';
+
+const window = (chokepoint: ChokepointName, from: number, to: number, status: 'CLOSED' | 'DELAYED' | 'TENSION', delayTicks = 0, surcharge = 0): ScheduledEvent[] => [
+  { tick: from, kind: 'CHOKEPOINT', chokepoint, status, delayTicks, surcharge },
+  { tick: to + 1, kind: 'CHOKEPOINT', chokepoint, status: 'OPEN' },
+];
 
 export const SCENARIOS: Readonly<Record<string, readonly ScheduledEvent[]>> = {
   /** Baseline: 365 ticks, no shocks. */
@@ -33,3 +38,31 @@ export const SCENARIOS: Readonly<Record<string, readonly ScheduledEvent[]>> = {
   /** A non-persistent +15% diesel shock at tick 90. */
   S10: [{ tick: 90, kind: 'PRODUCT_SHOCK', product: 'DIESEL', pct: 0.15, persistent: false }],
 };
+
+/** Global-portfolio scenarios (spec §11.2). */
+export const GLOBAL_SCENARIOS: Readonly<Record<string, readonly ScheduledEvent[]>> = {
+  S0: [],
+  /** Red Sea disruption: Bab el-Mandeb closed, ticks 200–260. */
+  S6: window('BAB_EL_MANDEB', 200, 260, 'CLOSED'),
+  /** Turkish Straits delay: Bosphorus +10, ticks 120–180. */
+  S8: window('BOSPHORUS', 120, 180, 'DELAYED', 10),
+  /** Malacca congestion: +4 ticks, ticks 100–115. */
+  S13: window('MALACCA', 100, 115, 'DELAYED', 4),
+  /** Suez blockage: closed, ticks 200–207. */
+  S14: window('SUEZ', 200, 207, 'CLOSED'),
+  /** Panama low water: TENSION with a 40% surcharge, then DELAYED +8, ticks 30–150. */
+  S15: [
+    { tick: 30, kind: 'CHOKEPOINT', chokepoint: 'PANAMA', status: 'TENSION', surcharge: 4.5 * 0.4 },
+    { tick: 60, kind: 'CHOKEPOINT', chokepoint: 'PANAMA', status: 'DELAYED', delayTicks: 8, surcharge: 4.5 * 0.4 },
+    { tick: 151, kind: 'CHOKEPOINT', chokepoint: 'PANAMA', status: 'OPEN' },
+  ],
+  /** Danish Straits winter: +6, ticks 1–60 and 330–365. */
+  S16: [...window('DANISH_STRAITS', 1, 60, 'DELAYED', 6), ...window('DANISH_STRAITS', 330, 365, 'DELAYED', 6)],
+};
+
+/** S17: one run per chokepoint, each closed for ticks 100–130 (spec §11.2). */
+export function s17(chokepoint: ChokepointName): readonly ScheduledEvent[] {
+  return window(chokepoint, 100, 130, 'CLOSED');
+}
+
+export { CHOKEPOINT_NAMES };
