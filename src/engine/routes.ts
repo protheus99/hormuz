@@ -8,8 +8,11 @@
 import { asEdgeId, type AgentId, type ChokepointName, type EdgeId, type RegionName, type Route } from './model';
 
 export interface RouteProvider {
-  /** The best usable route, or null when every route is closed, avoided or missing. */
-  route(origin: RegionName, destination: RegionName, avoid?: readonly ChokepointName[]): Route | null;
+  /**
+   * The best usable route, or null when every route is closed, avoided or missing. With `agentId`,
+   * routes whose pipelines are already full for that company today are skipped (spec §3.5).
+   */
+  route(origin: RegionName, destination: RegionName, avoid?: readonly ChokepointName[], agentId?: AgentId): Route | null;
   /** Barrels this company can still move along the route this tick. Infinity when uncapped. */
   capacityLeft(route: Route, agentId: AgentId): number;
   /** Claims up to qty barrels of capacity and returns how many it actually got. */

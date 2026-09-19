@@ -475,6 +475,10 @@ Routes are the **lowest generalized-cost path** through usable edges:
 
 Routes are recomputed with Dijkstra at the start of each tick and cached for all pairs, once per chokepoint-avoidance set. Delivery inside one region has no freight and still takes one tick.
 
+**Regions are endpoints, not junctions.** A route may pass through a region only straight off a pipeline from its origin (Western Canada → Permian → US Gulf Coast; the Gulf bypasses) or on its way into a pipeline to its destination (Red Sea Coast → Middle East imports). Otherwise every lane being bidirectional would invent land bridges — North Sea crude shipped into the Baltic and piped across Russia, or US Gulf crude pumped backwards through the Permian and Canadian lines to the Pacific.
+
+**Routing is capacity-aware.** Asked for a route on a company's behalf, the graph skips pipelines that company can no longer use today, so once the Oman bypass is full the next route offered is the Red Sea bypass. Clearing asks again whenever a route runs out (§8 rule 3).
+
 #### Maritime waypoints
 
 `W_GULF_MEXICO`, `W_CARIBBEAN`, `W_N_ATLANTIC`, `W_S_ATLANTIC`, `W_CAPE`, `W_MEDITERRANEAN`, `W_BLACK_SEA`, `W_BALTIC`, `W_PERSIAN_GULF`, `W_ARABIAN_SEA`, `W_RED_SEA`, `W_INDIAN_OCEAN`, `W_S_CHINA_SEA`, `W_N_PACIFIC`.
@@ -1223,7 +1227,7 @@ Scripts: `dev` (vite), `build` (vite build), `test` (vitest run), `typecheck` (t
 | `data/lanes.ts`, `data/portfolios.ts` | enums, regions, nodes, chokepoints |
 | `engine/model.ts` | enums, `data/` |
 | `engine/config.ts` | model |
-| `engine/transport.ts` | model, config, heap |
+| `engine/transport.ts` | model, config, heap, routes (the interface), `data/lanes` |
 | `engine/routes.ts` | model |
 | `engine/clearing.ts`, `engine/deals.ts` | model, config, routes — only the `RouteProvider` interface, never the lane graph |
 | `engine/economics.ts` | model, config, rng |
@@ -1239,7 +1243,7 @@ Scripts: `dev` (vite), `build` (vite build), `test` (vitest run), `typecheck` (t
 
 ```ts
 export interface RouteProvider {
-  route(origin: RegionName, destination: RegionName, avoid?: readonly ChokepointName[]): Route | null;
+  route(origin: RegionName, destination: RegionName, avoid?: readonly ChokepointName[], agentId?: AgentId): Route | null;   // with agentId: skips pipelines full for that company
   capacityLeft(route: Route, agentId: AgentId): number;
   reserve(route: Route, qty: number, agentId: AgentId): number;   // barrels actually reserved
 }
@@ -1277,9 +1281,11 @@ export function previousClose(node: ExchangeNode, dest: RegionName, ctx: ClearCo
 export function updateMarker(node: ExchangeNode, fills: readonly Fill[], ctx: ClearContext): void;
 
 // transport.ts
-export function buildLaneGraph(): LaneGraph;
-export function asRouteProvider(g: LaneGraph): RouteProvider;
-export function rebuildCache(g: LaneGraph, avoidSets: readonly (readonly ChokepointName[])[]): void;
+export function buildLaneGraph(config: Config): LaneGraph;                           // plain data: edges, chokepoint states, pipeline use
+export function findRoute(g: LaneGraph, from: RegionName, to: RegionName, avoid?: readonly ChokepointName[], agentId?: AgentId): Route | null;
+export function setChokepoint(g: LaneGraph, c: ChokepointName, status: ChokepointStatus, delayTicks?: number, surcharge?: number): void;
+export function setReservation(g: LaneGraph, edge: EdgeId, agentId: AgentId, qty: number, config: Config): void;
+export class LaneRouteProvider implements RouteProvider { constructor(g: LaneGraph); resetTick(): void }   // per-tick route cache
 export function advanceCargo(c: Cargo, g: LaneGraph): CargoAdvance;                    // MOVING | HELD | ARRIVED
 
 // deals.ts
