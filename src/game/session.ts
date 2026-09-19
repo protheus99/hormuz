@@ -11,6 +11,7 @@ import {
   advise, availableOpportunities, closeOpportunity, createAdvisor, openOpportunity, refreshOpportunities, type AdvisorState,
 } from './cards/advisor';
 import type { Card, CardType } from './cards/types';
+import { createDeck, deckDay, priceNews, type DeckState, type ScriptedEvent } from './events';
 import { cardText } from '../content/cards';
 import { detectAlerts, pausesAt, rememberForAlerts, type Alert, type AlertMemory, type Severity } from './alerts';
 import { applyCommand, rejectReason, type Command, type CommandResult, type LoggedCommand } from './commands';
@@ -54,6 +55,9 @@ export interface SaveData {
   readonly seq: number;
   readonly pauseAt: Severity;
   readonly advisor: AdvisorState;
+  readonly deck: DeckState;
+  /** Scripted events (campaign scenarios); empty in Sandbox. */
+  readonly script: readonly ScriptedEvent[];
 }
 
 export class GameSession {
@@ -67,6 +71,8 @@ export class GameSession {
     seq: number;
     pauseAt: Severity;
     advisor: AdvisorState;
+    deck: DeckState;
+    script: readonly ScriptedEvent[];
   };
 
   private constructor(data: SaveData) {
@@ -74,6 +80,7 @@ export class GameSession {
     this.state = {
       settings: copy.settings, world: copy.world, log: [...copy.log], history: [...copy.history],
       alerts: [...copy.alerts], memory: copy.memory, seq: copy.seq, pauseAt: copy.pauseAt, advisor: copy.advisor,
+      deck: copy.deck, script: copy.script,
     };
   }
 
@@ -82,9 +89,13 @@ export class GameSession {
     const world = newGameWorld(settings);
     // In a game, operating decisions (maintenance, output cuts) are cards for every company (G4.6).
     world.cardsActive = true;
+    const me = world.agents.find((a) => a.agentId === PLAYER_ID);
+    const regions = me?.kind === 'TRADER' ? me.offices : me ? [me.region] : [];
     return new GameSession({
       version: 2, settings, world, log: [], history: [dailyPrices(world)], alerts: [],
       memory: rememberForAlerts(world, PLAYER_ID), seq: 0, pauseAt: 'HIGH', advisor: createAdvisor(world),
+      deck: createDeck(world, settings.seed, settings.difficulty ?? 'NORMAL', true, regions, me?.kind ?? 'PRODUCER'),
+      script: [],
     });
   }
 
@@ -114,6 +125,7 @@ export class GameSession {
       cards: s.advisor.cards.filter((c) => c.agentId === playerId),
       opportunities: (me ? availableOpportunities(s.world, s.advisor, me) : []).map((type) => ({ type, title: cardText(type, {}).title })),
       reports: s.advisor.memory.reports.filter((r) => r.agentId === playerId),
+      news: [...s.deck.news].reverse(),
     };
     return structuredClone(buildPlayerView(s.world, playerId, s.history, s.alerts, s.settings.lengthDays ?? null, cards));
   }
@@ -169,6 +181,7 @@ export class GameSession {
     return structuredClone({
       version: 2 as const, settings: s.settings, world: s.world, log: s.log, history: s.history,
       alerts: s.alerts, memory: s.memory, seq: s.seq, pauseAt: s.pauseAt, advisor: s.advisor,
+      deck: s.deck, script: s.script,
     });
   }
 
@@ -183,10 +196,12 @@ export class GameSession {
     const tick = s.world.tick + 1;
     const problems: string[] = [];
     for (const entry of s.log.filter((c) => c.tick === tick).sort((a, b) => a.seq - b.seq)) problems.push(...applyCommand(s.world, entry, s.advisor));
+    deckDay(s.world, s.deck, s.script);
     const report = step(s.world);
     const cards = advise(s.world, s.advisor, report.fills);
     refreshOpportunities(s.world, s.advisor);
     s.history.push(dailyPrices(s.world));
+    priceNews(s.deck, s.history);
     const alerts = detectAlerts(s.world, PLAYER_ID, s.memory);
     for (const p of problems) alerts.push({ tick: s.world.tick, severity: 'MEDIUM', message: `Part of your decision could not be carried out: ${p}` });
     for (const c of cards) if (c.agentId === PLAYER_ID) alerts.push({ tick: s.world.tick, severity: 'INFO', message: `New decision: ${c.title}` });

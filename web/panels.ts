@@ -158,9 +158,14 @@ export function dealsPanel(view: PlayerView): Html {
 
 /** News and alerts, newest first. */
 export function newsPanel(view: PlayerView): Html {
-  const alerts = [...view.alerts].reverse();
-  return alerts.length === 0 ? html`<p class="muted">Nothing yet.</p>` : html`
-    <ul class="alerts">${alerts.map((a) => html`<li><span class="sev ${a.severity}">${dateOf(a.tick)}</span>${a.message}</li>`)}</ul>
+  const alerts = [...view.alerts].reverse().slice(0, 20);
+  return html`
+    <h3>News</h3>
+    ${view.news.length === 0 ? html`<p class="muted">A quiet market so far.</p>` : html`
+      <ul class="alerts">${view.news.map((n) => html`<li><span class="sev INFO">${dateOf(n.tick)}</span><strong>${n.headline}.</strong> <span class="muted">${n.body}</span></li>`)}</ul>`}
+    <h3 style="margin-top:14px">Your alerts</h3>
+    ${alerts.length === 0 ? html`<p class="muted">Nothing yet.</p>` : html`
+    <ul class="alerts">${alerts.map((a) => html`<li><span class="sev ${a.severity}">${dateOf(a.tick)}</span>${a.message}</li>`)}</ul>`}
     ${view.reports.length > 0 ? html`<h3 style="margin-top:14px">Market reports</h3>
       ${view.reports.slice(-3).reverse().map((r) => html`<p class="small muted">As of ${dateOf(r.asOf)} — rough crude held by region:</p>
         <table>${Object.entries(r.byRegion).filter(([, q]) => (q ?? 0) > 0).sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0)).slice(0, 8)

@@ -17,6 +17,8 @@ export interface CardsView {
   readonly cards: readonly Card[];
   readonly opportunities: readonly { readonly type: CardType; readonly title: string }[];
   readonly reports: readonly { readonly tick: number; readonly asOf: number; readonly byRegion: Readonly<Partial<Record<string, number>>> }[];
+  /** News, newest first (spec G7.1). */
+  readonly news: readonly { readonly tick: number; readonly headline: string; readonly body: string }[];
 }
 
 /** One day of public prices, kept by the session for charts. */
@@ -82,6 +84,7 @@ export interface PlayerView {
   readonly opportunities: CardsView['opportunities'];
   /** Market reports bought (spec G5). */
   readonly reports: CardsView['reports'];
+  readonly news: CardsView['news'];
 }
 
 export function buildPlayerView(
@@ -139,6 +142,7 @@ export function buildPlayerView(
     cards: [...cards.cards],
     opportunities: [...cards.opportunities],
     reports: [...cards.reports],
+    news: [...cards.news],
   };
 }
 
