@@ -9,7 +9,7 @@ import { REGIONS, type RegionName } from '../../data/regions';
 import { leaseRate, leaseRegions, OFFICE_HUB_CAPACITY, projectCost, type Action } from '../../engine/actions';
 import { actualCost, effectiveUtilization, fillRatio } from '../../engine/agents';
 import { previousClose, referencePrice } from '../../engine/clearing';
-import { acceptedGrades, CLOSED_TO_NEW_REFINING, integrationPlant, plantOf, total, wellOf } from '../../engine/companies';
+import { acceptedGrades, averageCost, CLOSED_TO_NEW_REFINING, integrationPlant, plantOf, total, wellOf } from '../../engine/companies';
 import { configFor } from '../../engine/config';
 import { priceDeal, signDeal, type DealTerms } from '../../engine/deals';
 import type { Grade } from '../../engine/enums';
@@ -62,13 +62,23 @@ export interface CardDef {
  */
 function traderBid(w: World, node: NodeName, office: RegionName): number {
   const cfg = w.config;
-  const ref = referencePrice(w.nodes[node], office) ?? w.nodes[node].markerPrice;
+  // The same reference the trader's daily rules use: the last close for this port, but never above
+  // what the crude is worth at today's marker, since a close can be months old (D40).
+  const marker = w.nodes[node];
+  const toMarker = findRoute(w.graph, office, marker.markerRegion);
+  const netback = Math.max(0, marker.markerPrice - (toMarker?.totalFreight ?? 0));
+  const ref = Math.min(referencePrice(marker, office) ?? marker.markerPrice, netback);
   return Math.round((ref - REGIONS[office].infrastructureTariff - cfg.HALF_SPREAD) * 100) / 100;
 }
 
 /** How long "commit capital to the gap" runs, and the turnover it assumes (spec G4.4). */
 const GAP_DAYS = 28;
 const GAP_TURNOVER_DAYS = 7;
+/**
+ * The share of the hub's free room a card may commit. The daily rules are bidding for that room
+ * too, so a card that claims all of it just fills the tanks twice over and forces a clearance sale.
+ */
+const CARD_SHARE_OF_ROOM = 0.5;
 
 const lot = (w: World, bbl: number) => Math.max(0, Math.floor(bbl / w.config.LOT_SIZE) * w.config.LOT_SIZE);
 const pct = (x: number) => `${Math.round(x * 100)}%`;
@@ -626,7 +636,7 @@ export const CATALOG: readonly CardDef[] = [
       const hub = me.kind === 'TRADER' ? me.hubs[office] : undefined;
       const room = hub ? hub.capacity - total(hub.stock) - total(hub.inbound) : 0;
       const bid = (share: number): Action[] => {
-        const qty = lot(w, (room * share) / GAP_TURNOVER_DAYS);
+        const qty = lot(w, (room * share * CARD_SHARE_OF_ROOM) / GAP_TURNOVER_DAYS);
         return qty > 0 ? [{ kind: 'STANDING_ORDER', side: 'BID', node: s.data.node as NodeName, region: office, price: Number(s.data.price), qty, days: GAP_DAYS }] : [];
       };
       return { yes: { actions: bid(1) }, maybe: { actions: bid(0.5) } };
@@ -641,7 +651,14 @@ export const CATALOG: readonly CardDef[] = [
         const held = me.offices.reduce((s, o) => s + (me.hubs[o]?.stock[grade] ?? 0), 0);
         const peak = Math.max(...(me.priceMemory[node] ?? [0]));
         const now = w.nodes[node].markerPrice;
-        if (held < 1000 || peak <= 0 || now > 0.9 * peak) continue;
+        // A real slump, and only while the crude is worth less than it cost: a dip in a position
+        // still in profit is not a decision, and asking anyway only invites selling at a loss.
+        if (held < 1000 || peak <= 0 || now > 0.8 * peak) continue;
+        const cost = me.offices.reduce((s, o) => {
+          const hub = me.hubs[o];
+          return s + (hub ? averageCost(hub, grade) * hub.stock[grade] : 0);
+        }, 0) / held;
+        if (cost <= 0 || now >= cost) continue;
         return { key: `falling:${node}`, data: { fall: pct(1 - now / peak), node, grade } };
       }
       return null;

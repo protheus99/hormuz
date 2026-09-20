@@ -8,9 +8,10 @@ Recommendations are marked **R**.
 
 ---
 
-> **Answered 2026-09-19.** 1: **A, accepted** — producers stay quiet once they are in good shape,
-> and the campaign supplies the pressure. 2: **A, agreed** — neglect now bites (D39). 3 is restated
-> below in plainer words and still needs an answer; 4–7 are open.
+> **Answered 2026-09-19/20.** 1: **A, accepted** — producers stay quiet once they are in good
+> shape, and the campaign supplies the pressure. 2: **A, agreed** — neglect now bites (D39).
+> 3: **A, with the steer that volume is the lever and producers and refiners still make the bulk**
+> — done (D40). 4–7 are open.
 
 ## 1. Producers have few decisions once they have taken the obvious ones ✅ accepted (A)
 
@@ -57,7 +58,13 @@ urgently — rarely beat waiting in a calm year.
 - **C** Make cards cheaper to act on (lower maintenance downtime, cheaper emergency crude), so
   saying Yes is usually right. Risks making decisions obvious.
 
-## 3. How much money should a trader make in a good year?
+## 3. How much money should a trader make in a good year? ✅ done (A)
+
+> **Result.** On autopilot a trader now returns roughly +1% a year in the North Sea, +15% in the
+> Gulf and +20% in East Asia. The fix was volume, as you said: traders were quoting off a price
+> that could be months old, so a hub that stopped selling never started again. Producers and
+> refiners still earn ten times as much in absolute money. One scenario, T2, still does not
+> separate a thinking player from a passive one — see below.
 
 **What a trader is, in the game.** It owns no wells and no refinery. It starts with $5M in cash and
 rented tank space at one or two ports. It earns by buying crude where it is cheap and selling it
@@ -83,6 +90,13 @@ near either.
 - **C — trading is steadily profitable.** Give traders a built-in edge (buy cheaper, sell dearer,
   bigger tanks) so they earn even on autopilot. Easiest to tune, but it makes the hardest play type
   the safest one, which reads backwards.
+
+## 3a. T2 "Contango" does not reward deciding
+
+A refinery outage gluts one region. The trader's own daily rules already buy the cheap crude and
+sell it on, so on some seeds a player who ignores every card earns as much as one who does not.
+Giving the player a lever the rules do not have — chartered storage, or selling forward — would fix
+it, and both wait on question 7. Until then the acceptance test skips T2 and says why.
 
 ## 4. Win-rate bands for the campaign
 

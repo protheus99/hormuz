@@ -183,10 +183,15 @@ export const SCENARIOS: readonly ScenarioData[] = [
   },
   {
     id: 'T2', title: 'Contango', tutorial: false, level: 'MEDIUM', playType: 'TRADER', region: 'Coastal_Asia', lengthDays: 120, difficulty: 'NORMAL', randomEvents: false,
+    // A second office in South Asia: the glut is in East Asia, so the crude has to go somewhere else
+    // to be worth anything, and buying into the glut alone cannot pay (Phase 12).
+    setup: { secondOffice: 'South_Asia' },
     blurb: 'East Asia’s largest refinery is about to go down for weeks. Its crude will need a home.',
     script: [
-      { tick: 20, engine: { tick: 20, kind: 'PLANT_ONLINE', agentId: 'Huanghai_Petrochem', online: false }, news: { headline: 'A major East Asian refinery shuts for repairs', body: 'Cargoes bound for it are looking for other buyers.' } },
-      { tick: 65, engine: { tick: 65, kind: 'PLANT_ONLINE', agentId: 'Huanghai_Petrochem', online: true }, news: { headline: 'The East Asian refinery restarts', body: 'Demand for crude in the region recovers.' } },
+      // The outage lands early and clears with two months left: the glut is what the player buys
+      // into, and the restart is what they sell into (Phase 12).
+      { tick: 5, engine: { tick: 5, kind: 'PLANT_ONLINE', agentId: 'Huanghai_Petrochem', online: false }, news: { headline: 'A major East Asian refinery shuts for repairs', body: 'Cargoes bound for it are looking for other buyers.' } },
+      { tick: 55, engine: { tick: 55, kind: 'PLANT_ONLINE', agentId: 'Huanghai_Petrochem', online: true }, news: { headline: 'The East Asian refinery restarts', body: 'Demand for crude in the region recovers.' } },
     ],
     goalText: 'Make $400K profit from the outage.',
     goal: [{ kind: 'PROFIT', atLeast: 400_000 }],

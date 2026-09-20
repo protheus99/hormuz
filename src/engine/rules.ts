@@ -109,6 +109,17 @@ function producerAsks(
 }
 
 /** Yesterday's FOB at an origin, or the marker less freight to the marker region, floored at zero. */
+/**
+ * What a trader prices off: the last close for its region, but never above what the crude is worth
+ * at today's marker. A close can be months old — a hub that stops selling stops printing prices —
+ * and quoting a stale high price in a falling market leaves the tanks full and the hub idle.
+ */
+function traderReference(node: ExchangeNode, origin: Agent['region'], view: MarketView): number {
+  const toMarker = view.routes.route(origin, node.markerRegion);
+  const netback = Math.max(0, node.markerPrice - (toMarker?.totalFreight ?? 0));
+  return Math.min(referenceFob(node, origin, view), netback);
+}
+
 function referenceFob(node: ExchangeNode, origin: Agent['region'], view: MarketView): number {
   const close = node.lastFobByOrigin[origin];
   if (close !== undefined) return close;
@@ -326,14 +337,14 @@ function traderOrders(trader: Trader, view: MarketView, cfg: Config, ids: () => 
         // Never sell below what the barrels cost delivered, plus the export tariff and the spread —
         // unless the hub is nearly full, when space matters more than the margin (spec §6.4).
         const floor = fill >= cfg.TRADER_CLEAR_FILL ? 0 : averageCost(hub, node.grade) + cfg.HALF_SPREAD;
-        const price = roundUp(Math.max(0.01, floor, referenceFob(node, office, view) + cfg.HALF_SPREAD + shift));
+        const price = roundUp(Math.max(0.01, floor, traderReference(node, office, view) + cfg.HALF_SPREAD + shift));
         orders.push({ orderId: ids(), agentId: trader.agentId, node: name, side: 'ASK', limitPrice: price, qty: askQty, qtyRemaining: askQty, originRegion: office });
       }
 
       // Buy delivered into this office well below what the crude resells for here: a margin the
       // size of the region's tariff, plus the spread. It fills only when crude from elsewhere lands
       // cheaper than the local price — a gap between regions — which is the trader's whole edge.
-      const price = roundDown(referenceFob(node, office, view) - REGIONS[office].infrastructureTariff - cfg.HALF_SPREAD + shift);
+      const price = roundDown(traderReference(node, office, view) - REGIONS[office].infrastructureTariff - cfg.HALF_SPREAD + shift);
       if (!(price > 0)) continue;
       const room = Math.min(freePerGrade, budget / price, cashPerSlot / price);
       const bidQty = lots(trend === 'cheap' ? room : room / 2, lot);
