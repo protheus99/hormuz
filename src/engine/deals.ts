@@ -6,12 +6,13 @@
 // buyer SHORTFALL_RATE for any barrels it could not load. Deal trades never touch marker prices.
 
 import { acceptedGrades, averageCost, plantOf, wellOf } from './companies';
+import { freightRate, idleCharter } from './charters';
 import type { Config } from './config';
 import { FeeKind, type Grade, type Personality } from './enums';
 import type { ExchangeNode } from './clearing';
 import { recordFee, type FeeLedger } from './economics';
 import {
-  makeDealId, newCargo, type Agent, type AgentId, type Cargo, type CargoId, type ChokepointName, type Deal, type DealId,
+  makeDealId, newCargo, type Agent, type AgentId, type Cargo, type CargoId, type Charter, type ChokepointName, type Deal, type DealId,
   type RegionName, type Route, type Tick,
 } from './model';
 import type { RouteProvider } from './routes';
@@ -117,12 +118,13 @@ export interface DealDelivery {
  */
 export function deliverDeals(
   deals: Deal[], cargo: Cargo[], agents: ReadonlyMap<AgentId, Agent>, routes: RouteProvider, ledger: FeeLedger, tick: Tick, config: Config,
+  charters: readonly Charter[] = [],
 ): DealDelivery[] {
   const byId = new Map(deals.map((d) => [d.dealId, d]));
   const waiting = cargo.filter((c) => c.awaitingRoute);
   for (const c of waiting) {
     const deal = c.dealId === null ? undefined : byId.get(c.dealId);
-    dispatch(c, deal?.avoidChokepoints ?? [], cargo, agents, routes, ledger, tick);
+    dispatch(c, deal?.avoidChokepoints ?? [], cargo, agents, routes, ledger, tick, charters);
   }
 
   const report: DealDelivery[] = [];
@@ -173,7 +175,7 @@ export function deliverDeals(
       loaded.awaitingRoute = true;
       loaded.status = 'HELD';
       cargo.push(loaded);
-      dispatch(loaded, deal.avoidChokepoints, cargo, agents, routes, ledger, tick);
+      dispatch(loaded, deal.avoidChokepoints, cargo, agents, routes, ledger, tick, charters);
       held = loaded.awaitingRoute ? loaded.qty : 0;
     }
     report.push({ dealId: deal.dealId, delivered: qty, shortfall, held });
@@ -217,7 +219,7 @@ export function splitDeal(deal: Deal, avoid: readonly ChokepointName[], seqs: re
 // ─── Internals ───────────────────────────────────────────────────────────────────────────────
 
 /** Placeholder route for cargo still waiting at its origin. */
-const NO_ROUTE: Route = { edges: [], totalFreight: 0, totalTransit: 0, chokepoints: [] };
+const NO_ROUTE: Route = { edges: [], totalFreight: 0, totalSurcharge: 0, totalTransit: 0, chokepoints: [] };
 
 /**
  * Sends waiting deal cargo on its way, as far as pipeline space allows. Each route used carries
@@ -226,6 +228,7 @@ const NO_ROUTE: Route = { edges: [], totalFreight: 0, totalTransit: 0, chokepoin
  */
 function dispatch(
   c: Cargo, avoid: readonly ChokepointName[], cargo: Cargo[], agents: ReadonlyMap<AgentId, Agent>, routes: RouteProvider, ledger: FeeLedger, tick: Tick,
+  charters: readonly Charter[] | undefined,
 ): void {
   const owner = find(agents, c.ownerId);
   let part = 0;
@@ -234,12 +237,14 @@ function dispatch(
     if (route === null) return;
     const qty = routes.reserve(route, c.qty, owner.agentId);
     if (qty <= 0) return;
-    const freight = route.totalFreight * qty;
+    const charter = charters === undefined ? undefined : idleCharter(charters, cargo, owner.agentId, qty, tick);
+    const freight = freightRate(route, charter?.charterId ?? null) * qty;
     owner.cash -= freight;
     recordFee(ledger, { tick, agentId: owner.agentId, kind: FeeKind.FREIGHT, amount: freight });
 
     if (qty === c.qty) {
-      // Everything fits: this cargo itself leaves.
+      // Everything fits: this cargo itself leaves, on the charter if one was free.
+      (c as { charterId: Charter['charterId'] | null }).charterId = charter?.charterId ?? null;
       c.route = route;
       c.awaitingRoute = false;
       c.status = 'MOVING';
@@ -251,6 +256,7 @@ function dispatch(
     cargo.push(newCargo({
       cargoId: `${c.cargoId}-${String(tick).padStart(5, '0')}-${part++}` as CargoId, ownerId: c.ownerId, grade: c.grade, qty,
       origin: c.origin, destination: c.destination, route, dispatchTick: tick, dealId: c.dealId,
+      charterId: charter?.charterId ?? null,
     }));
     c.qty -= qty;
   }

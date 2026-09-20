@@ -170,6 +170,16 @@ const TEXT: Readonly<Record<string, CardText>> = {
     situation: 'Tank space is available in {region} at {rate} a barrel a day.',
     yes: 'Lease for 90 days.', maybe: 'Lease for 30 days.', no: 'Not now.',
   },
+  CHARTER_TANKER: {
+    title: 'Hire a tanker',
+    situation: 'A hired ship carries your crude for a daily fee instead of a charge on every barrel. A large one takes {large} barrels at {largeRate} a day, a small one {small} at {smallRate}.',
+    yes: 'Hire a large tanker for 90 days.', maybe: 'Hire a small one for 30 days.', no: 'Keep paying by the barrel.',
+  },
+  KEEP_AFLOAT: {
+    title: 'Hold your cargo at sea',
+    situation: '{grade} is {fall} below its recent average, and {qty} barrels of yours are arriving on your own ship. You can leave them aboard until prices recover.',
+    yes: 'Keep it at sea for a month.', maybe: 'Keep it at sea for a fortnight.', no: 'Land it and sell as usual.',
+  },
   OPEN_OFFICE: {
     title: 'Open a trading office',
     situation: 'An office in {region} lets you buy and sell there. It costs {cost}, then {daily} a day.',

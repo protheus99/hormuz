@@ -71,6 +71,11 @@ function traderBid(w: World, node: NodeName, office: RegionName): number {
   return Math.round((ref - REGIONS[office].infrastructureTariff - cfg.HALF_SPREAD) * 100) / 100;
 }
 
+/** How far below its recent average a grade must be before holding cargo at sea is offered. */
+const AFLOAT_DISCOUNT = 0.9;
+
+const GRADE_WORDS: Readonly<Record<string, string>> = { LIGHT_SWEET: 'Light crude', MEDIUM: 'Medium crude', HEAVY_SOUR: 'Heavy crude' };
+
 /** Hub fill above which renting more tanks is worth offering. */
 const LEASE_HUB_FILL = 0.7;
 
@@ -523,6 +528,49 @@ export const CATALOG: readonly CardDef[] = [
     type: 'EXPAND_TANKS', kinds: PLANTS, raised: false, opportunity: true, operating: false,
     detect: ({ w, me }) => (wellOf(me) ? null : { key: 'tanks', data: { step: bbl(w.config.STORAGE_STEP) } }),
     options: () => ({ yes: { actions: [{ kind: 'START_PROJECT', project: 'STORAGE', steps: 2 }] }, maybe: { actions: [{ kind: 'START_PROJECT', project: 'STORAGE', steps: 1 }] } }),
+  },
+
+  // ── Shipping: anyone who ships crude (spec §7.4) ──
+  {
+    type: 'CHARTER_TANKER', kinds: ALL, raised: false, opportunity: true, operating: false,
+    detect: ({ w, me }) => {
+      // One ship at a time is enough for a company this size; a second only burns hire.
+      if (w.charters.some((ch) => ch.ownerId === me.agentId)) return null;
+      const { SMALL, LARGE } = w.config.CHARTER;
+      return {
+        key: 'charter',
+        data: { small: bbl(SMALL.CAPACITY), smallRate: money(SMALL.RATE), large: bbl(LARGE.CAPACITY), largeRate: money(LARGE.RATE) },
+      };
+    },
+    options: () => ({
+      yes: { actions: [{ kind: 'CHARTER', size: 'LARGE', days: 90 }] },
+      maybe: { actions: [{ kind: 'CHARTER', size: 'SMALL', days: 30 }] },
+    }),
+  },
+  {
+    type: 'KEEP_AFLOAT', kinds: ALL, raised: true, opportunity: false, operating: false,
+    // Crude arriving on your own ship while its price is unusually low: the hire is already paid,
+    // so leaving it aboard until prices recover costs nothing more (spec G4.4 "Keep cargo afloat").
+    detect: ({ w, me }) => {
+      const mine = w.cargo.filter((c) => c.ownerId === me.agentId && c.charterId !== null && c.qty > 0 && c.floatUntil <= w.tick);
+      if (mine.length === 0) return null;
+      for (const c of mine) {
+        const node = w.nodes[NODE_FOR_GRADE[c.grade]];
+        const history = node.fobHistory[c.origin] ?? [];
+        if (history.length < 10) continue;
+        const average = history.reduce((sum, x) => sum + x, 0) / history.length;
+        if (node.markerPrice >= AFLOAT_DISCOUNT * average) continue;
+        return {
+          key: `afloat:${c.grade}`,
+          data: { grade: GRADE_WORDS[c.grade] ?? c.grade, fall: pct(1 - node.markerPrice / average), qty: bbl(c.qty) },
+        };
+      }
+      return null;
+    },
+    options: () => ({
+      yes: { actions: [{ kind: 'KEEP_AFLOAT', days: 30 }] },
+      maybe: { actions: [{ kind: 'KEEP_AFLOAT', days: 14 }] },
+    }),
   },
 
   // ── Trader ──

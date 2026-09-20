@@ -6,6 +6,7 @@
 // with behavior, the route provider, is rebuilt at the start of every tick from the lane graph.
 
 import { advanceProjects, chargeLeases, type CapitalProject, type Lease, type ReservationRecord, type StandingOrder } from './actions';
+import { expireCharters } from './charters';
 import { advancePlant, applyDecline, extract, internalTransfer, refine } from './agents';
 import { clear, createNode, submit, type ExchangeNode } from './clearing';
 import {
@@ -18,7 +19,7 @@ import {
 } from './economics';
 import { FeeKind, type ChokepointStatus, type Grade, type Personality, type Product } from './enums';
 import { runLogistics, type LogisticsReport } from './logistics';
-import { makeOrderId, type Agent, type AgentId, type Cargo, type ChokepointName, type Deal, type Fill, type NodeName, type Order, type Tick } from './model';
+import { makeOrderId, type Agent, type AgentId, type Cargo, type Charter, type ChokepointName, type Deal, type Fill, type NodeName, type Order, type Tick } from './model';
 import { nextFloat, rngFor, type Rng } from './rng';
 import { decideOrders, recordSales, rememberMarkers, updateOutput, updateThrottle, type MarketView } from './rules';
 import { placeOrder, releaseEscrow, settleFills } from './settlement';
@@ -93,6 +94,10 @@ export interface World {
   /** Capital projects under way, leases, standing orders and pipeline reservations (actions.ts). */
   projects: CapitalProject[];
   leases: Lease[];
+  /** Tankers on hire (spec §7.4). */
+  charters: Charter[];
+  /** Numbers charters as they are hired, so their ids are stable in a replay. */
+  charterSeq: number;
   standingOrders: StandingOrder[];
   reservations: ReservationRecord[];
   /**
@@ -146,6 +151,8 @@ export function createWorld(s: WorldSettings): World {
     insolvencies: {},
     projects: [],
     leases: [],
+    charters: [],
+    charterSeq: 0,
     standingOrders: [],
     reservations: [],
     cardsActive: false,
@@ -165,6 +172,7 @@ export function step(w: World): TickReport {
   // Phase 0: scheduled events, capital projects, product prices, plant upkeep, field decline, empty pipelines.
   applyEvents(w, byId);
   advanceProjects(w);
+  w.charters = expireCharters(w.charters, w.cargo, tick);
   byId = new Map<AgentId, Agent>(w.agents.map((a) => [a.agentId, a]));   // a finished refinery may have replaced a producer
   updatePrices(w.sink, baselineOutput(w), cfg);
   for (const a of w.agents) {
@@ -205,7 +213,7 @@ export function step(w: World): TickReport {
   }
 
   // Phase 5a: deal deliveries, ahead of the spot market.
-  const deliveries = deliverDeals(w.deals, w.cargo, byId, routes, w.ledger, tick, cfg);
+  const deliveries = deliverDeals(w.deals, w.cargo, byId, routes, w.ledger, tick, cfg, w.charters);
 
   // Phase 5b: every company runs its rules against the previous close; orders are escrowed.
   const asked = new Set<AgentId>();
@@ -240,7 +248,7 @@ export function step(w: World): TickReport {
   for (const name of NODE_NAMES) {
     const nodeFills = clear(w.nodes[name], { routes, tick, config: cfg });
     fills.push(...nodeFills);
-    w.cargo.push(...settleFills(nodeFills, byId, w.ledger));
+    w.cargo.push(...settleFills(nodeFills, byId, w.ledger, w.charters, w.cargo));
   }
   releaseEscrow(w.agents);
   recordSales(w.agents, asked, fills);
@@ -248,6 +256,7 @@ export function step(w: World): TickReport {
   // Phase 7: running costs, credit, trader memory, AI output cuts, insolvency, invariants.
   chargeRunningCosts(w, tick);
   chargeLeases(w);
+  chargeCharters(w, tick);
   settleCredit(w, tick);
   for (const a of w.agents) if (a.kind === 'PRODUCER' || a.kind === 'INTEGRATED') updateOutput(a, w.nodes, w.ledger, tick, cfg, !w.cardsActive);
   for (const a of w.agents) if (a.kind === 'TRADER') rememberMarkers(a, w.nodes);
@@ -328,6 +337,15 @@ export function checkInvariants(w: World, deliveries: readonly DealDelivery[] = 
     if (a.creditDrawn > a.creditLimit + 1e-6) fail(`${a.name} has drawn $${a.creditDrawn} on a $${a.creditLimit} line`);
     // 9. Solvency: cash is never negative while credit remains.
     if (a.cash < -1e-6 && a.creditDrawn < a.creditLimit - 1e-6) fail(`${a.name} has $${a.cash} with credit left`);
+  }
+
+  // 8. Limits: no cargo is bigger than the ship carrying it (spec §9).
+  const byCharter = new Map(w.charters.map((ch) => [ch.charterId, ch]));
+  for (const c of w.cargo) {
+    if (c.charterId === null) continue;
+    const ship = byCharter.get(c.charterId);
+    if (ship === undefined) fail(`cargo ${c.cargoId} names a charter that no longer exists`);
+    else if (c.qty > ship.capacity + 1e-6) fail(`cargo ${c.cargoId} is ${c.qty} bbl on a ${ship.capacity} bbl ship`);
   }
 
   // 7. Network: pipelines and straits within today's capacity.
@@ -444,6 +462,16 @@ function chargeRunningCosts(w: World, tick: Tick): void {
  * assets are valued at replacement cost: the plant at FACTORY_COST plus its tier upgrades, wells at
  * DRILL_COST and tanks at STORAGE_COST, all times the region's labor index.
  */
+/** Every hired tanker costs its daily rate, carrying cargo or not (spec §7.4). */
+function chargeCharters(w: World, tick: Tick): void {
+  for (const ch of w.charters) {
+    const owner = w.agents.find((a) => a.agentId === ch.ownerId);
+    if (owner === undefined) continue;
+    owner.cash -= ch.rate;
+    recordFee(w.ledger, { tick, agentId: owner.agentId, kind: FeeKind.CHARTER, amount: ch.rate });
+  }
+}
+
 export function creditLimit(a: Agent, cfg: Config): number {
   const base = a.kind === 'TRADER' ? cfg.CREDIT_BASE.TRADER : plantOf(a) ? cfg.CREDIT_BASE.REFINER : cfg.CREDIT_BASE.PRODUCER;
   return cfg.CREDIT_ASSET_SHARE * capitalAssets(a, cfg) + base;

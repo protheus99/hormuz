@@ -69,7 +69,7 @@ describe('plain data (spec §4.1)', () => {
     tick: 12, node: 'DME', buyerId: bid.agentId, sellerId: ask.agentId, qty: 5000,
     fobPrice: 58.6, freight: 9.8, destinationTariff: 1.0, landedPrice: 69.4,
     originRegion: 'Middle_East', deliveryRegion: 'Coastal_Asia',
-    route: { edges: [asEdgeId('ME-PG'), asEdgeId('PG-AS')], totalFreight: 9.8, totalTransit: 16, chokepoints: ['HORMUZ'] },
+    route: { edges: [asEdgeId('ME-PG'), asEdgeId('PG-AS')], totalFreight: 9.8, totalSurcharge: 0, totalTransit: 16, chokepoints: ['HORMUZ'] },
     dealId: null,
   };
 

@@ -200,7 +200,7 @@ describe('marker price and previous close (spec §3.3, §8 rule 7)', () => {
       tick: 5, node: 'DME', buyerId: asAgentId('a'), sellerId: asAgentId('b'), qty: 9000,
       fobPrice: 10, freight: 0, destinationTariff: 0, landedPrice: 10,
       originRegion: 'Middle_East', deliveryRegion: 'Middle_East',
-      route: { edges: [], totalFreight: 0, totalTransit: 1, chokepoints: [] }, dealId: asDealId('d-1'),
+      route: { edges: [], totalFreight: 0, totalSurcharge: 0, totalTransit: 1, chokepoints: [] }, dealId: asDealId('d-1'),
     };
     updateMarker(node, [dealFill], ctx());
     expect(node.markerPrice).toBe(62);

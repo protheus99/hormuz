@@ -47,6 +47,7 @@ export class StubRouteProvider implements RouteProvider {
       route: {
         edges: [asEdgeId(`stub-${i}`)],
         totalFreight: s.freight,
+        totalSurcharge: 0,
         totalTransit: s.transit,
         chokepoints: s.chokepoints ?? [],
       },
@@ -55,7 +56,7 @@ export class StubRouteProvider implements RouteProvider {
 
   route(origin: RegionName, destination: RegionName, avoid: readonly ChokepointName[] = [], agentId?: AgentId): Route | null {
     // Delivery inside one region: no freight, but still at least one tick (spec §5: T+1).
-    if (origin === destination) return { edges: [], totalFreight: 0, totalTransit: 1, chokepoints: [] };
+    if (origin === destination) return { edges: [], totalFreight: 0, totalSurcharge: 0, totalTransit: 1, chokepoints: [] };
 
     const usable = this.entries
       .filter((e) => e.origin === origin && e.destination === destination)

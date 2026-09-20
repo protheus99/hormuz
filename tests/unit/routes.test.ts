@@ -46,7 +46,7 @@ describe('StubRouteProvider (spec §14.4)', () => {
   });
 
   it('delivers within a region at no freight, one tick later (spec §5)', () => {
-    expect(routes.route('Coastal_Asia', 'Coastal_Asia')).toEqual({ edges: [], totalFreight: 0, totalTransit: 1, chokepoints: [] });
+    expect(routes.route('Coastal_Asia', 'Coastal_Asia')).toEqual({ edges: [], totalFreight: 0, totalSurcharge: 0, totalTransit: 1, chokepoints: [] });
   });
 
   it('treats a route without a capacity as unlimited', () => {

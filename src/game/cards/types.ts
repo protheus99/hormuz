@@ -17,7 +17,9 @@ export type CardType =
   | 'CHEAP_HEAVY' | 'SUPPLY_ROUTE_TROUBLE' | 'DEAL_CARGO_STUCK' | 'UPGRADE_TIER' | 'ADD_UNIT' | 'EXPAND_TANKS'
   // Trader
   | 'BACK_TO_BACK' | 'DISTRESSED_CARGO' | 'PRICES_LOW' | 'PRICE_GAP' | 'POSITION_FALLING' | 'CRISIS_BREWING'
-  | 'CARGO_STUCK' | 'LEASE_STORAGE' | 'OPEN_OFFICE';
+  | 'CARGO_STUCK' | 'LEASE_STORAGE' | 'OPEN_OFFICE'
+  // Shipping (spec §7.4)
+  | 'CHARTER_TANKER' | 'KEEP_AFLOAT';
 
 /** The four meters every option shows (spec G4.1, G4.5). */
 export interface Impact {

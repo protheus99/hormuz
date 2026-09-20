@@ -56,7 +56,7 @@ describe('default routes match the §3.5 sanity table', () => {
   });
 
   it('delivers inside a region for free, in one tick', () => {
-    expect(findRoute(g, 'North_Sea', 'North_Sea')).toEqual({ edges: [], totalFreight: 0, totalTransit: 1, chokepoints: [] });
+    expect(findRoute(g, 'North_Sea', 'North_Sea')).toEqual({ edges: [], totalFreight: 0, totalSurcharge: 0, totalTransit: 1, chokepoints: [] });
   });
 });
 

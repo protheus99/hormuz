@@ -4,12 +4,13 @@
 // each action does to the world and what it costs.
 
 import { internalTransfer, startMaintenance } from './agents';
+import { charterCost, newCharter } from './charters';
 import { acceptedGrades, averageCost, CLOSED_TO_NEW_REFINING, integrate, integrationPlant, plantCost, plantOf, total, wellOf } from './companies';
 import type { Config } from './config';
 import { cancelDeal, signDeal, type DealTerms } from './deals';
 import { FeeKind, type Grade, type Side } from './enums';
 import { recordFee } from './economics';
-import { asEdgeId, makeDealId, type Agent, type AgentId, type ChokepointName, type DealId, type NodeName, type RegionName, type Tick } from './model';
+import { asEdgeId, makeDealId, type Agent, type AgentId, type CharterSize, type ChokepointName, type DealId, type NodeName, type RegionName, type Tick } from './model';
 import { setReservation } from './transport';
 import type { World } from './world';
 import { LANES } from '../data/lanes';
@@ -80,6 +81,8 @@ export type Action =
   | { readonly kind: 'LEASE'; readonly region: RegionName; readonly capacity: number; readonly days: number }
   | { readonly kind: 'OPEN_OFFICE'; readonly region: RegionName }
   | { readonly kind: 'SELL_AT_SEA'; readonly share: number }
+  | { readonly kind: 'CHARTER'; readonly size: CharterSize; readonly days: number }
+  | { readonly kind: 'KEEP_AFLOAT'; readonly days: number }
   | { readonly kind: 'PAY'; readonly amount: number; readonly what: 'REPORT' };
 
 export type ActionKind = Action['kind'];
@@ -122,6 +125,11 @@ export function actionCost(w: World, agentId: AgentId, action: Action): { readon
     }
     case 'OPEN_OFFICE':
       return { now: cfg.OFFICE_COST.OPEN, total: cfg.OFFICE_COST.OPEN };
+    case 'CHARTER':
+      // The hire is paid by the day, so nothing leaves today.
+      return { now: 0, total: charterCost(cfg, action.size, action.days) };
+    case 'KEEP_AFLOAT':
+      return { now: 0, total: 0 };
     case 'PAY':
       return { now: action.amount, total: action.amount };
     case 'STANDING_ORDER':
@@ -311,6 +319,20 @@ export function applyAction(w: World, agentId: AgentId, action: Action): void {
         escrow: { LIGHT_SWEET: 0, MEDIUM: 0, HEAVY_SOUR: 0 },
         inbound: { LIGHT_SWEET: 0, MEDIUM: 0, HEAVY_SOUR: 0 }, cost: { LIGHT_SWEET: 0, MEDIUM: 0, HEAVY_SOUR: 0 },
       };
+      return;
+    }
+    case 'CHARTER': {
+      w.charterSeq += 1;
+      w.charters.push(newCharter(cfg, agentId, action.size, action.days, tick, w.charterSeq));
+      return;
+    }
+    case 'KEEP_AFLOAT': {
+      // Every cargo of this company that is riding one of its own ships waits at sea instead of
+      // unloading: the hire is already paid, so floating storage costs nothing further (spec §7.4).
+      const until = (tick + action.days) as Tick;
+      for (const c of w.cargo) {
+        if (c.ownerId === agentId && c.charterId !== null && c.qty > 0) c.floatUntil = until;
+      }
       return;
     }
     case 'SELL_AT_SEA': {

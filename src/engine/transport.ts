@@ -145,7 +145,7 @@ export function findRoute(
   avoid: readonly ChokepointName[] = [],
   agentId?: AgentId,
 ): Route | null {
-  if (origin === destination) return { edges: [], totalFreight: 0, totalTransit: 1, chokepoints: [] };
+  if (origin === destination) return { edges: [], totalFreight: 0, totalSurcharge: 0, totalTransit: 1, chokepoints: [] };
 
   const usable = (e: Edge): boolean => {
     if (e.chokepoint !== null) {
@@ -220,25 +220,27 @@ function edgeCost(g: LaneGraph, e: Edge): number {
 }
 
 /** Freight and transit for crossing an edge today, including any chokepoint surcharge and delay. */
-function crossing(g: LaneGraph, e: Edge): { freight: number; transit: number } {
-  if (e.chokepoint === null) return { freight: e.freight, transit: e.transit };
+function crossing(g: LaneGraph, e: Edge): { freight: number; surcharge: number; transit: number } {
+  if (e.chokepoint === null) return { freight: e.freight, surcharge: 0, transit: e.transit };
   const c = g.chokepoints[e.chokepoint];
   const surcharge = c.status === ChokepointStatus.TENSION || c.status === ChokepointStatus.DELAYED ? c.freightSurcharge : 0;
   const delay = c.status === ChokepointStatus.DELAYED ? c.delayTicks : 0;
-  return { freight: e.freight + surcharge, transit: e.transit + delay };
+  return { freight: e.freight + surcharge, surcharge, transit: e.transit + delay };
 }
 
 function toRoute(g: LaneGraph, path: readonly Edge[]): Route {
   let totalFreight = 0;
+  let totalSurcharge = 0;
   let totalTransit = 0;
   const chokepoints: ChokepointName[] = [];
   for (const e of path) {
     const c = crossing(g, e);
     totalFreight += c.freight;
+    totalSurcharge += c.surcharge;
     totalTransit += c.transit;
     if (e.chokepoint !== null) chokepoints.push(e.chokepoint);
   }
-  return { edges: path.map((e) => e.id), totalFreight, totalTransit, chokepoints };
+  return { edges: path.map((e) => e.id), totalFreight, totalSurcharge, totalTransit, chokepoints };
 }
 
 /** What happened to a cargo this tick. */

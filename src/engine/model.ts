@@ -20,11 +20,13 @@ export type AgentId = Brand<string, 'AgentId'>;
 export type OrderId = Brand<string, 'OrderId'>;
 export type DealId = Brand<string, 'DealId'>;
 export type CargoId = Brand<string, 'CargoId'>;
+export type CharterId = Brand<string, 'CharterId'>;
 export type EdgeId = Brand<string, 'EdgeId'>;
 
 export const asAgentId = (id: string): AgentId => id as AgentId;
 export const asDealId = (id: string): DealId => id as DealId;
 export const asCargoId = (id: string): CargoId => id as CargoId;
+export const asCharterId = (id: string): CharterId => id as CharterId;
 export const asEdgeId = (id: string): EdgeId => id as EdgeId;
 
 /**
@@ -85,6 +87,8 @@ export interface Route {
   readonly edges: readonly EdgeId[];
   /** $/bbl across every edge, including any chokepoint surcharge. */
   readonly totalFreight: number;
+  /** The war-risk part of that freight, $/bbl. Chartered cargo pays this and nothing else (§7.4). */
+  readonly totalSurcharge: number;
   /** Ticks, including chokepoint delays. */
   readonly totalTransit: number;
   readonly chokepoints: readonly ChokepointName[];
@@ -283,6 +287,10 @@ export interface Cargo {
   ticksLeft: number;
   /** Ticks spent floating offshore waiting for tank space (spec §5). */
   demurrageTicks: number;
+  /** The tanker carrying it, or null when it travels on the open freight market (spec §7.4). */
+  readonly charterId: CharterId | null;
+  /** Kept at sea deliberately until this tick: floating storage, no demurrage (the "Keep cargo afloat" card). */
+  floatUntil: Tick;
   /**
    * Deal cargo loaded and paid for, waiting at its origin because no route had pipeline space
    * (spec §5 phase 5a). It is HELD, never moves, and is routed again each day until space frees.
@@ -291,9 +299,26 @@ export interface Cargo {
 }
 
 /** A new cargo at the start of its route. Delivery inside one region still takes one tick (spec §5). */
-export function newCargo(fields: Omit<Cargo, 'status' | 'leg' | 'ticksLeft' | 'demurrageTicks' | 'awaitingRoute'>): Cargo {
+export function newCargo(fields: Omit<Cargo, 'status' | 'leg' | 'ticksLeft' | 'demurrageTicks' | 'awaitingRoute' | 'charterId' | 'floatUntil'> & { charterId?: CharterId | null }): Cargo {
   const local = fields.route.edges.length === 0;
-  return { ...fields, status: 'MOVING', leg: 0, ticksLeft: local ? 1 : 0, demurrageTicks: 0, awaitingRoute: false };
+  return {
+    ...fields, charterId: fields.charterId ?? null, floatUntil: 0 as Tick,
+    status: 'MOVING', leg: 0, ticksLeft: local ? 1 : 0, demurrageTicks: 0, awaitingRoute: false,
+  };
+}
+
+/** A hired tanker (spec §4.11, §7.4): a fleet of one or two, paid for by the day. */
+export type CharterSize = 'SMALL' | 'LARGE';
+
+export interface Charter {
+  readonly charterId: CharterId;
+  readonly ownerId: AgentId;
+  readonly size: CharterSize;
+  /** Barrels it can carry in one cargo. */
+  readonly capacity: number;
+  /** $ per tick while hired, whether or not it is carrying anything. */
+  readonly rate: number;
+  readonly untilTick: Tick;
 }
 
 // ---- Deals (spec §4.4, G4.3) -----------------------------------------------------------------

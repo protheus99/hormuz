@@ -52,6 +52,8 @@ export function runLogistics(
 
   for (const c of cargo) {
     if (c.status !== 'FLOATING') continue;
+    // Floating storage: the owner is paying for the ship, so it waits without demurrage (spec §7.4).
+    if (c.floatUntil > tick) continue;
     const owner = ownerOf(agents, c);
     delivered += unload(c, owner, ledger, tick);
     if (c.qty === 0) continue;
@@ -71,6 +73,10 @@ export function runLogistics(
   for (const c of cargo) {
     if (c.status === 'FLOATING' || c.qty === 0 || c.awaitingRoute) continue;
     if (advanceCargo(c, g) !== 'ARRIVED') continue;
+    if (c.floatUntil > tick) {
+      c.status = 'FLOATING';
+      continue;
+    }
     delivered += unload(c, ownerOf(agents, c), ledger, tick);
     if (c.qty > 0) c.status = 'FLOATING';
   }

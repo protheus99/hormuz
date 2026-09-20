@@ -12,12 +12,13 @@
 // requires exactly zero.
 
 import { availableCash, acceptedGrades, averageCost, plantOf, wellOf } from './companies';
+import { freightRate, idleCharter } from './charters';
 import { FeeKind } from './enums';
 import { recordFee, type FeeLedger } from './economics';
 import { NODES } from '../data/nodes';
 import { REGIONS } from '../data/regions';
 import {
-  makeCargoId, newCargo, type Agent, type AgentId, type Cargo, type Fill, type Order, type PlantState, type RegionName, type WellState,
+  makeCargoId, newCargo, type Agent, type AgentId, type Cargo, type Charter, type Fill, type Order, type PlantState, type RegionName, type WellState,
 } from './model';
 import type { Grade } from './enums';
 
@@ -49,7 +50,10 @@ export function placeOrder(agent: Agent, order: Order): void {
  * seller pays its origin tariff; the barrels leave the seller's escrow and ship as cargo owned by
  * the buyer. The destination tariff is paid on delivery, in Phase 4.
  */
-export function settleFills(fills: readonly Fill[], agents: ReadonlyMap<AgentId, Agent>, ledger: FeeLedger): Cargo[] {
+export function settleFills(
+  fills: readonly Fill[], agents: ReadonlyMap<AgentId, Agent>, ledger: FeeLedger,
+  charters: readonly Charter[] = [], atSea: readonly Cargo[] = [],
+): Cargo[] {
   const cargo: Cargo[] = [];
   fills.forEach((f, i) => {
     const buyer = find(agents, f.buyerId);
@@ -58,8 +62,9 @@ export function settleFills(fills: readonly Fill[], agents: ReadonlyMap<AgentId,
 
     sellableStock(seller, f.originRegion, grade).ship(f.qty);
 
+    const charter = idleCharter(charters, [...atSea, ...cargo], buyer.agentId, f.qty, f.tick);
     const goods = f.fobPrice * f.qty;
-    const freight = f.freight * f.qty;
+    const freight = freightRate(f.route, charter?.charterId ?? null) * f.qty;
     // A region's infrastructure tariff is paid once, when crude enters it. Crude leaving a trading
     // hub it was delivered into has already paid, so its resale pays no origin tariff (spec §7.1).
     const fromHub = seller.kind === 'TRADER' && seller.hubs[f.originRegion] !== undefined;
@@ -88,6 +93,7 @@ export function settleFills(fills: readonly Fill[], agents: ReadonlyMap<AgentId,
       route: f.route,
       dispatchTick: f.tick,
       dealId: f.dealId,
+      charterId: charter?.charterId ?? null,
     }));
   });
   return cargo;
