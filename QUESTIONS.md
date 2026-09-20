@@ -8,10 +8,11 @@ Recommendations are marked **R**.
 
 ---
 
-> **Answered 2026-09-19/20.** 1: **A, accepted** — producers stay quiet once they are in good
-> shape, and the campaign supplies the pressure. 2: **A, agreed** — neglect now bites (D39).
-> 3: **A, with the steer that volume is the lever and producers and refiners still make the bulk**
-> — done (D40). 4–7 are open.
+> **Answered 2026-09-19/20.** 1: **A, accepted**. 2: **A, agreed** — neglect now bites (D39).
+> 3: **A, with the steer that volume is the lever** — done (D40): a trader answering by the meters
+> now makes 19–51% a year. 5: **B** — the hand-drawn map stays for now. 6a: playtests once the
+> interface is usable. 6b: dropped. 6c: you will read the text. 7: **D** — all three built (D41,
+> D34, D42). **Question 4 is the only one still open**, restated below with fresh numbers.
 
 ## 1. Producers have few decisions once they have taken the obvious ones ✅ accepted (A)
 
@@ -113,37 +114,40 @@ agreed them, so I have nothing to tune the campaign against. Every scenario targ
   two are close, and keeps the refinery fed before chasing profit. This one stands in for a
   competent player, and it is the one the bands should be set against.
 
-**Where it stands** (three seeds each, all measured on today's build):
+**Where it stands** (three seeds each, measured on today's build, after the charters, the second
+refinery and the trading fixes):
 
-| Scenario | Level | No bot | Yes bot | Meter bot |
-|---|---|---|---|---|
-| P1 First Oil | Tutorial | 0/3 | 3/3 | 3/3 |
-| R1 Keep the Lights On | Tutorial | 0/3 | 3/3 | **1/3** |
-| T1 Buy Low | Tutorial | 0/3 | 3/3 | 3/3 |
-| P2 Shale Glut | Medium | 0/3 | **0/3** | **0/3** |
-| R2 Winter Diesel | Medium | 0/3 | 2/3 | 3/3 |
-| T2 Contango | Medium | **1/3** | 0/3 | 0/3 |
-| P3 Gulf Giant | Hard | 0/3 | 1/3 | 1/3 |
-| R3 Locked In | Hard | 0/3 | 3/3 | 1/3 |
-| T3 The Long Way Round | Hard | 0/3 | 3/3 | 2/3 |
-| ★ The Strait | Hard | 0/3 | 0/3 | 0/3 |
+| Scenario | Level | Ignores everything | Answers by the meters |
+|---|---|---|---|
+| P1 First Oil | Tutorial | 0/3 | 3/3 |
+| R1 Keep the Lights On | Tutorial | 0/3 | **1/3** |
+| T1 Buy Low | Tutorial | 0/3 | 3/3 |
+| P2 Shale Glut | Medium | 0/3 | 1/3 |
+| R2 Winter Diesel | Medium | 0/3 | 3/3 |
+| T2 Contango | Medium | **2/3** | 2/3 |
+| P3 Gulf Giant | Hard | 0/3 | 1/3 |
+| R3 Locked In | Hard | 0/3 | 1/3 |
+| T3 The Long Way Round | Hard | 0/3 | 3/3 |
+| ★ The Strait | Hard | 0/3 | 0/3 (best: 2nd of 20) |
 
-Four things stand out, and they are why I want a band rather than another round of guessing.
+And how often a decision arrives, over a Sandbox year: producer every 15 days, refiner every 12–14,
+trader every 8–13. The 7–14 day target is met for a competent player everywhere but the producer,
+and that one is close.
 
-**P2 is currently unwinnable.** Its target asks for 3.3 times your starting net worth; the best any
-bot managed today was 3.28. Every change to the economy moves these numbers, and I have been
-re-centring each target between two robots after every pass. That is not tuning, it is chasing.
+Three things need your steer rather than more tuning by me.
 
-**R1 and R3 are won by the Yes bot but not by the meter bot.** The meter bot declines supply deals
-whose projected profit is negative — and then runs out of crude, which loses outright. The deals
-really are unprofitable over the next 30 days; taking them anyway is right because running dry ends
-the scenario. So in these situations the **Profit meter points the wrong way**, and a player who
-reads it the way my bot does will lose. Either the Supply meter needs to shout louder than Profit
-when the tanks are nearly empty, or those cards need to say plainly what running dry costs.
+**R1, a tutorial, is won 1 time in 3.** Its goal is never to run out of crude in 90 days. A player
+who follows the Profit meter turns down supply deals that lose money over the next month — and then
+runs dry, which loses outright. The deals genuinely are unprofitable; taking them anyway is right.
+So either the Supply meter must outrank Profit when the tanks are nearly empty, or those cards must
+spell out what running dry costs. This is the clearest thing to fix next, whatever band you choose.
 
-**Nobody has ever won the finale.** The best result across all bots and seeds was third of twenty.
+**T2 is won by a player who ignores everything, 2 times in 3.** A refinery outage gluts a region and
+the trader's automatic rules already collect most of it. Charters now exist, so the scenario could
+be rebuilt around holding cargo at sea until the refinery restarts — that is what "contango" means —
+but I would rather do that once the band is set.
 
-**T2 is won by the bot that does nothing** — see question 3a.
+**Nobody wins the finale**, though a meter-led player reached second of twenty.
 
 **The question, part one.** What win rate should a competent player have?
 
@@ -163,7 +167,7 @@ type — twenty of them, most far bigger. Keep that, or change it to a top-three
 
 ---
 
-## 5. The map: hand-drawn outlines, or the real coastlines?
+## 5. The map: hand-drawn outlines, or the real coastlines? ✅ answered (B — revisit later)
 
 **What this is.** The world map shows land shapes I wrote by hand from memory — about a dozen rough
 outlines. They are recognisable (you can find the Gulf, the Red Sea, Malacca) but crude: no islands
@@ -194,7 +198,7 @@ internet into your repository, and it adds a build step you will maintain.
 
 ---
 
-## 6. The three things I cannot do myself
+## 6. The three things I cannot do myself ✅ answered
 
 These are not code. Each needs you, or someone you ask.
 
@@ -203,28 +207,20 @@ run robots all day; I cannot watch a person get confused. What I would want: thr
 who have never seen it, each playing one tutorial (about 20 minutes), with you noting where they
 hesitate and what they misread.
 
+> **Answered:** you will run these once the interface is usable.
+
 - **A (R)** Do this before any public release, on the current build. It is the cheapest way to find
   out whether the cards read plainly.
 - **B** Put it on itch.io first and gather feedback from strangers instead.
 - **C** Skip until there is a Steam build.
 
-**6b. Trademark search.** The title "Hormuz" and about thirty invented company names need checking
-before release. The names were invented to avoid real companies, but that is my judgement, not a
-search.
-
-- **A (R)** A professional search before release — a few hundred to a couple of thousand, depending
-  on how many classes and countries.
-- **B** A free search yourself (national trademark registers are searchable online), accepting the
-  risk for a free browser game and paying for a proper one only if it goes to Steam.
-- **C** Rename pre-emptively to something you are sure is clear, and skip the search.
-
-**6c. Plain-language review.** Every card and news item follows the wording rules (no violence, no
+**6c. Plain-language review** — *you will do this.* Every card and news item follows the wording rules (no violence, no
 real companies, plain words), but I wrote them all, so I am the wrong person to judge whether a
 teenager understands them. Who reads them — you, a teacher, one of the playtesters?
 
 ---
 
-## 7. The three features still not built
+## 7. The three features still not built ✅ done (D — all three)
 
 **What this is.** Three things the spec promises that I have not built, because each needs a system
 that does not exist yet:
