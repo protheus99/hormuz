@@ -13,6 +13,9 @@ const TABS: readonly [Tab, string][] = [['company', 'Company'], ['markets', 'Mar
 /** "Next decision" runs at most this many days in one go. */
 const NEXT_EVENT_DAYS = 90;
 const AUTOSAVE_DAYS = 30;
+/** A game's length in words: months for a short scenario, years for a long one. */
+const length = (days: number) => (days < 365 ? `${Math.round(days / 30)} months` : `${Math.round(days / 365)} yr`);
+
 /** At most this many days run in one step when the browser has delayed the clock. */
 const MAX_CATCH_UP = 8;
 
@@ -56,7 +59,7 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
     const c = view.company;
     mount($('top'), html`
       <span class="brand">HORMUZ</span>
-      <div class="stat"><span class="label">${c.name}</span><span class="value">${dateOf(view.tick)}${view.lengthDays !== null ? html` <span class="small muted">of ${Math.round(view.lengthDays / 365)} yr</span>` : ''}</span></div>
+      <div class="stat"><span class="label">${c.name}</span><span class="value">${dateOf(view.tick)}${view.lengthDays !== null ? html` <span class="small muted">of ${length(view.lengthDays)}</span>` : ''}</span></div>
       <div class="stat"><span class="label">Cash</span><span class="value ${c.cash < 0 ? 'bad' : ''}">${money(c.cash)}</span></div>
       <div class="stat"><span class="label">Net worth</span><span class="value">${money(c.netWorth)}</span></div>
       ${c.insolvent ? html`<div class="stat"><span class="label">Status</span><span class="value bad">Out of cash and credit</span></div>` : ''}
