@@ -20,6 +20,6 @@ for (const sc of SCENARIOS) {
     const results = [];
     for (const seed of seeds) results.push(await playScenario(sc.id, policy, seed));
     const wins = results.filter((r) => r.result === 'WON').length;
-    console.log(`${sc.id.padEnd(6)} ${sc.level.padEnd(6)} ${policy.padEnd(5)} won ${wins}/${seeds.length}  ${results.map((r) => `day ${r.day}: ${r.reason}`).join(' | ')}`);
+    console.log(`${sc.id.padEnd(6)} ${sc.level.padEnd(6)} ${policy.padEnd(5)} won ${wins}/${seeds.length}  ${results.map((r) => `${r.progress.join(', ')}`).join(' | ')}`);
   }
 }

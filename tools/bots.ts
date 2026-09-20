@@ -40,6 +40,8 @@ export interface BotResult {
   readonly result: 'WON' | 'LOST' | null;
   readonly day: number;
   readonly reason: string;
+  /** Where each goal stood at the end, won or lost: the numbers a target is tuned against. */
+  readonly progress: readonly string[];
 }
 
 export async function playScenario(id: ScenarioId, policy: BotPolicy, seed: string): Promise<BotResult> {
@@ -54,5 +56,8 @@ export async function playScenario(id: ScenarioId, policy: BotPolicy, seed: stri
     if (r.ended) break;
   }
   const view = await game.getView();
-  return { result: view.campaign?.result ?? null, day: view.tick, reason: view.campaign?.reason ?? '' };
+  return {
+    result: view.campaign?.result ?? null, day: view.tick, reason: view.campaign?.reason ?? '',
+    progress: view.campaign?.conditions.map((c) => c.progress) ?? [],
+  };
 }

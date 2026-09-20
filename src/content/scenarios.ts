@@ -205,8 +205,8 @@ export const SCENARIOS: readonly ScenarioData[] = [
     setup: { secondOffice: 'South_Asia' },
     blurb: 'The southern Red Sea is closed to shipping. Every cargo between Europe and Asia goes around Africa.',
     script: [{ tick: 3, chokepoint: 'BAB_EL_MANDEB', stages: [{ stage: 'DISRUPTION', days: 170, status: 'CLOSED', surcharge: 1.5 }] }],
-    goalText: 'Make $250K profit, with no cargo held at sea for more than 10 days.',
-    goal: [{ kind: 'PROFIT', atLeast: 250_000 }, { kind: 'MAX_HELD_DAYS', atMost: 10 }],
+    goalText: 'Make $500K profit, with no cargo held at sea for more than 10 days.',
+    goal: [{ kind: 'PROFIT', atLeast: 500_000 }, { kind: 'MAX_HELD_DAYS', atMost: 10 }],
     milestones: [
       { label: 'Open a third office', condition: { kind: 'OWN', what: 'OFFICES', atLeast: 3 }, reward: { cash: 250_000 } },
       { label: 'Stay solvent', condition: { kind: 'SOLVENT' }, reward: { report: true } },

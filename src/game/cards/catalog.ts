@@ -71,6 +71,9 @@ function traderBid(w: World, node: NodeName, office: RegionName): number {
   return Math.round((ref - REGIONS[office].infrastructureTariff - cfg.HALF_SPREAD) * 100) / 100;
 }
 
+/** Hub fill above which renting more tanks is worth offering. */
+const LEASE_HUB_FILL = 0.7;
+
 /** How long "commit capital to the gap" runs, and the turnover it assumes (spec G4.4). */
 const GAP_DAYS = 28;
 const GAP_TURNOVER_DAYS = 7;
@@ -707,11 +710,25 @@ export const CATALOG: readonly CardDef[] = [
     options: () => ({ yes: { actions: [{ kind: 'SELL_AT_SEA', share: 1 }] }, maybe: { actions: [{ kind: 'SELL_AT_SEA', share: 0.5 }] } }),
   },
   {
-    type: 'LEASE_STORAGE', kinds: ['TRADER'], raised: false, opportunity: true, operating: false,
+    type: 'LEASE_STORAGE', kinds: ['TRADER'], raised: true, opportunity: true, operating: false,
+    // Raised when crude is cheap and the tanks are filling: the moment extra space is worth renting,
+    // and the one lever the daily rules never pull for themselves (spec §6.4, G7.2 T2).
     detect: ({ w, me }) => {
       if (me.kind !== 'TRADER') return null;
-      const region = me.offices.find((o) => leaseRegions().includes(o));
-      return region ? { key: 'lease', data: { region: REGIONS[region].displayName, regionId: region, rate: money(leaseRate(w, region)) } } : null;
+      const region = me.offices.find((o) => {
+        const hub = me.hubs[o];
+        if (!leaseRegions().includes(o) || !hub || hub.capacity <= 0) return false;
+        return (total(hub.stock) + total(hub.inbound)) / hub.capacity >= LEASE_HUB_FILL;
+      });
+      if (region === undefined) return null;
+      const cheap = (['NYMEX', 'NC', 'DME'] as NodeName[]).some((node) => {
+        const memory = me.priceMemory[node];
+        if (memory === undefined || memory.length < 10) return false;
+        const average = memory.reduce((sum, x) => sum + x, 0) / memory.length;
+        return w.nodes[node].markerPrice < average;
+      });
+      if (!cheap) return null;
+      return { key: 'lease', data: { region: REGIONS[region].displayName, regionId: region, rate: money(leaseRate(w, region)) } };
     },
     options: ({ w }, s) => ({
       yes: { actions: [{ kind: 'LEASE', region: s.data.regionId as RegionName, capacity: w.config.LEASE_STEP, days: 90 }] },
