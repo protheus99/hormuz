@@ -102,12 +102,13 @@ function supplyUnit(a: Agent): 'days' | 'fill' | '$' {
 
 /**
  * Days of crude for a plant, storage fill for a producer, stock value for a trader. A plant's crude
- * counts what is on the way as well as what is in the tanks: buying urgently changes nothing in the
- * tanks for weeks, and a meter that cannot see the difference cannot show the decision.
+ * is what is in its tanks: barrels three weeks away at sea cannot be refined today, and counting
+ * them made the meter read comfortably while the plant was about to run dry (Phase 12). The
+ * projection runs long enough for a purchase to land, so buying urgently still shows.
  */
 function supplyNow(w: World, a: Agent): number {
   const plant = plantOf(a);
-  if (plant) return (total(plant.crudeStock) + plant.inboundBarrels) / Math.max(1, plant.processingCapacity);
+  if (plant) return total(plant.crudeStock) / Math.max(1, plant.processingCapacity);
   const well = wellOf(a);
   if (well) return well.storageCapacity > 0 ? well.storage / well.storageCapacity : 0;
   if (a.kind === 'TRADER') {

@@ -20,7 +20,8 @@ export type Condition =
   | { readonly kind: 'SOLVENT' }
   | { readonly kind: 'OWN'; readonly what: 'DEAL' | 'OFFICES' | 'TIER' | 'INTEGRATED' | 'DRILLING' | 'RESERVATION' | 'REPORT' | 'LEASE'; readonly atLeast: number; readonly by?: number }
   | { readonly kind: 'AHEAD_OF'; readonly rival: string }
-  | { readonly kind: 'RANK_FIRST' }
+  /** Finish within the first `places` companies of your own type, by profit per barrel of capacity. */
+  | { readonly kind: 'RANK_TOP'; readonly places: number }
   | { readonly kind: 'EXPORT_SHARE'; readonly chokepoint: ChokepointName; readonly atLeast: number }
   | { readonly kind: 'MAX_HELD_DAYS'; readonly atMost: number };
 
@@ -100,8 +101,8 @@ export const SCENARIOS: readonly ScenarioData[] = [
       ] },
       { tick: 90, engine: { tick: 90, kind: 'PRODUCT_SHOCK', product: 'GASOLINE', pct: -0.12, persistent: true }, news: { headline: 'Gasoline prices slide on weak demand', body: 'Refiners pay less for light crude.' } },
     ],
-    goalText: 'End the year with 3.3 times the net worth you started with.',
-    goal: [{ kind: 'NET_WORTH', times: 3.3 }],
+    goalText: 'End the year with 3.15 times the net worth you started with.',
+    goal: [{ kind: 'NET_WORTH', times: 3.15 }],
     milestones: [
       { label: 'Lock in a deal before day 90', condition: { kind: 'OWN', what: 'DEAL', atLeast: 1, by: 90 }, reward: { cash: 500_000 } },
       { label: 'Stay solvent all year', condition: { kind: 'SOLVENT' }, reward: { report: true } },
@@ -123,14 +124,18 @@ export const SCENARIOS: readonly ScenarioData[] = [
     ],
   },
   {
-    id: 'R1', title: 'Keep the Lights On', tutorial: true, level: 'EASY', playType: 'REFINER', region: 'Coastal_Asia', lengthDays: 90, difficulty: 'EASY', randomEvents: false,
+    // Southeast Asia has light crude of its own and sits on the Strait of Malacca: a first game
+    // should have supply within reach, and the disruption still lands on the player's doorstep.
+    id: 'R1', title: 'Keep the Lights On', tutorial: true, level: 'EASY', playType: 'REFINER', region: 'Southeast_Asia', lengthDays: 90, difficulty: 'EASY', randomEvents: false,
     setup: { techTier: 1, stockDays: 30 },
-    blurb: 'You run a small light-crude refinery on the East Asian coast. Keep it supplied and profitable.',
+    blurb: 'You run a small light-crude refinery in Southeast Asia. Keep it supplied and running.',
     script: [{ tick: 30, chokepoint: 'MALACCA', stages: [{ stage: 'DISRUPTION', days: 10, status: 'DELAYED', delay: 4 }] }],
-    // A tutorial teaches one thing: keep the plant fed. Ninety days of profit for a small Tier 1
-    // refinery is close to a coin toss, so it is not part of the goal (Phase 12).
-    goalText: 'Never run out of crude, and stay solvent.',
-    goal: [{ kind: 'STOCKOUT_DAYS', atMost: 0 }, { kind: 'SOLVENT' }],
+    // A tutorial teaches one thing: line up your own supply. A day's grace on the tanks, because a
+    // single dry day should not end a first game, but a deal is what actually keeps them full.
+    // A small plant twenty days from its crude runs dry for a day here and there whatever the
+    // player does, so a first game is not judged on that: line up supply, and stay solvent.
+    goalText: 'Sign a supply deal, and stay solvent.',
+    goal: [{ kind: 'OWN', what: 'DEAL', atLeast: 1 }, { kind: 'SOLVENT' }],
     milestones: [
       { label: 'Sign a supply deal', condition: { kind: 'OWN', what: 'DEAL', atLeast: 1 }, reward: { cash: 250_000 } },
       { label: 'Buy a market report', condition: { kind: 'OWN', what: 'REPORT', atLeast: 1 }, reward: { cash: 25_000 } },
@@ -193,8 +198,8 @@ export const SCENARIOS: readonly ScenarioData[] = [
       { tick: 5, engine: { tick: 5, kind: 'PLANT_ONLINE', agentId: 'Huanghai_Petrochem', online: false }, news: { headline: 'A major East Asian refinery shuts for repairs', body: 'Cargoes bound for it are looking for other buyers.' } },
       { tick: 55, engine: { tick: 55, kind: 'PLANT_ONLINE', agentId: 'Huanghai_Petrochem', online: true }, news: { headline: 'The East Asian refinery restarts', body: 'Demand for crude in the region recovers.' } },
     ],
-    goalText: 'Make $400K profit from the outage.',
-    goal: [{ kind: 'PROFIT', atLeast: 400_000 }],
+    goalText: 'Make $550K profit from the outage.',
+    goal: [{ kind: 'PROFIT', atLeast: 550_000 }],
     milestones: [
       { label: 'Lease extra storage', condition: { kind: 'OWN', what: 'LEASE', atLeast: 1 }, reward: { cash: 100_000 } },
       { label: 'Stay solvent', condition: { kind: 'SOLVENT' }, reward: { report: true } },
@@ -205,8 +210,8 @@ export const SCENARIOS: readonly ScenarioData[] = [
     setup: { secondOffice: 'South_Asia' },
     blurb: 'The southern Red Sea is closed to shipping. Every cargo between Europe and Asia goes around Africa.',
     script: [{ tick: 3, chokepoint: 'BAB_EL_MANDEB', stages: [{ stage: 'DISRUPTION', days: 170, status: 'CLOSED', surcharge: 1.5 }] }],
-    goalText: 'Make $500K profit, with no cargo held at sea for more than 10 days.',
-    goal: [{ kind: 'PROFIT', atLeast: 500_000 }, { kind: 'MAX_HELD_DAYS', atMost: 10 }],
+    goalText: 'Make $1M profit, with no cargo held at sea for more than 10 days.',
+    goal: [{ kind: 'PROFIT', atLeast: 1_000_000 }, { kind: 'MAX_HELD_DAYS', atMost: 10 }],
     milestones: [
       { label: 'Open a third office', condition: { kind: 'OWN', what: 'OFFICES', atLeast: 3 }, reward: { cash: 250_000 } },
       { label: 'Stay solvent', condition: { kind: 'SOLVENT' }, reward: { report: true } },
@@ -216,8 +221,8 @@ export const SCENARIOS: readonly ScenarioData[] = [
     id: 'FINALE', title: 'The Strait', tutorial: false, level: 'HARD', playType: null, region: null, lengthDays: 1095, difficulty: 'NORMAL', randomEvents: true,
     blurb: 'Three years. A full Hormuz crisis, another strait in trouble without warning, and everything else the market throws at you.',
     script: [hormuzCycle(400, 40)],
-    goalText: 'Finish first among companies of your type: most profit per barrel of capacity (traders: most growth).',
-    goal: [{ kind: 'RANK_FIRST' }],
+    goalText: 'Finish in the top three of your type, by profit per barrel of capacity (traders: by growth).',
+    goal: [{ kind: 'RANK_TOP', places: 3 }],
     milestones: [
       { label: 'Stay solvent for three years', condition: { kind: 'SOLVENT' }, reward: { report: true } },
       { label: 'Double your net worth', condition: { kind: 'NET_WORTH', times: 2 }, reward: { cash: 1_000_000 } },

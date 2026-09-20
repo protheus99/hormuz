@@ -276,12 +276,13 @@ export function evaluate(cond: Condition, c: CampaignState, w: World, me: Agent,
       const progress = `Your profit ${perBarrel(mine)} vs ${rival.name} ${perBarrel(theirs)}`;
       return { status: final ? (mine > theirs ? 'MET' : 'FAILED') : 'PENDING', progress };
     }
-    case 'RANK_FIRST': {
+    case 'RANK_TOP': {
       const kind = me.kind === 'INTEGRATED' ? 'PRODUCER' : me.kind;
       const rivals = w.agents.filter((a) => a !== me && (a.kind === kind || (kind === 'PRODUCER' && a.kind === 'INTEGRATED')));
       const mine = performance(c, w, me);
       const rank = 1 + rivals.filter((a) => performance(c, w, a) > mine).length;
-      return { status: final ? (rank === 1 ? 'MET' : 'FAILED') : 'PENDING', progress: `Rank ${rank} of ${rivals.length + 1}` };
+      const progress = `Rank ${rank} of ${rivals.length + 1} (need top ${cond.places})`;
+      return { status: final ? (rank <= cond.places ? 'MET' : 'FAILED') : 'PENDING', progress };
     }
     case 'EXPORT_SHARE': {
       // Barrels sold while the strait is closed, against what the company's wells could pump:

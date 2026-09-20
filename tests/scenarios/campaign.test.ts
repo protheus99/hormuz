@@ -25,19 +25,15 @@ describe('the scenarios (spec G7.2)', () => {
   });
 });
 
-describe('scripted bots (spec G4.7 check 4)', () => {
-  /**
-   * T2 is a known exception (QUESTIONS.md): a refinery outage gluts one region, and a trader's daily
-   * rules already capture most of that on their own, so on some seeds doing nothing wins. Separating
-   * it needs a lever the rules do not have — chartered storage or a forward sale — which is deferred.
-   */
-  const hard = SCENARIOS.filter((s) => s.level !== 'EASY' && s.id !== 'T2');
-  it.each(hard.map((s) => [s.id]))('the always-No bot loses %s', async (id) => {
+describe('scripted bots (spec G4.7 check 4, the D44 band)', () => {
+  it.each(SCENARIOS.map((s) => [s.id]))('a player who ignores everything loses %s', async (id) => {
     expect((await playScenario(id, 'NO', 'acceptance')).result).toBe('LOST');
   }, 120_000);
 
-  it.each([['P1'], ['R1']] as const)('the tutorial %s can be won by answering Yes', async (id) => {
-    expect((await playScenario(id, 'YES', 'acceptance')).result).toBe('WON');
+  // The band is set against a player who answers by the meters, so the tutorials are checked with
+  // that bot: a first game should be winnable by reading what the cards say (D44).
+  it.each([['P1'], ['R1'], ['T1']] as const)('the tutorial %s is won by answering with the meters', async (id) => {
+    expect((await playScenario(id, 'METER', 'acceptance')).result).toBe('WON');
   }, 120_000);
 });
 

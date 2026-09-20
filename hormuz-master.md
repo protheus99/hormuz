@@ -107,7 +107,7 @@ A **deal** is an agreement for one company to supply another with a fixed volume
 | A card to cancel, with the fee shown | Early termination (`CANCEL_RATE` × remaining deal value) |
 | — | Keeping deals out of marker prices; AI offer and acceptance logic |
 
-Deals only arrive as cards: a rival offers one, or the player opens **Find a deal** and offers arrive within `TENDER_DELAY`. There is no haggling. The price is fixed at signing from the 20-day average FOB price at the origin, adjusted ±2% by the offering company's personality. No company may have more than `DEAL_MAX_SHARE` of its capacity under deals, so the spot market keeps real volume.
+Deals only arrive as cards: a rival offers one, or the player opens **Find a deal** and offers arrive within `TENDER_DELAY`. There is no haggling. The price is fixed at signing from the 20-day average FOB price at the origin, **never above what the crude last fetched there** (D43), adjusted ±2% by the offering company's personality. Without that cap a falling market produced offers above spot, which no sensible player signs — and a refiner that turned them all down ran dry. No company may have more than `DEAL_MAX_SHARE` of its capacity under deals, so the spot market keeps real volume.
 
 **Why deals carry the Hormuz story.** A refiner holding a Gulf deal keeps loading and paying after the strait closes while its cargo waits at the entry, and it decides through cards whether to reroute, cancel, or buy emergency crude elsewhere. The fixed price makes the stakes obvious: "you locked in $61 and the market is at $79" is a saving anyone understands.
 

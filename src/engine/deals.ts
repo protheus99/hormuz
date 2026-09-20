@@ -38,10 +38,13 @@ export interface DealTerms {
  * one concedes 2%. Falls back to the latest close, then the node's marker.
  */
 export function priceDeal(node: ExchangeNode, origin: RegionName, offeredBy: 'SELLER' | 'BUYER', personality: Personality | null): number {
+  // The 20-day average, but never above what the crude last fetched: in a falling market an
+  // average-priced offer sits above spot, and nobody sensible signs a deal dearer than the market
+  // (D43). A rising market still prices off the average, which is what makes a deal worth having.
   const history = node.fobHistory[origin] ?? [];
-  const base = history.length > 0
-    ? history.reduce((s, x) => s + x, 0) / history.length
-    : node.lastFobByOrigin[origin] ?? node.markerPrice;
+  const latest = node.lastFobByOrigin[origin] ?? node.markerPrice;
+  const average = history.length > 0 ? history.reduce((s, x) => s + x, 0) / history.length : latest;
+  const base = Math.min(average, latest);
   const lean = personality === 'AGGRESSIVE' ? 0.02 : personality === 'CONSERVATIVE' ? -0.02 : 0;
   const factor = 1 + (offeredBy === 'SELLER' ? lean : -lean);
   return Math.round(base * factor * 100) / 100;
