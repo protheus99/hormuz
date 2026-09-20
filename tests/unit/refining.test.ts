@@ -45,7 +45,7 @@ describe('effective utilization (spec §4.9)', () => {
 describe('refine (spec §5 phase 3)', () => {
   it('refines up to capacity, best-margin grade first', () => {
     // Margins at base prices: light 97 − 6 = 91, medium 93.9 − 8 = 85.9, heavy 90 − 11 = 79.
-    const result = refine(straits, sink, ledger, 1);
+    const result = refine(straits, straits, sink, ledger, 1);
     expect(result.byGrade).toEqual({ LIGHT_SWEET: 3000, MEDIUM: 2000, HEAVY_SOUR: 3000 });
     expect(result.barrels).toBe(8000);
     expect(straits.crudeStock).toEqual({ LIGHT_SWEET: 0, MEDIUM: 0, HEAVY_SOUR: 7000 });
@@ -53,7 +53,7 @@ describe('refine (spec §5 phase 3)', () => {
 
   it('sells the output to the retail sink and pays opex out of the economy', () => {
     const cashBefore = straits.cash;
-    const result = refine(straits, sink, ledger, 1);
+    const result = refine(straits, straits, sink, ledger, 1);
     const expectedRevenue = 3000 * productValue('LIGHT_SWEET', sink.prices)
       + 2000 * productValue('MEDIUM', sink.prices) + 3000 * productValue('HEAVY_SOUR', sink.prices);
     const expectedOpex = 3000 * 6 + 2000 * 8 + 3000 * 11;
@@ -67,19 +67,19 @@ describe('refine (spec §5 phase 3)', () => {
   it('switches to the grade that pays best when product prices move', () => {
     // Fuel oil worth $300 makes heavy sour (18% fuel oil) the best barrel to refine.
     sink.prices.FUEL_OIL = 300;
-    const result = refine(straits, sink, ledger, 1);
+    const result = refine(straits, straits, sink, ledger, 1);
     expect(result.byGrade.HEAVY_SOUR).toBe(8000);
   });
 
   it('runs slower when throttled and during tier-upgrade works', () => {
     straits.utilization = 0.5;
     straits.worksFactor = DEFAULT_CONFIG.WORKS_CAPACITY_FACTOR;
-    expect(refine(straits, sink, ledger, 1).barrels).toBe(8000 * 0.5 * 0.6);
+    expect(refine(straits, straits, sink, ledger, 1).barrels).toBe(8000 * 0.5 * 0.6);
   });
 
   it('refines nothing when offline, and records no fee', () => {
     straits.online = false;
-    const result = refine(straits, sink, ledger, 1);
+    const result = refine(straits, straits, sink, ledger, 1);
     expect(result.barrels).toBe(0);
     expect(ledger.entries).toEqual([]);
     expect(straits.cash).toBe(3_000_000);
@@ -91,7 +91,7 @@ describe('refine (spec §5 phase 3)', () => {
       processingCapacity: 6000, crudeStorageCapacity: 20_000, crudeStock: { LIGHT_SWEET: 1000 },
     });
     metro.crudeStock.MEDIUM = 5000;   // placed by hand; placeOrder would never allow it
-    const result = refine(metro, sink, ledger, 1);
+    const result = refine(metro, metro, sink, ledger, 1);
     expect(result.byGrade).toEqual({ LIGHT_SWEET: 1000, MEDIUM: 0, HEAVY_SOUR: 0 });
     expect(metro.crudeStock.MEDIUM).toBe(5000);
   });

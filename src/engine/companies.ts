@@ -98,7 +98,7 @@ export function createProducer(s: ProducerSpec): Producer {
 
 export function createRefiner(s: RefinerSpec): Refiner {
   requireNonNegative(s, { cash: s.cash });
-  return { ...base(s), kind: AgentKind.REFINER, ...buildPlant(s, s.region, s) };
+  return { ...base(s), kind: AgentKind.REFINER, ...buildPlant(s, s.region, s), second: null };
 }
 
 /** An integrated major that exists from the start, as in an AI portfolio (spec §10). */
@@ -146,6 +146,18 @@ export function integrationPlant(p: Producer, config: Config): PlantSpec {
 }
 
 /**
+ * A refiner's second refinery (D34): a `UNIT_CAPACITY` plant at the same tier as its first, with ten
+ * days of tanks, standing in another refining region and sharing the company's wallet.
+ */
+export function secondPlantSpec(a: Refiner, config: Config): PlantSpec {
+  return { techTier: a.techTier, processingCapacity: config.UNIT_CAPACITY, crudeStorageCapacity: 10 * config.UNIT_CAPACITY };
+}
+
+export function secondPlant(a: Refiner, region: RegionName, config: Config): PlantState {
+  return buildPlant({ id: a.agentId, name: a.name, region, cash: a.cash }, region, secondPlantSpec(a, config));
+}
+
+/**
  * What a new plant costs to build (spec G2, §7.4): FACTORY_COST per bbl/day, plus TIER_COST for
  * each tier above 1, all scaled by the region's labor index.
  */
@@ -189,6 +201,7 @@ function buildPlant(owner: CompanySpec, region: RegionName, pl: PlantSpec): Plan
   requireNonNegative(owner, { processingCapacity: pl.processingCapacity, ...crudeStock });
   if (total(crudeStock) > pl.crudeStorageCapacity) fail(owner, 'crude stock exceeds storage capacity');
   return {
+    region,
     techTier: pl.techTier,
     processingCapacity: pl.processingCapacity,
     crudeStorageCapacity: pl.crudeStorageCapacity,
@@ -235,6 +248,18 @@ export function createTrader(s: TraderSpec): Trader {
 export function averageCost(hub: HubHolding, grade: Grade): number {
   const barrels = hub.stock[grade] + hub.escrow[grade] + hub.inbound[grade];
   return barrels > 0 ? Math.max(0, hub.cost[grade] / barrels) : 0;
+}
+
+/** Every refinery a company runs: its home plant, and a refiner's second site if it has one (D34). */
+export function plantsOf(a: Agent): PlantState[] {
+  if (a.kind === 'REFINER') return a.second === null ? [a] : [a, a.second];
+  if (a.kind === 'INTEGRATED') return [a.plant];
+  return [];
+}
+
+/** The company's refinery in one region, if it has one there. */
+export function plantAt(a: Agent, region: RegionName): PlantState | undefined {
+  return plantsOf(a).find((p) => p.region === region);
 }
 
 /** Total barrels across every grade. */

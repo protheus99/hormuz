@@ -9,11 +9,11 @@ import { REGIONS, type RegionName } from '../../data/regions';
 import { leaseRate, leaseRegions, OFFICE_HUB_CAPACITY, projectCost, type Action } from '../../engine/actions';
 import { actualCost, effectiveUtilization, fillRatio } from '../../engine/agents';
 import { previousClose, referencePrice } from '../../engine/clearing';
-import { acceptedGrades, averageCost, CLOSED_TO_NEW_REFINING, integrationPlant, plantOf, total, wellOf } from '../../engine/companies';
+import { acceptedGrades, averageCost, CLOSED_TO_NEW_REFINING, integrationPlant, plantOf, plantsOf, total, wellOf } from '../../engine/companies';
 import { configFor } from '../../engine/config';
 import { priceDeal, signDeal, type DealTerms } from '../../engine/deals';
 import type { Grade } from '../../engine/enums';
-import type { Agent, AgentId, Deal, Producer } from '../../engine/model';
+import type { Agent, AgentId, Deal, PlantState, Producer } from '../../engine/model';
 import { refinerQuote, type MarketView } from '../../engine/rules';
 import { avoidFor, findRoute, LaneRouteProvider } from '../../engine/transport';
 import { netWorth, type World } from '../../engine/world';
@@ -69,6 +69,36 @@ function traderBid(w: World, node: NodeName, office: RegionName): number {
   const netback = Math.max(0, marker.markerPrice - (toMarker?.totalFreight ?? 0));
   const ref = Math.min(referencePrice(marker, office) ?? marker.markerPrice, netback);
   return Math.round((ref - REGIONS[office].infrastructureTariff - cfg.HALF_SPREAD) * 100) / 100;
+}
+
+/** The first refinery a situation applies to, with its site number (D34: a refiner may run two). */
+function firstSite(a: Agent, when: (plant: PlantState) => boolean): { site: number; plant: PlantState } | undefined {
+  const site = plantsOf(a).findIndex(when);
+  const plant = plantsOf(a)[site];
+  return plant === undefined ? undefined : { site, plant };
+}
+
+/** Where a company's site number stands, for card text and actions. */
+function siteName(a: Agent, site: number): RegionName {
+  return plantsOf(a)[site]?.region ?? a.region;
+}
+
+/**
+ * Where a refiner's second refinery should go (D34): the nearest refining region open to new plants
+ * where it does not already refine, since a short voyage is what makes two sites worth running.
+ */
+function secondSiteFor(w: World, me: Agent): RegionName | undefined {
+  const mine = new Set(plantsOf(me).map((p) => p.region as string));
+  const options = (Object.keys(REGIONS) as RegionName[]).filter((r) => (
+    !mine.has(r) && !CLOSED_TO_NEW_REFINING.includes(r) && (REGIONS[r].roles as readonly string[]).includes('REFINING')
+  ));
+  let best: { region: RegionName; transit: number } | undefined;
+  for (const region of options) {
+    const route = findRoute(w.graph, me.region, region);
+    if (route === null) continue;
+    if (best === undefined || route.totalTransit < best.transit) best = { region, transit: route.totalTransit };
+  }
+  return best?.region;
 }
 
 /** How far below its recent average a grade must be before holding cargo at sea is offered. */
@@ -388,67 +418,92 @@ export const CATALOG: readonly CardDef[] = [
   {
     type: 'STOCK_LOW', kinds: PLANTS, raised: true, opportunity: false, operating: true,
     detect: ({ me }) => {
-      const plant = plantOf(me);
-      if (!plant) return null;
-      const use = plant.processingCapacity * effectiveUtilization(plant);
-      if (use <= 0) return null;
-      const days = (total(plant.crudeStock) + plant.inboundBarrels) / use;
-      return days < 5 ? { key: 'stock', data: { days: Math.round(days * 10) / 10 } } : null;
+      const found = firstSite(me, (plant) => {
+        const use = plant.processingCapacity * effectiveUtilization(plant);
+        return use > 0 && (total(plant.crudeStock) + plant.inboundBarrels) / use < 5;
+      });
+      if (!found) return null;
+      const use = found.plant.processingCapacity * effectiveUtilization(found.plant);
+      const days = (total(found.plant.crudeStock) + found.plant.inboundBarrels) / use;
+      return { key: `stock:${found.site}`, data: { days: Math.round(days * 10) / 10, site: found.site } };
     },
-    options: ({ w, me }) => {
-      const plant = plantOf(me) as NonNullable<ReturnType<typeof plantOf>>;
-      const quote = me.kind === 'REFINER' || me.kind === 'INTEGRATED' ? refinerQuote(me, viewFor(w, me), configFor(me.settings, w.config)) : null;
-      if (!quote) return { yes: { actions: [] }, maybe: null };
+    options: ({ w, me }, s) => {
+      const site = Number(s.data.site);
+      const plant = plantsOf(me)[site];
+      const quote = plant && (me.kind === 'REFINER' || me.kind === 'INTEGRATED')
+        ? refinerQuote(me, plant, viewFor(w, me), configFor(me.settings, w.config))
+        : null;
+      if (!quote || !plant) return { yes: { actions: [] }, maybe: null };
       const price = Math.floor(quote.deliveredMax * 100) / 100;
       const qty = lot(w, 10 * plant.processingCapacity);
-      const bid = (q: number): Action => ({ kind: 'STANDING_ORDER', side: 'BID', node: quote.node, region: me.region, price, qty: q, days: 1 });
+      const bid = (q: number): Action => ({ kind: 'STANDING_ORDER', side: 'BID', node: quote.node, region: plant.region, price, qty: q, days: 1 });
       return {
         yes: { actions: [bid(qty)] },
-        maybe: { actions: [bid(lot(w, qty / 2)), { kind: 'SET_RUN_CAP', cap: 0.75, days: 30 }] },
+        maybe: { actions: [bid(lot(w, qty / 2)), { kind: 'SET_RUN_CAP', cap: 0.75, days: 30, site }] },
       };
     },
   },
   {
     type: 'REFINING_LOSING', kinds: PLANTS, raised: true, opportunity: false, operating: true,
     detect: ({ me }) => {
-      const plant = plantOf(me);
-      return plant && plant.lowMarginDays >= 5 && plant.utilizationCap > 0.5 ? { key: 'losing', data: { days: plant.lowMarginDays } } : null;
+      const found = firstSite(me, (plant) => plant.lowMarginDays >= 5 && plant.utilizationCap > 0.5);
+      return found ? { key: `losing:${found.site}`, data: { days: found.plant.lowMarginDays, site: found.site } } : null;
     },
-    options: () => ({ yes: { actions: [{ kind: 'SET_RUN_CAP', cap: 0.5, days: 30 }] }, maybe: { actions: [{ kind: 'SET_RUN_CAP', cap: 0.75, days: 30 }] } }),
+    options: (_ctx, s) => {
+      const site = Number(s.data.site);
+      return {
+        yes: { actions: [{ kind: 'SET_RUN_CAP', cap: 0.5, days: 30, site }] },
+        maybe: { actions: [{ kind: 'SET_RUN_CAP', cap: 0.75, days: 30, site }] },
+      };
+    },
   },
   {
     type: 'MARGINS_STRONG', kinds: PLANTS, raised: true, opportunity: false, operating: true,
     detect: ({ w, me }) => {
-      const plant = plantOf(me);
-      if (!plant || plant.lastMargin <= 2 * w.config.FIXED_COST_RATE.REFINER) return null;
       // Only while maintenance is coming due: an overdue plant is not offered another deferral.
-      const since = plant.daysSinceMaintenance;
-      if (since < w.config.MAINT_INTERVAL - 30 || since >= w.config.MAINT_INTERVAL || plant.maintenanceHoldUntil > w.tick || plant.fullRunUntil >= w.tick) return null;
-      return { key: 'strong', data: { margin: money(plant.lastMargin) } };
+      const found = firstSite(me, (plant) => plant.lastMargin > 2 * w.config.FIXED_COST_RATE.REFINER
+        && plant.daysSinceMaintenance >= w.config.MAINT_INTERVAL - 30
+        && plant.daysSinceMaintenance < w.config.MAINT_INTERVAL
+        && plant.maintenanceHoldUntil <= w.tick && plant.fullRunUntil < w.tick);
+      return found ? { key: `strong:${found.site}`, data: { margin: money(found.plant.lastMargin), site: found.site } } : null;
     },
-    options: () => ({
-      yes: { actions: [{ kind: 'RUN_FLAT_OUT', days: 30 }, { kind: 'DEFER_MAINTENANCE', days: 60 }] },
-      maybe: { actions: [{ kind: 'RUN_FLAT_OUT', days: 30 }] },
-    }),
+    options: (_ctx, s) => {
+      const site = Number(s.data.site);
+      return {
+        yes: { actions: [{ kind: 'RUN_FLAT_OUT', days: 30, site }, { kind: 'DEFER_MAINTENANCE', days: 60, site }] },
+        maybe: { actions: [{ kind: 'RUN_FLAT_OUT', days: 30, site }] },
+      };
+    },
   },
   {
     type: 'MAINTENANCE_DUE', kinds: PLANTS, raised: true, opportunity: false, operating: true,
     detect: ({ w, me }) => {
-      const plant = plantOf(me);
-      if (!plant || plant.daysSinceMaintenance < w.config.MAINT_INTERVAL) return null;
-      if (plant.maintenanceTicksRemaining > 0 || plant.maintenanceAt !== null || plant.maintenanceHoldUntil > w.tick) return null;
-      return { key: 'maintenance', data: { days: plant.daysSinceMaintenance } };
+      const found = firstSite(me, (plant) => plant.daysSinceMaintenance >= w.config.MAINT_INTERVAL
+        && plant.maintenanceTicksRemaining === 0 && plant.maintenanceAt === null && plant.maintenanceHoldUntil <= w.tick);
+      return found ? { key: `maintenance:${found.site}`, data: { days: found.plant.daysSinceMaintenance, site: found.site } } : null;
     },
-    options: () => ({ yes: { actions: [{ kind: 'MAINTAIN_NOW' }] }, maybe: { actions: [{ kind: 'SCHEDULE_MAINTENANCE', inDays: 14 }] } }),
+    options: (_ctx, s) => {
+      const site = Number(s.data.site);
+      return {
+        yes: { actions: [{ kind: 'MAINTAIN_NOW', site }] },
+        maybe: { actions: [{ kind: 'SCHEDULE_MAINTENANCE', inDays: 14, site }] },
+      };
+    },
   },
   {
     type: 'BREAKDOWN', kinds: PLANTS, raised: true, opportunity: false, operating: true,
     detect: ({ me, memory }) => {
-      const plant = plantOf(me);
-      if (!plant || plant.outageTicksRemaining <= 0 || memory.outageSeen[me.agentId] === true) return null;
-      return { key: 'breakdown', data: { days: plant.outageTicksRemaining } };
+      if (memory.outageSeen[me.agentId] === true) return null;
+      const found = firstSite(me, (plant) => plant.outageTicksRemaining > 0);
+      return found ? { key: `breakdown:${found.site}`, data: { days: found.plant.outageTicksRemaining, site: found.site } } : null;
     },
-    options: () => ({ yes: { actions: [{ kind: 'EMERGENCY_REPAIR' }] }, maybe: { actions: [{ kind: 'PARTIAL_RESTART', share: 0.5 }] } }),
+    options: (_ctx, s) => {
+      const site = Number(s.data.site);
+      return {
+        yes: { actions: [{ kind: 'EMERGENCY_REPAIR', site }] },
+        maybe: { actions: [{ kind: 'PARTIAL_RESTART', share: 0.5, site }] },
+      };
+    },
   },
   {
     type: 'CHEAP_HEAVY', kinds: PLANTS, raised: true, opportunity: false, operating: false,
@@ -513,11 +568,22 @@ export const CATALOG: readonly CardDef[] = [
   {
     type: 'UPGRADE_TIER', kinds: PLANTS, raised: false, opportunity: true, operating: false,
     detect: ({ w, me }) => {
-      const plant = plantOf(me);
-      if (!plant || plant.techTier >= 3 || w.projects.some((p) => p.agentId === me.agentId && p.kind === 'TIER')) return null;
-      return { key: 'tier', data: { next: plant.techTier + 1, grades: plant.techTier === 1 ? 'medium as well as light crude' : 'heavy crude too', ticks: w.config.TIER_TICKS } };
+      if (w.projects.some((p) => p.agentId === me.agentId && p.kind === 'TIER')) return null;
+      const site = plantsOf(me).findIndex((p) => p.techTier < 3);
+      const plant = plantsOf(me)[site];
+      if (!plant) return null;
+      return {
+        key: `tier:${site}`,
+        data: {
+          next: plant.techTier + 1, site, where: siteName(me, site),
+          grades: plant.techTier === 1 ? 'medium as well as light crude' : 'heavy crude too', ticks: w.config.TIER_TICKS,
+        },
+      };
     },
-    options: () => ({ yes: { actions: [{ kind: 'START_PROJECT', project: 'TIER', steps: 1 }] }, maybe: null }),
+    options: (_ctx, s) => ({
+      yes: { actions: [{ kind: 'START_PROJECT', project: 'TIER', steps: 1, region: s.data.where as RegionName, site: Number(s.data.site) }] },
+      maybe: null,
+    }),
   },
   {
     type: 'ADD_UNIT', kinds: PLANTS, raised: false, opportunity: true, operating: false,
@@ -528,6 +594,27 @@ export const CATALOG: readonly CardDef[] = [
     type: 'EXPAND_TANKS', kinds: PLANTS, raised: false, opportunity: true, operating: false,
     detect: ({ w, me }) => (wellOf(me) ? null : { key: 'tanks', data: { step: bbl(w.config.STORAGE_STEP) } }),
     options: () => ({ yes: { actions: [{ kind: 'START_PROJECT', project: 'STORAGE', steps: 2 }] }, maybe: { actions: [{ kind: 'START_PROJECT', project: 'STORAGE', steps: 1 }] } }),
+  },
+
+  {
+    type: 'SECOND_REFINERY', kinds: ['REFINER'], raised: false, opportunity: true, operating: false,
+    // A refiner's late game (D34): a second plant in another refining region, sharing the wallet.
+    detect: ({ w, me, memory }) => {
+      if (me.kind !== 'REFINER' || me.second !== null) return null;
+      if (w.projects.some((p) => p.agentId === me.agentId && p.kind === 'REFINERY')) return null;
+      const start = memory.startNetWorth[me.agentId] ?? Infinity;
+      if (netWorth(w, me) < w.config.INTEGRATE_THRESHOLD * start) return null;
+      const region = secondSiteFor(w, me);
+      if (region === undefined) return null;
+      return {
+        key: 'second-refinery',
+        data: { region: REGIONS[region].displayName, regionId: region, capacity: bbl(w.config.UNIT_CAPACITY), ticks: w.config.FACTORY_TICKS },
+      };
+    },
+    options: (_ctx, s) => ({
+      yes: { actions: [{ kind: 'START_PROJECT', project: 'REFINERY', steps: 1, region: s.data.regionId as RegionName }] },
+      maybe: null,
+    }),
   },
 
   // ── Shipping: anyone who ships crude (spec §7.4) ──

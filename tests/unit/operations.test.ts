@@ -30,7 +30,7 @@ beforeEach(() => {
 
 describe('crack-spread throttle (spec §6.5)', () => {
   // Heavy crude is worth 77.40 delivered to Coastal_Asia; landed cost is the close + 3.50.
-  const days = (n: number) => { for (let i = 0; i < n; i++) updateThrottle(straits, view, DEFAULT_CONFIG); };
+  const days = (n: number) => { for (let i = 0; i < n; i++) updateThrottle(straits, straits, view, DEFAULT_CONFIG); };
 
   it('cuts 10% a day to a 30% floor while crude costs more than it is worth', () => {
     dme.lastFobByOrigin.Middle_East = 80;   // landed 83.50 > 77.40
@@ -61,11 +61,11 @@ describe('maintenance (spec §6.5)', () => {
   it('takes the plant offline for MAINT_TICKS every MAINT_INTERVAL days, at MAINT_COST', () => {
     const rng = rngFor('ops', 'events');
     straits.daysSinceMaintenance = DEFAULT_CONFIG.MAINT_INTERVAL - 1;
-    advancePlant(straits, rng, ledger, 1, DEFAULT_CONFIG);
+    advancePlant(straits, straits, rng, ledger, 1, DEFAULT_CONFIG);
     expect(straits.maintenanceTicksRemaining).toBe(5);
     expect(effectiveUtilization(straits)).toBe(0);
     expect(ledger.entries).toEqual([{ tick: 1, agentId: straits.agentId, kind: 'MAINTENANCE', amount: 0.5 * 8000 }]);
-    for (let t = 2; t <= 6; t++) advancePlant(straits, rng, ledger, t, DEFAULT_CONFIG);
+    for (let t = 2; t <= 6; t++) advancePlant(straits, straits, rng, ledger, t, DEFAULT_CONFIG);
     expect(straits.maintenanceTicksRemaining).toBe(0);
     expect(straits.daysSinceMaintenance).toBe(0);
     expect(effectiveUtilization(straits)).toBe(1);
@@ -84,12 +84,12 @@ describe('breakdowns (spec §4.9)', () => {
   it('stops the plant for BREAKDOWN_TICKS, then it runs again', () => {
     const certain = withOverrides(DEFAULT_CONFIG, { BASE_HAZARD: 1 });
     const rng = rngFor('ops', 'events');
-    advancePlant(straits, rng, ledger, 1, certain);
+    advancePlant(straits, straits, rng, ledger, 1, certain);
     const outage = straits.outageTicksRemaining;
     expect(outage).toBeGreaterThanOrEqual(8);
     expect(outage).toBeLessThanOrEqual(20);
     expect(effectiveUtilization(straits)).toBe(0);
-    for (let t = 2; t <= 1 + outage; t++) advancePlant(straits, rng, ledger, t, DEFAULT_CONFIG);
+    for (let t = 2; t <= 1 + outage; t++) advancePlant(straits, straits, rng, ledger, t, DEFAULT_CONFIG);
     expect(straits.outageTicksRemaining).toBe(0);
     expect(effectiveUtilization(straits)).toBe(1);
   });
@@ -101,7 +101,7 @@ describe('breakdowns (spec §4.9)', () => {
     for (let i = 0; i < 2000; i++) {
       straits.outageTicksRemaining = 0;
       straits.daysSinceMaintenance = 0;   // never due for maintenance, which would pre-empt a breakdown
-      advancePlant(straits, rng, ledger, i, certain);
+      advancePlant(straits, straits, rng, ledger, i, certain);
       seen.add(straits.outageTicksRemaining);
     }
     expect([...seen].sort((a, b) => a - b)).toEqual(Array.from({ length: 13 }, (_, i) => 8 + i));
@@ -114,7 +114,7 @@ describe('breakdowns (spec §4.9)', () => {
     for (let i = 0; i < trials; i++) {
       straits.outageTicksRemaining = 0;
       straits.daysSinceMaintenance = 59;   // hazard 0.0005 × 1.5⁴ ≈ 0.0025 on the day it turns 60
-      advancePlant(straits, rng, ledger, i, DEFAULT_CONFIG);
+      advancePlant(straits, straits, rng, ledger, i, DEFAULT_CONFIG);
       if (straits.outageTicksRemaining > 0) breakdowns++;
     }
     expect(breakdowns / trials).toBeCloseTo(0.0005 * 1.5 ** 4, 3);
@@ -134,9 +134,9 @@ describe('breakdowns (spec §4.9)', () => {
     const a = rngFor('draws', 'events');
     const b = rngFor('draws', 'events');
     straits.online = false;
-    advancePlant(straits, a, ledger, 1, DEFAULT_CONFIG);
+    advancePlant(straits, straits, a, ledger, 1, DEFAULT_CONFIG);
     const running = createRefiner({ id: 'r', name: 'R', region: 'Coastal_Asia', cash: 1e6, techTier: 1, processingCapacity: 1000, crudeStorageCapacity: 5000 });
-    advancePlant(running, b, ledger, 1, DEFAULT_CONFIG);
+    advancePlant(running, running, b, ledger, 1, DEFAULT_CONFIG);
     expect(a).toEqual(b);
   });
 });
@@ -146,9 +146,9 @@ describe('tier-upgrade works (spec §4.9)', () => {
     straits.worksTicksRemaining = 2;
     straits.worksFactor = DEFAULT_CONFIG.WORKS_CAPACITY_FACTOR;
     const rng = rngFor('works', 'events');
-    advancePlant(straits, rng, ledger, 1, DEFAULT_CONFIG);
+    advancePlant(straits, straits, rng, ledger, 1, DEFAULT_CONFIG);
     expect(straits.worksFactor).toBe(0.6);
-    advancePlant(straits, rng, ledger, 2, DEFAULT_CONFIG);
+    advancePlant(straits, straits, rng, ledger, 2, DEFAULT_CONFIG);
     expect(straits.worksFactor).toBe(1);
   });
 });

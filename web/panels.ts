@@ -68,8 +68,6 @@ const SETTINGS_FOR: Readonly<Record<string, readonly string[]>> = {
 export function companyPanel(view: PlayerView): Html {
   const c = view.company;
   const w = c.well;
-  const p = c.plant;
-  const stock = p ? p.stock.LIGHT_SWEET + p.stock.MEDIUM + p.stock.HEAVY_SOUR : 0;
   const settings = (SETTINGS_FOR[c.kind] ?? []).map((key) => {
     const s = SETTINGS[key];
     if (!s) return '';
@@ -85,12 +83,16 @@ export function companyPanel(view: PlayerView): Html {
         ${fact('Crude', words(w.grade))}
         ${fact('Wells pump', `${bbl(w.capacity * w.outputRate)} of ${bbl(w.capacity)} bbl/day${w.shutIn ? ' (stopped: tanks full)' : ''}`)}
         ${fact(`Storage ${pct(w.storage / Math.max(1, w.storageCapacity))} full`, bar(w.storage / Math.max(1, w.storageCapacity)))}` : ''}
-      ${p ? html`
-        ${fact('Refinery', `Tier ${p.techTier} · ${bbl(p.capacity)} bbl/day`)}
-        ${fact('Running at', p.online ? pct(p.runRate) : `stopped, ${p.offlineDays} days to go`)}
-        ${fact(`Crude in tanks: ${(stock / Math.max(1, p.capacity)).toFixed(1)} days`, bar(stock / Math.max(1, p.tankCapacity), 2, 2))}
-        ${fact('On the way', `${bbl(p.inbound)} bbl`)}
-        ${fact('Since maintenance', `${p.daysSinceMaintenance} days`)}` : ''}
+      ${view.company.sites.map((site) => {
+        const held = site.stock.LIGHT_SWEET + site.stock.MEDIUM + site.stock.HEAVY_SOUR;
+        const where = view.company.sites.length > 1 ? `${regionName(site.region)}: ` : '';
+        return html`
+          ${fact(`${where}refinery`, `Tier ${site.techTier} · ${bbl(site.capacity)} bbl/day`)}
+          ${fact(`${where}running at`, site.online ? pct(site.runRate) : `stopped, ${site.offlineDays} days to go`)}
+          ${fact(`${where}crude in tanks: ${(held / Math.max(1, site.capacity)).toFixed(1)} days`, bar(held / Math.max(1, site.tankCapacity), 2, 2))}
+          ${fact(`${where}on the way`, `${bbl(site.inbound)} bbl`)}
+          ${fact(`${where}since maintenance`, `${site.daysSinceMaintenance} days`)}`;
+      })}
       ${c.hubs.map((h) => {
         const held = h.stock.LIGHT_SWEET + h.stock.MEDIUM + h.stock.HEAVY_SOUR;
         return fact(`${regionName(h.region)} office: ${bbl(held)} bbl`, bar(held / Math.max(1, h.capacity)));

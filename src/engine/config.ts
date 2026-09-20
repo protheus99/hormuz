@@ -121,7 +121,8 @@ export interface Config {
   readonly CREDIT_RATE: number;            // per tick on the drawn balance
   readonly CREDIT_ASSET_SHARE: number;     // credit limit as a multiple of capital assets
   readonly CREDIT_BASE: { readonly PRODUCER: number; readonly REFINER: number; readonly TRADER: number };   // $ added to the asset share
-  readonly CREDIT_CUSHION_DAYS: number;    // days of fixed costs kept as cash before repaying credit
+  readonly CREDIT_CUSHION_DAYS: number;
+  readonly CREDIT_WORKING_DAYS: number;    // days of fixed costs kept as working cash (D42)    // days of fixed costs kept as cash before repaying credit
   readonly REPORT_COST: number;
   readonly REPORT_LAG: number;             // ticks old
   readonly REPORT_NOISE: number;           // ± share of the true value
@@ -228,6 +229,7 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
   CREDIT_ASSET_SHARE: 5,
   CREDIT_BASE: { PRODUCER: 10_000_000, REFINER: 20_000_000, TRADER: 20_000_000 },
   CREDIT_CUSHION_DAYS: 30,
+  CREDIT_WORKING_DAYS: 5,
   REPORT_COST: 25_000,
   REPORT_LAG: 5,
   REPORT_NOISE: 0.15,

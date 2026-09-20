@@ -186,6 +186,8 @@ export interface WellState {
 
 /** A refinery and its crude tanks (spec §4.9). */
 export interface PlantState {
+  /** Where the plant stands. A refiner's second site is in another refining region (D34). */
+  readonly region: RegionName;
   techTier: TechTier;
   /** bbl/day. */
   processingCapacity: number;
@@ -230,6 +232,8 @@ export interface Producer extends CompanyBase, WellState {
 
 export interface Refiner extends CompanyBase, PlantState {
   readonly kind: typeof AgentKind.REFINER;
+  /** A second refinery in another refining region, sharing this company's wallet (D34). */
+  second: PlantState | null;
 }
 
 /** A producer that also owns a refinery in the same region, with one shared wallet (spec §4.10). */

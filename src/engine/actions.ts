@@ -5,12 +5,16 @@
 
 import { internalTransfer, startMaintenance } from './agents';
 import { charterCost, newCharter } from './charters';
-import { acceptedGrades, averageCost, CLOSED_TO_NEW_REFINING, integrate, integrationPlant, plantCost, plantOf, total, wellOf } from './companies';
+import {
+  acceptedGrades, averageCost, CLOSED_TO_NEW_REFINING, integrate, integrationPlant, plantAt, plantCost, plantOf, plantsOf, secondPlant, secondPlantSpec, total, wellOf,
+} from './companies';
 import type { Config } from './config';
 import { cancelDeal, signDeal, type DealTerms } from './deals';
 import { FeeKind, type Grade, type Side } from './enums';
 import { recordFee } from './economics';
-import { asEdgeId, makeDealId, type Agent, type AgentId, type CharterSize, type ChokepointName, type DealId, type NodeName, type RegionName, type Tick } from './model';
+import {
+  asEdgeId, makeDealId, type Agent, type AgentId, type CharterSize, type ChokepointName, type DealId, type NodeName, type PlantState, type RegionName, type Tick,
+} from './model';
 import { setReservation } from './transport';
 import type { World } from './world';
 import { LANES } from '../data/lanes';
@@ -27,6 +31,8 @@ export interface CapitalProject {
   readonly steps: number;
   readonly totalCost: number;
   readonly dailyCost: number;
+  /** Where it is built. Only a refiner's second refinery is ever away from home (D34). */
+  readonly region: RegionName;
   ticksLeft: number;
   /** Paused (no work, no payment) until this tick. */
   heldUntil: number;
@@ -62,16 +68,16 @@ export interface ReservationRecord {
 
 export type Action =
   | { readonly kind: 'SET_OUTPUT'; readonly rate: number }
-  | { readonly kind: 'START_PROJECT'; readonly project: ProjectKind; readonly steps: number }
+  | { readonly kind: 'START_PROJECT'; readonly project: ProjectKind; readonly steps: number; readonly region?: RegionName; readonly site?: number }
   | { readonly kind: 'HOLD_PROJECTS'; readonly days: number }
-  | { readonly kind: 'SET_RUN_CAP'; readonly cap: number; readonly days: number }
-  | { readonly kind: 'RUN_FLAT_OUT'; readonly days: number }
-  | { readonly kind: 'MAINTAIN_NOW' }
-  | { readonly kind: 'SCHEDULE_MAINTENANCE'; readonly inDays: number }
-  | { readonly kind: 'DEFER_MAINTENANCE'; readonly days: number }
-  | { readonly kind: 'EMERGENCY_REPAIR' }
-  | { readonly kind: 'PARTIAL_RESTART'; readonly share: number }
-  | { readonly kind: 'CRUDE_MIX'; readonly grade: Grade | null; readonly weight: 'ALL' | 'HALF' }
+  | { readonly kind: 'SET_RUN_CAP'; readonly cap: number; readonly days: number; readonly site?: number }
+  | { readonly kind: 'RUN_FLAT_OUT'; readonly days: number; readonly site?: number }
+  | { readonly kind: 'MAINTAIN_NOW'; readonly site?: number }
+  | { readonly kind: 'SCHEDULE_MAINTENANCE'; readonly inDays: number; readonly site?: number }
+  | { readonly kind: 'DEFER_MAINTENANCE'; readonly days: number; readonly site?: number }
+  | { readonly kind: 'EMERGENCY_REPAIR'; readonly site?: number }
+  | { readonly kind: 'PARTIAL_RESTART'; readonly share: number; readonly site?: number }
+  | { readonly kind: 'CRUDE_MIX'; readonly grade: Grade | null; readonly weight: 'ALL' | 'HALF'; readonly site?: number }
   | { readonly kind: 'DRAW_CREDIT'; readonly amount: number }
   | { readonly kind: 'STANDING_ORDER'; readonly side: Side; readonly node: NodeName; readonly region: RegionName; readonly price: number; readonly qty: number; readonly days: number }
   | { readonly kind: 'SIGN_DEAL'; readonly terms: DealTerms }
@@ -159,6 +165,8 @@ export function applyAction(w: World, agentId: AgentId, action: Action): void {
   const tick = w.tick + 1;   // the tick about to run
   const well = wellOf(a);
   const plant = plantOf(a);
+  /** The refinery an action names: site 0 is home, site 1 a refiner's second refinery (D34). */
+  const siteOf = (site: number | undefined): PlantState | undefined => plantsOf(a)[site ?? 0];
   const need = <T>(x: T | undefined | null, what: string): T => {
     if (x === undefined || x === null) throw new Error(`${a.name} has no ${what}`);
     return x;
@@ -180,6 +188,7 @@ export function applyAction(w: World, agentId: AgentId, action: Action): void {
       return;
     }
     case 'START_PROJECT': {
+      const where = action.region ?? a.region;
       const totalCost = projectCost(w, a, action.project, action.steps);
       const ticks = projectTicks(cfg, action.project);
       if (action.project === 'TIER') {
@@ -190,16 +199,18 @@ export function applyAction(w: World, agentId: AgentId, action: Action): void {
         p.worksFactor = cfg.WORKS_CAPACITY_FACTOR;
       }
       if (action.project === 'REFINERY') {
-        if (a.kind !== 'PRODUCER') throw new Error('Only a producer builds a refinery to integrate');
-        if (CLOSED_TO_NEW_REFINING.includes(a.region)) throw new Error(`No new refineries may be built in ${a.region} (spec §10.3)`);
-        if (!(REGIONS[a.region].roles as readonly string[]).includes('REFINING')) throw new Error(`${a.region} has no refining role`);
+        if (a.kind !== 'PRODUCER' && a.kind !== 'REFINER') throw new Error(`${a.name} cannot build a refinery`);
+        if (a.kind === 'REFINER' && a.second !== null) throw new Error(`${a.name} already has a second refinery`);
+        if (CLOSED_TO_NEW_REFINING.includes(where)) throw new Error(`No new refineries may be built in ${where} (spec §10.3)`);
+        if (!(REGIONS[where].roles as readonly string[]).includes('REFINING')) throw new Error(`${where} has no refining role`);
+        if (a.kind === 'REFINER' && where === a.region) throw new Error(`${a.name} already refines in ${where}`);
         if (w.projects.some((x) => x.agentId === agentId && x.kind === 'REFINERY')) throw new Error(`${a.name} is already building a refinery`);
       }
       if (action.project === 'UNIT') need(plant, 'refinery');
       if (action.project === 'DRILL') need(well, 'wells');
       w.projects.push({
         id: `${agentId}-${action.project}-${tick}`, agentId, kind: action.project, steps: action.steps,
-        totalCost, dailyCost: totalCost / ticks, ticksLeft: ticks, heldUntil: 0,
+        totalCost, dailyCost: totalCost / ticks, region: where, ticksLeft: ticks, heldUntil: 0,
       });
       return;
     }
@@ -207,45 +218,47 @@ export function applyAction(w: World, agentId: AgentId, action: Action): void {
       for (const p of w.projects) if (p.agentId === agentId) p.heldUntil = tick + action.days;
       return;
     case 'SET_RUN_CAP': {
-      const p = need(plant, 'refinery');
+      const p = need(siteOf(action.site), 'refinery');
       p.utilizationCap = Math.max(0, Math.min(1, action.cap));
       p.utilization = Math.min(p.utilization, p.utilizationCap);
       p.utilizationCapUntil = w.tick + action.days;
       return;
     }
     case 'RUN_FLAT_OUT': {
-      const p = need(plant, 'refinery');
+      const p = need(siteOf(action.site), 'refinery');
       p.utilizationCap = 1;
       p.utilizationCapUntil = 0;
       p.utilization = 1;
       p.fullRunUntil = w.tick + action.days;
       return;
     }
-    case 'MAINTAIN_NOW':
-      if (a.kind !== 'REFINER' && a.kind !== 'INTEGRATED') throw new Error(`${a.name} has no refinery`);
-      startMaintenance(a, w.ledger, tick, cfg);
+    case 'MAINTAIN_NOW': {
+      const p = siteOf(action.site);
+      if (a.kind !== 'REFINER' && a.kind !== 'INTEGRATED' || p === undefined) throw new Error(`${a.name} has no refinery`);
+      startMaintenance(a, p, w.ledger, tick, cfg);
       return;
+    }
     case 'SCHEDULE_MAINTENANCE':
-      need(plant, 'refinery').maintenanceAt = w.tick + action.inDays;   // counted from the day of the decision
+      need(siteOf(action.site), 'refinery').maintenanceAt = w.tick + action.inDays;   // counted from the day of the decision
       return;
     case 'DEFER_MAINTENANCE': {
-      const p = need(plant, 'refinery');
+      const p = need(siteOf(action.site), 'refinery');
       p.maintenanceHoldUntil = tick + action.days;
       p.maintenanceAt = null;
       return;
     }
     case 'EMERGENCY_REPAIR': {
-      const p = need(plant, 'refinery');
+      const p = need(siteOf(action.site), 'refinery');
       if (p.outageTicksRemaining <= 0) throw new Error(`${a.name}'s refinery is not broken down`);
       charge(w, a, cfg.EMERGENCY_REPAIR_COST * p.processingCapacity, FeeKind.REPAIR, tick);
       p.outageTicksRemaining = Math.ceil(p.outageTicksRemaining / 2);
       return;
     }
     case 'PARTIAL_RESTART':
-      need(plant, 'refinery').limpShare = Math.max(0, Math.min(1, action.share));
+      need(siteOf(action.site), 'refinery').limpShare = Math.max(0, Math.min(1, action.share));
       return;
     case 'CRUDE_MIX': {
-      const p = need(plant, 'refinery');
+      const p = need(siteOf(action.site), 'refinery');
       if (action.grade !== null && !acceptedGrades(p.techTier).includes(action.grade)) throw new Error(`Tier ${p.techTier} cannot refine ${action.grade}`);
       p.crudePreference = action.grade === null ? null : { grade: action.grade, weight: action.weight };
       return;
@@ -425,7 +438,8 @@ export function projectCost(w: World, a: Agent, kind: ProjectKind, steps: number
       return rate * plant.processingCapacity * labor;
     }
     case 'REFINERY':
-      return a.kind === 'PRODUCER' ? plantCost(a.region, integrationPlant(a, cfg), cfg) : 0;
+      if (a.kind === 'PRODUCER') return plantCost(a.region, integrationPlant(a, cfg), cfg);
+      return a.kind === 'REFINER' ? plantCost(a.region, secondPlantSpec(a, cfg), cfg) : 0;
   }
 }
 
@@ -441,7 +455,8 @@ function projectTicks(cfg: Config, kind: ProjectKind): number {
 
 function complete(w: World, a: Agent, p: CapitalProject, cfg: Config): void {
   const well = wellOf(a);
-  const plant = plantOf(a);
+  // Works finish at the site they were started for: a refiner's second refinery grows too (D34).
+  const plant = plantAt(a, p.region) ?? plantOf(a);
   switch (p.kind) {
     case 'DRILL':
       if (well) {
@@ -466,6 +481,8 @@ function complete(w: World, a: Agent, p: CapitalProject, cfg: Config): void {
         const major = integrate(a, integrationPlant(a, cfg));
         w.agents[index] = major;
         internalTransfer(major);
+      } else if (a.kind === 'REFINER' && a.second === null) {
+        a.second = secondPlant(a, p.region, cfg);
       }
       return;
   }
@@ -473,13 +490,13 @@ function complete(w: World, a: Agent, p: CapitalProject, cfg: Config): void {
 
 function addStorage(a: Agent, region: RegionName, capacity: number): void {
   const well = wellOf(a);
-  const plant = plantOf(a);
+  const plant = plantAt(a, region);
   if (a.kind === 'TRADER') {
     const hub = a.hubs[region];
     if (!hub) throw new Error(`${a.name} has no office in ${region}`);
     hub.capacity += capacity;
-  } else if (region !== a.region) {
-    throw new Error(`${a.name} can only lease storage in ${a.region}`);
+  } else if (region !== a.region && plant === undefined) {
+    throw new Error(`${a.name} has nothing in ${region} to store crude in`);
   } else if (well) {
     well.storageCapacity += capacity;
   } else if (plant) {

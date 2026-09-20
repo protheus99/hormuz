@@ -170,6 +170,11 @@ const TEXT: Readonly<Record<string, CardText>> = {
     situation: 'Tank space is available in {region} at {rate} a barrel a day.',
     yes: 'Lease for 90 days.', maybe: 'Lease for 30 days.', no: 'Not now.',
   },
+  SECOND_REFINERY: {
+    title: 'Build a second refinery',
+    situation: 'A {capacity}-barrel-a-day refinery in {region} would give you a second market to sell into and a second source of crude. It takes {ticks} days to build.',
+    yes: 'Build it in {region}.', maybe: '', no: 'Not now.',
+  },
   CHARTER_TANKER: {
     title: 'Hire a tanker',
     situation: 'A hired ship carries your crude for a daily fee instead of a charge on every barrel. A large one takes {large} barrels at {largeRate} a day, a small one {small} at {smallRate}.',

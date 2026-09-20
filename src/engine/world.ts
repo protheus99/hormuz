@@ -11,6 +11,7 @@ import { advancePlant, applyDecline, extract, internalTransfer, refine } from '.
 import { clear, createNode, submit, type ExchangeNode } from './clearing';
 import {
   acceptedGrades, createIntegrated, createProducer, createRefiner, createTrader, plantOf, total, wellOf,
+  plantsOf,
 } from './companies';
 import { configFor, DEFAULT_CONFIG, withOverrides, type Config, type DeepPartial } from './config';
 import { dealCommitments, deliverDeals, type DealDelivery } from './deals';
@@ -176,7 +177,7 @@ export function step(w: World): TickReport {
   byId = new Map<AgentId, Agent>(w.agents.map((a) => [a.agentId, a]));   // a finished refinery may have replaced a producer
   updatePrices(w.sink, baselineOutput(w), cfg);
   for (const a of w.agents) {
-    if (a.kind === 'REFINER' || a.kind === 'INTEGRATED') advancePlant(a, w.rng.events, w.ledger, tick, cfg, !w.cardsActive);
+    if (a.kind === 'REFINER' || a.kind === 'INTEGRATED') for (const p of plantsOf(a)) advancePlant(a, p, w.rng.events, w.ledger, tick, cfg, !w.cardsActive);
     if (a.kind === 'PRODUCER' || a.kind === 'INTEGRATED') applyDecline(a, cfg);
   }
   const routes = new LaneRouteProvider(w.graph);
@@ -199,9 +200,11 @@ export function step(w: World): TickReport {
   let refined = 0;
   for (const a of w.agents) {
     if (a.kind !== 'REFINER' && a.kind !== 'INTEGRATED') continue;
-    const r = refine(a, w.sink, w.ledger, tick);
-    refined += r.barrels;
-    w.totals.retailRevenue += r.revenue;
+    for (const p of plantsOf(a)) {
+      const r = refine(a, p, w.sink, w.ledger, tick);
+      refined += r.barrels;
+      w.totals.retailRevenue += r.revenue;
+    }
   }
   w.totals.refined += refined;
 
@@ -223,7 +226,7 @@ export function step(w: World): TickReport {
       tick, nodes: w.nodes, routes, expectedPrices: w.sink.expectedPrices,
       avoid: avoidFor(a.settings.risk, w.graph), dealCommitments: dealCommitments(w.deals, a.agentId, tick + 1),
     };
-    if (a.kind === 'REFINER' || a.kind === 'INTEGRATED') updateThrottle(a, view, own);
+    if (a.kind === 'REFINER' || a.kind === 'INTEGRATED') for (const p of plantsOf(a)) updateThrottle(a, p, view, own);
     for (const order of decideOrders(a, index, view, own)) {
       placeOrder(a, order);
       submit(w.nodes[order.node], order, cfg);
@@ -310,7 +313,8 @@ export function checkInvariants(w: World, deliveries: readonly DealDelivery[] = 
 
   for (const a of w.agents) {
     const well = wellOf(a);
-    const plant = plantOf(a);
+    const plants = plantsOf(a);
+    const plant = plants[0];
     // 4. Escrow is zero at the end of every tick.
     if (a.cashReserved !== 0) fail(`${a.name} still has $${a.cashReserved} reserved`);
     if (well && well.storageEscrow !== 0) fail(`${a.name} still has ${well.storageEscrow} bbl in escrow`);
@@ -429,7 +433,7 @@ function fail(why: string): never {
 
 /** Σ processing capacity × BASE_UTILIZATION across all refineries (spec §7.3). */
 function baselineOutput(w: World): number {
-  const capacity = w.agents.reduce((s, a) => s + (plantOf(a)?.processingCapacity ?? 0), 0);
+  const capacity = w.agents.reduce((s, a) => s + plantsOf(a).reduce((t, p) => t + p.processingCapacity, 0), 0);
   return capacity * w.config.PRODUCT_PRICES.BASE_UTILIZATION;
 }
 
@@ -442,9 +446,8 @@ function chargeRunningCosts(w: World, tick: Tick): void {
   const cfg = w.config;
   for (const a of w.agents) {
     const well = wellOf(a);
-    const plant = plantOf(a);
     const fixed = (well ? cfg.FIXED_COST_RATE.PRODUCER * well.extractionCapacity : 0)
-      + (plant ? cfg.FIXED_COST_RATE.REFINER * plant.processingCapacity : 0);
+      + plantsOf(a).reduce((s, p) => s + cfg.FIXED_COST_RATE.REFINER * p.processingCapacity, 0);
     if (fixed > 0) {
       a.cash -= fixed;
       recordFee(w.ledger, { tick, agentId: a.agentId, kind: FeeKind.FIXED_COST, amount: fixed });
@@ -484,10 +487,9 @@ export function creditLimit(a: Agent, cfg: Config): number {
 export function capitalAssets(a: Agent, cfg: Config): number {
   const labor = REGIONS[a.region].laborCostIndex;
   const well = wellOf(a);
-  const plant = plantOf(a);
   let assets = 0;
   if (well) assets += (cfg.DRILL_COST * well.extractionCapacity + cfg.STORAGE_COST * well.storageCapacity) * labor;
-  if (plant) {
+  for (const plant of plantsOf(a)) {
     const tier = (plant.techTier >= 2 ? cfg.TIER_COST.TO_TIER_2 : 0) + (plant.techTier >= 3 ? cfg.TIER_COST.TO_TIER_3 : 0);
     assets += ((cfg.FACTORY_COST + tier) * plant.processingCapacity + cfg.STORAGE_COST * plant.crudeStorageCapacity) * labor;
   }
@@ -512,8 +514,11 @@ function settleCredit(w: World, tick: Tick): void {
       a.cash -= interest;
       recordFee(w.ledger, { tick, agentId: a.agentId, kind: FeeKind.CREDIT_INTEREST, amount: interest });
     }
-    if (a.cash < 0) {
-      const draw = Math.min(-a.cash, a.creditLimit - a.creditDrawn);
+    // A company is drawn back up to a few days of working cash, not merely to zero: bids are
+    // limited by cash in hand, so a company left on nothing could never buy again (D42).
+    const working = cfg.CREDIT_WORKING_DAYS * dailyFixedCost(a, cfg);
+    if (a.cash < working) {
+      const draw = Math.min(working - a.cash, a.creditLimit - a.creditDrawn);
       if (draw > 0) {
         a.cash += draw;
         a.creditDrawn += draw;
@@ -532,9 +537,8 @@ function settleCredit(w: World, tick: Tick): void {
 
 function dailyFixedCost(a: Agent, cfg: Config): number {
   const well = wellOf(a);
-  const plant = plantOf(a);
   return (well ? cfg.FIXED_COST_RATE.PRODUCER * well.extractionCapacity : 0)
-    + (plant ? cfg.FIXED_COST_RATE.REFINER * plant.processingCapacity : 0)
+    + plantsOf(a).reduce((s, p) => s + cfg.FIXED_COST_RATE.REFINER * p.processingCapacity, 0)
     + (a.kind === 'TRADER' ? cfg.OFFICE_COST.PER_TICK * a.offices.length : 0);
 }
 
@@ -565,9 +569,8 @@ export function barrelsHeld(agents: readonly Agent[], cargo: readonly Cargo[]): 
   let sum = cargo.reduce((s, c) => s + c.qty, 0);
   for (const a of agents) {
     const well = wellOf(a);
-    const plant = plantOf(a);
     if (well) sum += well.storage + well.storageEscrow;
-    if (plant) sum += total(plant.crudeStock);
+    for (const plant of plantsOf(a)) sum += total(plant.crudeStock);
     if (a.kind === 'TRADER') for (const hub of Object.values(a.hubs)) if (hub) sum += total(hub.stock) + total(hub.escrow);
   }
   return sum;
@@ -581,9 +584,10 @@ export function netWorth(w: World, a: Agent): number {
   const marker = (g: Grade) => markerFor(w, g);
   let value = a.cash - a.creditDrawn;
   const well = wellOf(a);
-  const plant = plantOf(a);
   if (well) value += (well.storage + well.storageEscrow) * marker(well.grade);
-  if (plant) for (const g of ['LIGHT_SWEET', 'MEDIUM', 'HEAVY_SOUR'] as const) value += plant.crudeStock[g] * marker(g);
+  for (const plant of plantsOf(a)) {
+    for (const g of ['LIGHT_SWEET', 'MEDIUM', 'HEAVY_SOUR'] as const) value += plant.crudeStock[g] * marker(g);
+  }
   if (a.kind === 'TRADER') {
     for (const hub of Object.values(a.hubs)) if (hub) for (const g of ['LIGHT_SWEET', 'MEDIUM', 'HEAVY_SOUR'] as const) value += (hub.stock[g] + hub.escrow[g]) * marker(g);
   }

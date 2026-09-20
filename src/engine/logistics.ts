@@ -6,7 +6,7 @@
 // stays aboard as FLOATING, paying demurrage every tick it waits. Floating cargo unloads first
 // whenever space frees up; after DEMURRAGE_MAX_TICKS the rest is sold off at a distress price.
 
-import { acceptedGrades, plantOf, total } from './companies';
+import { acceptedGrades, plantAt, plantOf, total } from './companies';
 import type { Config } from './config';
 import { FeeKind, type Grade } from './enums';
 import { recordFee, type FeeLedger } from './economics';
@@ -110,8 +110,9 @@ function unload(c: Cargo, owner: Agent, ledger: FeeLedger, tick: Tick): number {
 
 /** The tanks a cargo unloads into: the owner's refinery or trading hub in the destination region. */
 function tanksAt(owner: Agent, c: Cargo): { free: number; add: (qty: number) => void } {
-  const plant = plantOf(owner);
-  if (plant && owner.region === c.destination) {
+  // Either of a refiner's sites can take delivery, each into its own tanks (D34).
+  const plant = plantAt(owner, c.destination);
+  if (plant) {
     // Invariant 6: a refinery never takes a grade its tier cannot process. Orders already enforce
     // this; the check here keeps a stray cargo floating rather than breaking the invariant.
     if (!acceptedGrades(plant.techTier).includes(c.grade)) return { free: 0, add: () => undefined };

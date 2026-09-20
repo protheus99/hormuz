@@ -116,7 +116,7 @@ describe('conservation (spec §9)', () => {
           for (const a of agents) {
             if (a.kind === 'INTEGRATED') internalTransfer(a);
             if (a.kind === 'REFINER' || a.kind === 'INTEGRATED') {
-              const r = refine(a, sink, ledger, day);
+              const r = refine(a, a.kind === 'INTEGRATED' ? a.plant : a, sink, ledger, day);
               refined += r.barrels;
               revenue += r.revenue;
             }

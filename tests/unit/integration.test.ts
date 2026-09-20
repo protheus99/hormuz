@@ -64,7 +64,7 @@ describe('internal clearing (spec §5 phase 2)', () => {
 
   it('refines into the shared wallet', () => {
     const ledger = createLedger();
-    const result = refine(major, createRetailSink('seed-1', DEFAULT_CONFIG), ledger, 1);
+    const result = refine(major, major.plant, createRetailSink('seed-1', DEFAULT_CONFIG), ledger, 1);
     expect(result.barrels).toBe(5000);
     expect(major.cash).toBeCloseTo(5_000_000 + result.revenue - result.opex, 6);
     expect(ledger.entries[0]?.agentId).toBe(major.agentId);

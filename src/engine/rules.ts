@@ -8,7 +8,7 @@
 
 import { actualCost, effectiveUtilization, fillRatio, setExtractionRate } from './agents';
 import { previousClose, referencePrice, type ClearContext, type ExchangeNode, type Quote } from './clearing';
-import { acceptedGrades, availableCash, averageCost, total } from './companies';
+import { acceptedGrades, availableCash, averageCost, plantsOf, total } from './companies';
 import type { Config } from './config';
 import { productValue, YIELDS, type FeeLedger, type ProductPrices } from './economics';
 import {
@@ -43,7 +43,7 @@ export function decideOrders(agent: Agent, index: number, view: MarketView, cfg:
     case 'PRODUCER':
       return producerAsks(agent, agent, view, cfg, cfg.MIN_MARGIN, ids);
     case 'REFINER':
-      return refinerBids(agent, agent, view, cfg, 0, ids);
+      return plantsOf(agent).flatMap((plant) => refinerBids(agent, plant, view, cfg, 0, ids));
     case 'INTEGRATED':
       // §6.3: surplus sold at cost plus tariff with no margin; a deficit bought more aggressively.
       return [
@@ -217,13 +217,14 @@ function refinerBids(
   if (!(price > 0)) return [];
   // Tank space when this purchase lands: what is held now, less what the plant uses on the way.
   const space = plant.crudeStorageCapacity - Math.max(0, held - dailyUse * best.transit);
-  const affordable = availableCash(company) / price;
+  // Two sites share one wallet, so each bids with its share of it (D34).
+  const affordable = availableCash(company) / Math.max(1, plantsOf(company).length) / price;
   const qty = lots(Math.min(target - held, space, affordable), lot);
   if (qty <= 0) return [];
 
   return [{
     orderId: ids(), agentId: company.agentId, node: best.node, side: 'BID', limitPrice: price, qty, qtyRemaining: qty,
-    deliveryRegion: company.region, avoidChokepoints: [...view.avoid],
+    deliveryRegion: plant.region, avoidChokepoints: [...view.avoid],
   }];
 }
 
@@ -234,9 +235,10 @@ function valueNodes(company: Refiner | IntegratedMajor, plant: PlantState, view:
   for (const nodeName of NODE_NAMES) {
     const node = view.nodes[nodeName];
     if (node === undefined || !acceptedGrades(plant.techTier).includes(node.grade)) continue;
-    const quotes: Quote[] = previousClose(node, company.region, ctx, view.avoid);
+    // Landed where this plant stands: a second site in another region buys against its own freight.
+    const quotes: Quote[] = previousClose(node, plant.region, ctx, view.avoid);
     const cheapest = quotes[0];
-    const transit = cheapest?.route.totalTransit ?? view.routes.route(node.markerRegion, company.region, view.avoid)?.totalTransit ?? 0;
+    const transit = cheapest?.route.totalTransit ?? view.routes.route(node.markerRegion, plant.region, view.avoid)?.totalTransit ?? 0;
     const value = productValue(node.grade, view.expectedPrices) - YIELDS[node.grade].opex;
     choices.push({ node: nodeName, deliveredMax: value - cfg.CARRY_RATE * transit, referenceLanded: cheapest?.landed ?? null, transit });
   }
@@ -257,8 +259,8 @@ function bestNode(company: Refiner | IntegratedMajor, plant: PlantState, view: M
  * The node a refinery would buy on today, with the most a delivered barrel is worth to it and the
  * cheapest reference landed price (spec §6.2). Cards use it to price emergency purchases.
  */
-export function refinerQuote(company: Refiner | IntegratedMajor, view: MarketView, cfg: Config): NodeChoice | null {
-  return bestNode(company, company.kind === 'INTEGRATED' ? company.plant : company, view, cfg);
+export function refinerQuote(company: Refiner | IntegratedMajor, plant: PlantState, view: MarketView, cfg: Config): NodeChoice | null {
+  return bestNode(company, plant, view, cfg);
 }
 
 /** Lowest run rate the throttle will cut to (spec §6.5). */
@@ -271,8 +273,7 @@ export const THROTTLE_STEP = 0.10;
  * the cheapest origin of the best node is worth less than it costs, cut the run rate 10% towards a
  * 30% floor; otherwise raise it 10%, never above the cap cards set. With no price reference it holds.
  */
-export function updateThrottle(company: Refiner | IntegratedMajor, view: MarketView, cfg: Config): void {
-  const plant = company.kind === 'INTEGRATED' ? company.plant : company;
+export function updateThrottle(company: Refiner | IntegratedMajor, plant: PlantState, view: MarketView, cfg: Config): void {
   if (plant.utilizationCapUntil > 0 && view.tick > plant.utilizationCapUntil) {
     plant.utilizationCap = 1;   // a card's temporary cap has run its course
     plant.utilizationCapUntil = 0;

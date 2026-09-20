@@ -11,14 +11,14 @@
 // the same decimals in a different sequence can leave a residue like 1e-10, and invariant 4
 // requires exactly zero.
 
-import { availableCash, acceptedGrades, averageCost, plantOf, wellOf } from './companies';
+import { availableCash, acceptedGrades, averageCost, plantAt, plantsOf, wellOf } from './companies';
 import { freightRate, idleCharter } from './charters';
 import { FeeKind } from './enums';
 import { recordFee, type FeeLedger } from './economics';
 import { NODES } from '../data/nodes';
 import { REGIONS } from '../data/regions';
 import {
-  makeCargoId, newCargo, type Agent, type AgentId, type Cargo, type Charter, type Fill, type Order, type PlantState, type RegionName, type WellState,
+  makeCargoId, newCargo, type Agent, type AgentId, type Cargo, type Charter, type Fill, type Order, type RegionName, type WellState,
 } from './model';
 import type { Grade } from './enums';
 
@@ -74,7 +74,8 @@ export function settleFills(
     recordFee(ledger, { tick: f.tick, agentId: buyer.agentId, kind: FeeKind.FREIGHT, amount: freight });
     recordFee(ledger, { tick: f.tick, agentId: seller.agentId, kind: FeeKind.ORIGIN_TARIFF, amount: originTariff });
 
-    const plant = plantOf(buyer);
+    // The crude was bid for by one site, and it is that site's tanks it is heading for.
+    const plant = plantAt(buyer, f.deliveryRegion);
     if (plant) plant.inboundBarrels += f.qty;
     const hub = buyer.kind === 'TRADER' ? buyer.hubs[f.deliveryRegion] : undefined;
     if (hub) {
@@ -157,8 +158,12 @@ function checkBuyer(agent: Agent, deliveryRegion: RegionName, grade: Grade): voi
   switch (agent.kind) {
     case 'REFINER':
     case 'INTEGRATED': {
-      const plant = plantOf(agent) as PlantState;
-      if (deliveryRegion !== agent.region) throw new Error(`${agent.name} can only take delivery at its refinery in ${agent.region}`);
+      // Crude may be delivered to any refinery the company runs: a refiner may have two (D34).
+      const plant = plantAt(agent, deliveryRegion);
+      if (plant === undefined) {
+        const where = plantsOf(agent).map((p) => p.region).join(' or ');
+        throw new Error(`${agent.name} can only take delivery at its refinery in ${where}`);
+      }
       if (!acceptedGrades(plant.techTier).includes(grade)) throw new Error(`${agent.name} is Tier ${plant.techTier} and cannot refine ${grade}`);
       return;
     }

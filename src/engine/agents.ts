@@ -37,7 +37,7 @@ export interface RefineResult {
  * the fixed grade order so the result never depends on how stock happens to be stored. Output is
  * sold to the retail sink, and opex is recorded in the fee ledger as money leaving the economy.
  */
-export function refine(company: Refiner | IntegratedMajor, sink: RetailSink, ledger: FeeLedger, tick: Tick): RefineResult {
+export function refine(company: Refiner | IntegratedMajor, plant: PlantState, sink: RetailSink, ledger: FeeLedger, tick: Tick): RefineResult {
   const r = company.kind === 'INTEGRATED' ? company.plant : company;
   let room = Math.floor(r.processingCapacity * effectiveUtilization(r) * r.worksFactor);
   const byGrade: Record<Grade, number> = { LIGHT_SWEET: 0, MEDIUM: 0, HEAVY_SOUR: 0 };
@@ -168,8 +168,7 @@ export function outageLength(plant: PlantState, config: Config, share: number): 
  * running plant may break down. Exactly one draw is taken from the events stream per plant per
  * day, whatever the plant's state, so one plant's history never shifts another's.
  */
-export function advancePlant(company: Refiner | IntegratedMajor, rng: Rng, ledger: FeeLedger, tick: Tick, config: Config, autoMaintenance = true): void {
-  const plant = company.kind === 'INTEGRATED' ? company.plant : company;
+export function advancePlant(company: Refiner | IntegratedMajor, plant: PlantState, rng: Rng, ledger: FeeLedger, tick: Tick, config: Config, autoMaintenance = true): void {
   const roll = nextFloat(rng);
 
   if (plant.worksTicksRemaining > 0) {
@@ -192,7 +191,7 @@ export function advancePlant(company: Refiner | IntegratedMajor, rng: Rng, ledge
   const scheduled = plant.maintenanceAt !== null && tick >= plant.maintenanceAt;
   const due = autoMaintenance && plant.daysSinceMaintenance >= config.MAINT_INTERVAL && tick >= plant.maintenanceHoldUntil;
   if (scheduled || due) {
-    startMaintenance(company, ledger, tick, config);
+    startMaintenance(company, plant, ledger, tick, config);
     return;
   }
   if (roll < breakdownHazard(plant, config)) {
@@ -202,8 +201,7 @@ export function advancePlant(company: Refiner | IntegratedMajor, rng: Rng, ledge
 }
 
 /** Takes a plant offline for MAINT_TICKS at MAINT_COST (spec §6.5; the "Maintenance due" card). */
-export function startMaintenance(company: Refiner | IntegratedMajor, ledger: FeeLedger, tick: Tick, config: Config): void {
-  const plant = company.kind === 'INTEGRATED' ? company.plant : company;
+export function startMaintenance(company: Refiner | IntegratedMajor, plant: PlantState, ledger: FeeLedger, tick: Tick, config: Config): void {
   plant.maintenanceAt = null;
   plant.maintenanceTicksRemaining = config.MAINT_TICKS;
   const cost = config.MAINT_COST * plant.processingCapacity;

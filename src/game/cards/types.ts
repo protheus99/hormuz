@@ -19,7 +19,9 @@ export type CardType =
   | 'BACK_TO_BACK' | 'DISTRESSED_CARGO' | 'PRICES_LOW' | 'PRICE_GAP' | 'POSITION_FALLING' | 'CRISIS_BREWING'
   | 'CARGO_STUCK' | 'LEASE_STORAGE' | 'OPEN_OFFICE'
   // Shipping (spec §7.4)
-  | 'CHARTER_TANKER' | 'KEEP_AFLOAT';
+  | 'CHARTER_TANKER' | 'KEEP_AFLOAT'
+  // A refiner's late game (D34)
+  | 'SECOND_REFINERY';
 
 /** The four meters every option shows (spec G4.1, G4.5). */
 export interface Impact {

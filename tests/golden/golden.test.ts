@@ -13,9 +13,9 @@ import { runGoldenReplay } from './replay';
 // verified identical in Chrome 152 (`npm run golden:browser`) on 2026-09-19. Re-check in a
 // browser at the end of each phase.
 const GOLDEN = {
-  day1: 'a404e32e2ce4290fd40079b5d4fe3d83',
-  day30: 'c454c54a24a32c76e3e33267b44705ff',
-  final: '0d9b3fcd427696bcd276b47de8e3ac8a',
+  day1: '5466f314e243b55598b732ddae63e402',
+  day30: '40df2f3974beb33eb4ce3b9c2f7f8976',
+  final: 'b03835e48b4be1543afa9deef68879f0',
 };
 
 describe('golden replay', () => {

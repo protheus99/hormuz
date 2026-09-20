@@ -5,7 +5,8 @@
 import { CHOKEPOINTS, type ChokepointName } from '../data/chokepoints';
 import { NODE_NAMES, type NodeName } from '../data/nodes';
 import type { RegionName } from '../data/regions';
-import { plantOf, wellOf } from '../engine/companies';
+import { plantOf, plantsOf, wellOf } from '../engine/companies';
+import type { PlantState } from '../engine/model';
 import type { ChokepointStatus, Grade, Product } from '../engine/enums';
 import type { AgentId, CompanySettings, DealId } from '../engine/model';
 import { netWorth, type World } from '../engine/world';
@@ -55,12 +56,23 @@ export interface OwnCompanyView {
   /** Capital projects under way. */
   readonly projects: readonly { readonly kind: string; readonly daysLeft: number; readonly dailyCost: number; readonly paused: boolean }[];
   readonly well: null | { readonly grade: Grade; readonly capacity: number; readonly storage: number; readonly storageCapacity: number; readonly outputRate: number; readonly shutIn: boolean };
-  readonly plant: null | {
-    readonly techTier: number; readonly capacity: number; readonly runRate: number; readonly online: boolean;
-    readonly stock: Readonly<Record<Grade, number>>; readonly tankCapacity: number; readonly inbound: number;
-    readonly offlineDays: number; readonly daysSinceMaintenance: number;
-  };
+  readonly plant: null | PlantView;
+  /** Every refinery the company runs: one, or two once it builds a second site (D34). */
+  readonly sites: readonly PlantView[];
   readonly hubs: readonly { readonly region: RegionName; readonly capacity: number; readonly stock: Readonly<Record<Grade, number>> }[];
+}
+
+export interface PlantView {
+  readonly region: RegionName;
+  readonly techTier: number;
+  readonly capacity: number;
+  readonly runRate: number;
+  readonly online: boolean;
+  readonly stock: Readonly<Record<Grade, number>>;
+  readonly tankCapacity: number;
+  readonly inbound: number;
+  readonly offlineDays: number;
+  readonly daysSinceMaintenance: number;
 }
 
 export interface PlayerView {
@@ -91,6 +103,12 @@ export interface PlayerView {
   readonly campaign: CardsView['campaign'];
 }
 
+const siteView = (p: PlantState): PlantView => ({
+  region: p.region, techTier: p.techTier, capacity: p.processingCapacity, runRate: p.utilization, online: p.online,
+  stock: { ...p.crudeStock }, tankCapacity: p.crudeStorageCapacity, inbound: p.inboundBarrels,
+  offlineDays: Math.max(p.outageTicksRemaining, p.maintenanceTicksRemaining), daysSinceMaintenance: p.daysSinceMaintenance,
+});
+
 export function buildPlayerView(
   w: World, playerId: AgentId, history: readonly DailyPrices[], alerts: readonly Alert[], lengthDays: number | null, cards: CardsView,
 ): PlayerView {
@@ -109,11 +127,8 @@ export function buildPlayerView(
       grade: well.grade, capacity: well.extractionCapacity, storage: well.storage, storageCapacity: well.storageCapacity,
       outputRate: well.extractionRate, shutIn: well.shutIn,
     } : null,
-    plant: plant ? {
-      techTier: plant.techTier, capacity: plant.processingCapacity, runRate: plant.utilization, online: plant.online,
-      stock: { ...plant.crudeStock }, tankCapacity: plant.crudeStorageCapacity, inbound: plant.inboundBarrels,
-      offlineDays: Math.max(plant.outageTicksRemaining, plant.maintenanceTicksRemaining), daysSinceMaintenance: plant.daysSinceMaintenance,
-    } : null,
+    plant: plant ? siteView(plant) : null,
+    sites: plantsOf(me).map(siteView),
     hubs: me.kind === 'TRADER'
       ? Object.entries(me.hubs).flatMap(([region, h]) => (h ? [{ region: region as RegionName, capacity: h.capacity, stock: { ...h.stock } }] : []))
       : [],
