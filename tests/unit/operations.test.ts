@@ -1,7 +1,7 @@
 // Default operations: the crack-spread throttle, maintenance, breakdowns and works (spec §6.5, §4.9).
 
 import { beforeEach, describe, expect, it } from 'vitest';
-import { advancePlant, breakdownHazard, effectiveUtilization } from '../../src/engine/agents';
+import { advancePlant, breakdownHazard, effectiveUtilization, outageLength } from '../../src/engine/agents';
 import { createNode, type ExchangeNode } from '../../src/engine/clearing';
 import { createRefiner } from '../../src/engine/companies';
 import { DEFAULT_CONFIG, withOverrides } from '../../src/engine/config';
@@ -75,8 +75,10 @@ describe('maintenance (spec §6.5)', () => {
 describe('breakdowns (spec §4.9)', () => {
   it('grows more likely the longer since maintenance', () => {
     expect(breakdownHazard(straits, DEFAULT_CONFIG)).toBeCloseTo(0.0005, 12);
-    straits.daysSinceMaintenance = 120;
-    expect(breakdownHazard(straits, DEFAULT_CONFIG)).toBeCloseTo(0.0005 * 8, 12);
+    straits.daysSinceMaintenance = 120;   // due: the hazard is 2^HAZARD_EXPONENT times the base (D39)
+    expect(breakdownHazard(straits, DEFAULT_CONFIG)).toBeCloseTo(0.0005 * 16, 12);
+    straits.daysSinceMaintenance = 240;
+    expect(breakdownHazard(straits, DEFAULT_CONFIG)).toBeCloseTo(0.0005 * 81, 12);
   });
 
   it('stops the plant for BREAKDOWN_TICKS, then it runs again', () => {
@@ -111,11 +113,21 @@ describe('breakdowns (spec §4.9)', () => {
     const trials = 200_000;
     for (let i = 0; i < trials; i++) {
       straits.outageTicksRemaining = 0;
-      straits.daysSinceMaintenance = 59;   // hazard 0.0005 × 1.5³ ≈ 0.0017 on the day it turns 60
+      straits.daysSinceMaintenance = 59;   // hazard 0.0005 × 1.5⁴ ≈ 0.0025 on the day it turns 60
       advancePlant(straits, rng, ledger, i, DEFAULT_CONFIG);
       if (straits.outageTicksRemaining > 0) breakdowns++;
     }
-    expect(breakdowns / trials).toBeCloseTo(0.0005 * 1.5 ** 3, 3);
+    expect(breakdowns / trials).toBeCloseTo(0.0005 * 1.5 ** 4, 3);
+  });
+
+  it('keeps a plant down longer the further maintenance has been put off (D39)', () => {
+    const cfg = DEFAULT_CONFIG;
+    straits.daysSinceMaintenance = cfg.MAINT_INTERVAL;            // due, but not yet late
+    const onTime = outageLength(straits, cfg, 0.5);
+    straits.daysSinceMaintenance = 3 * cfg.MAINT_INTERVAL;        // two intervals late
+    expect(outageLength(straits, cfg, 0.5)).toBe(onTime + 2 * cfg.BREAKDOWN_OVERDUE_DAYS);
+    expect(onTime).toBeGreaterThanOrEqual(cfg.BREAKDOWN_TICKS.min);
+    expect(onTime).toBeLessThanOrEqual(cfg.BREAKDOWN_TICKS.max);
   });
 
   it('takes exactly one draw per plant per day, whatever state the plant is in', () => {

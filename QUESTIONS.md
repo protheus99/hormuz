@@ -8,7 +8,11 @@ Recommendations are marked **R**.
 
 ---
 
-## 1. Producers have few decisions once they have taken the obvious ones
+> **Answered 2026-09-19.** 1: **A, accepted** — producers stay quiet once they are in good shape,
+> and the campaign supplies the pressure. 2: **A, agreed** — neglect now bites (D39). 3 is restated
+> below in plainer words and still needs an answer; 4–7 are open.
+
+## 1. Producers have few decisions once they have taken the obvious ones ✅ accepted (A)
 
 **What I measured.** Over a Sandbox year, a producer who answers by the meters sees a card every
 14–17 days — inside the 7–14 day target's neighbourhood. A producer who says Yes to everything sees
@@ -27,7 +31,7 @@ should producers have more to decide?
 - **C** Tighten producer margins further so price and storage cards fire in normal play. This makes
   the whole economy harsher and would need another balance pass.
 
-## 2. Ignoring every card is still competitive in some places
+## 2. Ignoring every card is still competitive in some places ✅ done (A)
 
 **What I measured** (net worth after a Sandbox year, three seeds):
 

@@ -150,9 +150,16 @@ export function setExtractionRate(company: Producer | IntegratedMajor, rate: num
 
 // ─── Plant upkeep (spec §4.9, §6.5, §5 phase 0) ──────────────────────────────────────────────
 
-/** Chance of a breakdown today: rises with the cube of time since maintenance (spec §4.9). */
+/** Chance of a breakdown today: rises steeply with time since maintenance (spec §4.9). */
 export function breakdownHazard(plant: PlantState, config: Config): number {
-  return config.BASE_HAZARD * (1 + plant.daysSinceMaintenance / config.MAINT_INTERVAL) ** 3;
+  return config.BASE_HAZARD * (1 + plant.daysSinceMaintenance / config.MAINT_INTERVAL) ** config.HAZARD_EXPONENT;
+}
+
+/** Days a breakdown keeps a plant offline: longer the further maintenance has been put off. */
+export function outageLength(plant: PlantState, config: Config, share: number): number {
+  const { min, max } = config.BREAKDOWN_TICKS;
+  const overdue = Math.max(0, plant.daysSinceMaintenance - config.MAINT_INTERVAL) / config.MAINT_INTERVAL;
+  return min + Math.min(max - min, Math.floor(share * (max - min + 1))) + Math.round(config.BREAKDOWN_OVERDUE_DAYS * overdue);
 }
 
 /**
@@ -189,10 +196,8 @@ export function advancePlant(company: Refiner | IntegratedMajor, rng: Rng, ledge
     return;
   }
   if (roll < breakdownHazard(plant, config)) {
-    const { min, max } = config.BREAKDOWN_TICKS;
     // Reuse the same draw, rescaled, for the outage length so the stream stays one draw per day.
-    const share = roll / breakdownHazard(plant, config);
-    plant.outageTicksRemaining = min + Math.min(max - min, Math.floor(share * (max - min + 1)));
+    plant.outageTicksRemaining = outageLength(plant, config, roll / breakdownHazard(plant, config));
   }
 }
 

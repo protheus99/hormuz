@@ -79,7 +79,9 @@ export interface Config {
   readonly MAINT_COST: number;             // $ per bbl/day of capacity
   readonly MAINT_INTERVAL: number;
   readonly BASE_HAZARD: number;            // breakdown chance per tick just after maintenance
+  readonly HAZARD_EXPONENT: number;        // how steeply that chance rises with time since maintenance
   readonly BREAKDOWN_TICKS: Range;
+  readonly BREAKDOWN_OVERDUE_DAYS: number; // extra days offline per interval of deferred maintenance
   readonly EMERGENCY_REPAIR_COST: number;  // $ per bbl/day of capacity; halves the remaining outage
 
   // Network and storage (spec §3.5, §6.5)
@@ -186,7 +188,9 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
   MAINT_COST: 0.50,
   MAINT_INTERVAL: 120,
   BASE_HAZARD: 0.0005,
+  HAZARD_EXPONENT: 4,
   BREAKDOWN_TICKS: { min: 8, max: 20 },
+  BREAKDOWN_OVERDUE_DAYS: 20,
   EMERGENCY_REPAIR_COST: 3.00,
 
   MAX_RESERVATION_SHARE: 0.50,

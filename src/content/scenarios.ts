@@ -145,8 +145,8 @@ export const SCENARIOS: readonly ScenarioData[] = [
       { tick: 285, chokepoint: 'BOSPHORUS', stages: [{ stage: 'DISRUPTION', days: 8, status: 'CLOSED' }] },
       { tick: 320, chokepoint: 'BOSPHORUS', stages: [{ stage: 'DISRUPTION', days: 15, status: 'DELAYED', delay: 3 }] },
     ],
-    goalText: 'Make a profit of at least $1.4M in the last quarter, with no more than 2 days out of crude.',
-    goal: [{ kind: 'PROFIT', atLeast: 1_400_000, from: 274, to: 365 }, { kind: 'STOCKOUT_DAYS', atMost: 2 }],
+    goalText: 'Make a profit of at least $1M in the last quarter, with no more than 2 days out of crude.',
+    goal: [{ kind: 'PROFIT', atLeast: 1_000_000, from: 274, to: 365 }, { kind: 'STOCKOUT_DAYS', atMost: 2 }],
     milestones: [
       { label: 'Sign a supply deal', condition: { kind: 'OWN', what: 'DEAL', atLeast: 1 }, reward: { cash: 500_000 } },
       { label: 'Upgrade to Tier 3', condition: { kind: 'OWN', what: 'TIER', atLeast: 3 }, reward: { report: true } },
