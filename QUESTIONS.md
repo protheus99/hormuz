@@ -57,21 +57,32 @@ urgently — rarely beat waiting in a calm year.
 - **C** Make cards cheaper to act on (lower maintenance downtime, cheaper emergency crude), so
   saying Yes is usually right. Risks making decisions obvious.
 
-## 3. Traders are viable but thin
+## 3. How much money should a trader make in a good year?
 
-Trading went from about −$1.5M a year to roughly break-even after this pass (D37). But a trader
-based in a refining region (East Asia) still drifts down, and no bot reaches the T1–T3 scenario
-goals: T2 and T3 stay out of reach, and the T1 tutorial now asks for a second office rather than a
-profit, because trading cannot reliably deliver one in 90 days.
+**What a trader is, in the game.** It owns no wells and no refinery. It starts with $5M in cash and
+rented tank space at one or two ports. It earns by buying crude where it is cheap and selling it
+where, or when, it is dearer. Against that it pays to run each office, to ship the crude, and a
+tariff at each port.
 
-**The question.** What should a good trader make in a year on $5M of capital?
+**Where it stands.** Left alone for a year, a trader used to lose about $1.5M. After this pass it
+ends roughly where it started. So today trading neither makes nor loses much on its own.
 
-- **A (R)** 10–20% ($0.5–1M), earned mostly through cards. Needs another pass on the trader's daily
-  rules, which currently trade little.
-- **B** Break-even autopilot with all profit from decisions. Closest to today, but a passive trader
-  slowly bleeds.
-- **C** Traders keep a structural edge (wider spreads, bigger hubs) and earn steadily. Simplest to
-  tune, least skill-testing.
+**Why I am asking.** The answer decides two things: how much more work goes into the trader's
+automatic buying and selling (it trades very little at the moment), and what the trader scenarios
+can ask for. T2 currently wants $400K of profit in four months and T3 $250K in six, and no bot gets
+near either.
+
+**The choice.**
+
+- **A (R) — trading is a real business.** Played well, a trader makes 10–20% on its money in a year
+  ($0.5–1M on $5M), with most of that coming from your decisions. Costs me another pass on the
+  trader's daily buying and selling rules.
+- **B — trading only pays if you decide well.** Left alone it breaks even; every dollar of profit
+  comes from answering cards. Closest to today, and cheapest. The risk: a player who ignores the
+  cards slowly bleeds and feels punished for not paying attention.
+- **C — trading is steadily profitable.** Give traders a built-in edge (buy cheaper, sell dearer,
+  bigger tanks) so they earn even on autopilot. Easiest to tune, but it makes the hardest play type
+  the safest one, which reads backwards.
 
 ## 4. Win-rate bands for the campaign
 
