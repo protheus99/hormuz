@@ -98,40 +98,157 @@ sell it on, so on some seeds a player who ignores every card earns as much as on
 Giving the player a lever the rules do not have — chartered storage, or selling forward — would fix
 it, and both wait on question 7. Until then the acceptance test skips T2 and says why.
 
-## 4. Win-rate bands for the campaign
+## 4. How often should a good player win?
 
-Phase 12's acceptance asks that "win rates fall within agreed bands" — we never agreed them. Today,
-over three seeds: the always-No bot loses every scenario, tutorials included; the always-Yes bot
-wins all three tutorials, R2 and R3 every time, P2 two times in three, P3 one time in three, and
-never wins T2, T3 or the finale.
+**What this is.** Phase 12's acceptance asks that win rates "fall within agreed bands". We never
+agreed them, so I have nothing to tune the campaign against. Every scenario target — $400K here,
+3.3 times net worth there — is currently a number I picked to sit between two robot players.
 
-**The question.** What is a good band? My suggestion: a competent player should win tutorials
-almost always, Medium scenarios about 3 times in 4, and Hard about 1 in 2; the finale should be
-rare, perhaps 1 in 4.
+**How I measure it.** Three robots play every scenario on three seeds each:
 
-## 5. The map's coastlines
+- **the No bot** answers No to everything — it stands for a player who ignores the game;
+- **the Yes bot** answers Yes to everything it can afford — a player who accepts every offer without
+  reading it, including bad deals;
+- **the meter bot** picks the option with the best projected profit, preferring the safer one when
+  two are close, and keeps the refinery fed before chasing profit. This one stands in for a
+  competent player, and it is the one the bands should be set against.
 
-The map draws low-detail land outlines I wrote by hand. The spec wants coastlines generated at build
-time from Natural Earth, which means downloading a public-domain dataset (about 10 MB) and adding a
-build step. I have not downloaded anything.
+**Where it stands** (three seeds each, all measured on today's build):
 
-**The question.** Shall I fetch Natural Earth and generate the real coastline SVG? **R: yes, before
-any public release** — the hand-drawn outlines are recognisable but crude.
+| Scenario | Level | No bot | Yes bot | Meter bot |
+|---|---|---|---|---|
+| P1 First Oil | Tutorial | 0/3 | 3/3 | 3/3 |
+| R1 Keep the Lights On | Tutorial | 0/3 | 3/3 | **1/3** |
+| T1 Buy Low | Tutorial | 0/3 | 3/3 | 3/3 |
+| P2 Shale Glut | Medium | 0/3 | **0/3** | **0/3** |
+| R2 Winter Diesel | Medium | 0/3 | 2/3 | 3/3 |
+| T2 Contango | Medium | **1/3** | 0/3 | 0/3 |
+| P3 Gulf Giant | Hard | 0/3 | 1/3 | 1/3 |
+| R3 Locked In | Hard | 0/3 | 3/3 | 1/3 |
+| T3 The Long Way Round | Hard | 0/3 | 3/3 | 2/3 |
+| ★ The Strait | Hard | 0/3 | 0/3 | 0/3 |
 
-## 6. Things only you can do
+Four things stand out, and they are why I want a band rather than another round of guessing.
 
-- **Human playtests.** Phase 10's acceptance says first-time players finish a tutorial unaided. I
-  cannot run this.
-- **Trademark search.** The company names and the title "Hormuz" need a formal search before
-  release.
-- **Plain-language review** of card and news text by someone who is not me.
+**P2 is currently unwinnable.** Its target asks for 3.3 times your starting net worth; the best any
+bot managed today was 3.28. Every change to the economy moves these numbers, and I have been
+re-centring each target between two robots after every pass. That is not tuning, it is chasing.
 
-## 7. Deferred features (D36)
+**R1 and R3 are won by the Yes bot but not by the meter bot.** The meter bot declines supply deals
+whose projected profit is negative — and then runs out of crude, which loses outright. The deals
+really are unprofitable over the next 30 days; taking them anyway is right because running dry ends
+the scenario. So in these situations the **Profit meter points the wrong way**, and a player who
+reads it the way my bot does will lose. Either the Supply meter needs to shout louder than Profit
+when the tanks are nearly empty, or those cards need to say plainly what running dry costs.
 
-"Charter a tanker", "Keep cargo afloat" and "Build a second refinery" (D34) still wait on the
-charter and multi-plant systems. They are not needed for a playable game, but D34 promises the
-second refinery as the refiner's late game.
+**Nobody has ever won the finale.** The best result across all bots and seeds was third of twenty.
 
-**The question.** Build them now, or leave the refiner's late game as tiers, units and storage?
-**R: leave them until after the first playtests** — they add systems, and playtests may show the
-refiner already has enough to do.
+**T2 is won by the bot that does nothing** — see question 3a.
+
+**The question, part one.** What win rate should a competent player have?
+
+- **A (R)** Tutorials almost always; Medium about 3 times in 4; Hard about half the time; the finale
+  about 1 in 4. Generous, which suits a teenager learning the game.
+- **B** Tutorials always; Medium about half; Hard about 1 in 3; the finale 1 in 10. A game for people
+  who like losing and retrying.
+- **C** Tutorials always; Medium 9 times in 10; Hard 2 in 3; the finale 1 in 3. Gentler still —
+  almost everyone finishes the campaign.
+
+**The question, part two.** The finale currently asks you to finish first among companies of your
+type — twenty of them, most far bigger. Keep that, or change it to a top-three finish?
+
+- **A (R)** Top three. "First of twenty" is a lottery in a market this size, and the difference
+  between third and first is mostly which events landed on you.
+- **B** Keep first place, and accept the finale is a trophy few will see.
+
+---
+
+## 5. The map: hand-drawn outlines, or the real coastlines?
+
+**What this is.** The world map shows land shapes I wrote by hand from memory — about a dozen rough
+outlines. They are recognisable (you can find the Gulf, the Red Sea, Malacca) but crude: no islands
+to speak of, wobbly coasts, no detail below about 500 km.
+
+The plan in the spec is to generate the coastlines at build time from **Natural Earth**, a
+public-domain map dataset used by most mapping projects. That means:
+
+- downloading their coastline file (about 10 MB, from naturalearthdata.com, or the same data
+  repackaged as an npm package);
+- a small build step that projects it the way the game's map is projected, simplifies it to keep the
+  file small, and writes an SVG;
+- committing the generated SVG (roughly 100–300 KB) so the game still builds with no network.
+
+**Why I am asking rather than doing it.** I do not download files without your say-so. It is
+public-domain data and the licence is not in question, but it is still fetching something from the
+internet into your repository, and it adds a build step you will maintain.
+
+**The question.**
+
+- **A (R)** Yes — fetch Natural Earth, generate real coastlines, commit the result. About half a
+  day. The map stops looking like a sketch, which matters for a game named after a strait.
+- **B** Not yet. Keep the hand-drawn outlines until after the first playtests, in case players never
+  look at the map closely.
+- **C** Neither: commission or design a deliberately stylised map (thick simplified shapes, chart
+  paper look) instead of geographic accuracy. More character, more work, and it needs an artist's
+  eye rather than mine.
+
+---
+
+## 6. The three things I cannot do myself
+
+These are not code. Each needs you, or someone you ask.
+
+**6a. Playtests.** Phase 10's acceptance says a first-time player finishes a tutorial unaided. I can
+run robots all day; I cannot watch a person get confused. What I would want: three to five people
+who have never seen it, each playing one tutorial (about 20 minutes), with you noting where they
+hesitate and what they misread.
+
+- **A (R)** Do this before any public release, on the current build. It is the cheapest way to find
+  out whether the cards read plainly.
+- **B** Put it on itch.io first and gather feedback from strangers instead.
+- **C** Skip until there is a Steam build.
+
+**6b. Trademark search.** The title "Hormuz" and about thirty invented company names need checking
+before release. The names were invented to avoid real companies, but that is my judgement, not a
+search.
+
+- **A (R)** A professional search before release — a few hundred to a couple of thousand, depending
+  on how many classes and countries.
+- **B** A free search yourself (national trademark registers are searchable online), accepting the
+  risk for a free browser game and paying for a proper one only if it goes to Steam.
+- **C** Rename pre-emptively to something you are sure is clear, and skip the search.
+
+**6c. Plain-language review.** Every card and news item follows the wording rules (no violence, no
+real companies, plain words), but I wrote them all, so I am the wrong person to judge whether a
+teenager understands them. Who reads them — you, a teacher, one of the playtesters?
+
+---
+
+## 7. The three features still not built
+
+**What this is.** Three things the spec promises that I have not built, because each needs a system
+that does not exist yet:
+
+- **"Charter a tanker"** and **"Keep cargo afloat"** — cards that need chartered shipping, which the
+  engine has no concept of. Today cargo moves automatically and you cannot hire or hold a ship.
+- **"Build a second refinery"** (D34) — the spec's answer to "what does a refiner do late in the
+  game". It needs a company to own two plants, and today a refiner owns exactly one.
+
+**What changed yesterday.** T2 "Contango" showed a concrete need. A refinery outage gluts a region;
+the trader's automatic rules already buy the cheap crude, so a player who ignores every card does as
+well as one who does not. The player needs a lever the rules do not have. Chartered storage is one.
+But so is **leasing tanks**, which already exists in the engine — the player just is not offered it:
+"Lease storage" is something you have to go looking for in Opportunities rather than a card that
+arrives when crude is cheap and your tanks are full. That is perhaps half a day's work, not a new
+system.
+
+**The question.**
+
+- **A (R)** Fix T2 the cheap way first: raise "lease more tanks" as a card when crude is cheap and
+  the hub is full, and see whether that separates a thinking player from a passive one. Leave
+  charters and the second refinery until after playtests.
+- **B** Build the second refinery now. It is D34's promise and the refiner's late game is otherwise
+  just tiers, units and storage. Two or three days, and it touches the engine's company model.
+- **C** Build chartering now — it unlocks two card types and gives traders a real lever. The largest
+  of the three, and it changes how cargo works.
+- **D** All of it, before any playtest.
