@@ -199,9 +199,9 @@ export function buildPlayerView(
 }
 
 /**
- * One day of the player's own trading, kept by the session (spec G5). The company runs itself, so
- * this is the only place a player can see what it actually did: barrels out of the ground, barrels
- * bought and sold, and what each came to in money.
+ * One day of the player's own trading, kept by the session and shown on the Activity tab (spec G5).
+ * The company runs itself, so this is the only place a player can see what it actually did:
+ * barrels out of the ground, barrels bought and sold, and what each came to in money.
  */
 export interface DayLog {
   readonly tick: number;

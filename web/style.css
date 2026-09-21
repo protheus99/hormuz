@@ -259,11 +259,11 @@ details { margin-top: 6px; font-size: 12px; color: var(--text-2); }
   background: var(--bad-soft); border: 1px solid #f0cdc8; color: var(--bad); font-size: 13px; font-weight: 600;
 }
 
-/* ── The day book ── */
-.daybook { width: 100%; font-variant-numeric: tabular-nums; }
-.daybook th { position: sticky; top: 0; background: var(--panel); }
-.daybook td, .daybook th { padding: 3px 8px; white-space: nowrap; }
-.daybook tr:nth-child(even) td { background: var(--panel-2); }
+/* ── Activity: the company's own days ── */
+.activity { width: 100%; font-variant-numeric: tabular-nums; }
+.activity th { position: sticky; top: 0; background: var(--panel); }
+.activity td, .activity th { padding: 3px 8px; white-space: nowrap; }
+.activity tr:nth-child(even) td { background: var(--panel-2); }
 
 /* Answering is the end of the interruption: the clock is offered straight back. */
 .continue { display: block; width: 100%; margin-top: 10px; padding: 10px; font-size: 15px; font-weight: 600; }

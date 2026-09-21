@@ -105,7 +105,7 @@ describe('the clock (spec G3)', () => {
   });
 });
 
-describe('the day book (spec G5)', () => {
+describe('the Activity record (spec G5)', () => {
   it('records every barrel the company pumped, and what its sales came to', async () => {
     const s = await GameSession.newGame(producerGame);
     await runTo(s, 60);
@@ -167,7 +167,7 @@ describe('the day book (spec G5)', () => {
     }
   });
 
-  it('accounts for every dollar the day cost, and the day book adds up to the cash in hand', async () => {
+  it('accounts for every dollar the day cost, and each day adds up to the cash in hand', async () => {
     const s = await GameSession.newGame(producerGame);
     const start = (await s.getView()).company.cash;
     await runTo(s, 60);
@@ -204,7 +204,7 @@ describe('the day book (spec G5)', () => {
     expect(view.days.some((d) => d.pumped > 0)).toBe(true);
   });
 
-  it('keeps the day book across a save, and starts one for a save written without it', async () => {
+  it('keeps the record across a save, and starts one for a save written without it', async () => {
     const s = await GameSession.newGame(producerGame);
     await runTo(s, 20);
     const saved = await s.save();

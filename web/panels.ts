@@ -231,7 +231,7 @@ const COST_LABELS: readonly (readonly ['pumping' | 'refining' | 'shipping' | 'ru
   ['running', 'running the company'], ['building', 'building'],
 ];
 
-/** A column of the day book: what to call it, and how to read it off a day. */
+/** A column of the Activity table: what to call it, and how to read it off a day. */
 interface Column { readonly label: string; readonly of: (d: DayLog) => string; readonly money?: boolean }
 
 const COLUMNS: Readonly<Record<string, readonly string[]>> = {
@@ -279,7 +279,7 @@ const madeOn = (d: DayLog) => d.soldRevenue + d.fuelRevenue - d.boughtCost - d.c
  * this the player sees only a stock level going up and a cash balance moving, and never the
  * barrels or the prices behind either.
  */
-export function dayBookPanel(view: PlayerView): Html {
+export function activityPanel(view: PlayerView): Html {
   const days = [...view.days].reverse();
   const keys = COLUMNS[view.company.kind] ?? COLUMNS.PRODUCER ?? [];
   const columns = keys.map((k) => ALL_COLUMNS[k]).filter((c): c is Column => c !== undefined);
@@ -306,7 +306,7 @@ export function dayBookPanel(view: PlayerView): Html {
         sale and the highest bid takes it${buys ? ', and ' : '. '}` : ''}${buys ? html`it bids for
         crude, and wins the cargo that lands cheapest. ` : ''}The Deals tab lists only fixed-price
         contracts, which deliver a set amount every day until they run out.</p>
-      <table class="daybook">
+      <table class="activity">
         <tr><th>Day</th>${columns.map((c) => html`<th class="num">${c.label}</th>`)}</tr>
         ${days.map((d) => html`<tr><td>${dateOf(d.tick)}</td>${columns.map((c) => html`<td class="num ${c.label === 'Made today' ? (madeOn(d) > 0 ? 'good' : madeOn(d) < 0 ? 'bad' : '') : ''}">${c.of(d)}</td>`)}</tr>`)}
       </table>`}`;

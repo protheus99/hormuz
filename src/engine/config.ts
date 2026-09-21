@@ -170,7 +170,7 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
   RESTART_COST: 3.00,
   RAMP_TICKS: 10,
   // No field pumps the same number twice: weather, pumps, water cut, a crew short. Symmetric, so a
-  // year's output is unchanged — but a day's is never quite the plan, and the day book shows it.
+  // year's output is unchanged — but a day's is never quite the plan, and the Activity tab shows it.
   EXTRACTION_SPREAD: 0.06,
   FIXED_COST_RATE: { PRODUCER: 2.00, REFINER: 4.00 },
   DECLINE_RATE: { SHALE: 0.001, CONVENTIONAL: 0.00017 },

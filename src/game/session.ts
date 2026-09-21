@@ -34,7 +34,7 @@ export function msPerDay(speed: Speed): number {
 
 /** Alerts kept for the view; older ones drop off. */
 const ALERTS_KEPT = 100;
-/** Days of the player's own trading kept for the day book. */
+/** Days of the player's own trading kept for the Activity tab. */
 const DAYS_KEPT = 120;
 
 export interface AdvanceResult {
@@ -55,7 +55,7 @@ export interface SaveData {
   readonly world: World;
   readonly log: readonly LoggedCommand[];
   readonly history: readonly DailyPrices[];
-  /** The player's own day book. Absent in saves written before it existed, which start it afresh. */
+  /** The player's own recent days. Absent in saves written before it existed, which start it afresh. */
   readonly days?: readonly DayLog[];
   readonly alerts: readonly Alert[];
   readonly memory: AlertMemory;

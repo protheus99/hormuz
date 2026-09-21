@@ -5,11 +5,11 @@
 import { GameSession, msPerDay, PLAYER_ID, type CardType, type PlayerView, type SaveData, type Speed } from '../src/game';
 import { dateOf, html, money, mount } from './dom';
 import { inboxPanel, missionPanel, opportunitiesPanel } from './inbox';
-import { companyPanel, dayBookPanel, dealsPanel, mapPanel, newsPanel } from './panels';
+import { companyPanel, activityPanel, dealsPanel, mapPanel, newsPanel } from './panels';
 import { saveGame } from './storage';
 
-type Tab = 'company' | 'daybook' | 'deals' | 'news';
-const TABS: readonly [Tab, string][] = [['company', 'Company'], ['daybook', 'Day book'], ['deals', 'Deals & cargo'], ['news', 'News']];
+type Tab = 'company' | 'activity' | 'deals' | 'news';
+const TABS: readonly [Tab, string][] = [['company', 'Company'], ['activity', 'Activity'], ['deals', 'Deals & cargo'], ['news', 'News']];
 /** What is waiting behind a tab, so the player can see there is something there without opening it. */
 function tabCount(view: PlayerView, id: Tab): number {
   if (id === 'deals') return view.deals.filter((d) => d.status === 'ACTIVE').length + view.cargo.length;
@@ -96,7 +96,7 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
     })}`);
     const body = $('tabbody');
     const scroll = body.scrollTop;
-    mount(body, tab === 'company' ? companyPanel(view) : tab === 'daybook' ? dayBookPanel(view) : tab === 'deals' ? dealsPanel(view) : newsPanel(view));
+    mount(body, tab === 'company' ? companyPanel(view) : tab === 'activity' ? activityPanel(view) : tab === 'deals' ? dealsPanel(view) : newsPanel(view));
     body.scrollTop = scroll;
   };
 
