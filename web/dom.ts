@@ -40,6 +40,19 @@ export function money(x: number): string {
 
 export const signed = (x: number) => (x > 0 ? `+${money(x)}` : money(x));
 export const bbl = (x: number) => Math.round(x).toLocaleString('en-US');
+
+/**
+ * Barrels, short, for a table with a column to spare: 950, 1.98k, 7k, 12k, 1.2M. Three figures,
+ * so a field pumping 1,980 one day and 1,919 the next still reads as two different days.
+ */
+export function bblShort(x: number): string {
+  const a = Math.abs(x);
+  if (a < 1000) return String(Math.round(x));
+  const value = a < 1e6 ? x / 1e3 : x / 1e6;
+  const unit = a < 1e6 ? 'k' : 'M';
+  const places = Math.abs(value) >= 100 ? 0 : Math.abs(value) >= 10 ? 1 : 2;
+  return `${Number(value.toFixed(places))}${unit}`;
+}
 export const pct = (x: number) => `${Math.round(x * 100)}%`;
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

@@ -1,7 +1,7 @@
 // The game screen's panels: the map, the company, markets, deals and cargo, and news.
 
 import { mapLayout, regionName, type Counterparty, type DailyPrices, type DayLog, type PlayerView, type Point } from '../src/game';
-import { bbl, dateOf, html, money, pct, raw, signed, words, type Html } from './dom';
+import { bbl, bblShort, dateOf, html, money, pct, raw, signed, words, type Html } from './dom';
 
 const pts = (s: readonly Point[]) => s.map((p) => p.join(',')).join(' ');
 
@@ -234,28 +234,28 @@ const COST_LABELS: readonly (readonly ['pumping' | 'refining' | 'shipping' | 'ru
 /** A column of the Activity table: what to call it, and how to read it off a day. */
 interface Column { readonly label: string; readonly of: (d: DayLog) => string; readonly money?: boolean }
 
+// What a day came to in money is the barrels times the price a barrel, both of which are here, and
+// "made today" already gives the bottom line: the totals were a column doing no work.
 const COLUMNS: Readonly<Record<string, readonly string[]>> = {
-  PRODUCER: ['pumped', 'sold', 'for', 'price', 'buyer', 'costs', 'made', 'store', 'cash'],
-  REFINER: ['bought', 'paid', 'price', 'seller', 'refined', 'fuel', 'costs', 'made', 'store', 'cash'],
-  INTEGRATED: ['pumped', 'refined', 'fuel', 'bought', 'paid', 'sold', 'for', 'buyer', 'costs', 'made', 'store', 'cash'],
-  TRADER: ['bought', 'paid', 'seller', 'sold', 'for', 'buyer', 'costs', 'made', 'store', 'cash'],
+  PRODUCER: ['pumped', 'sold', 'soldAt', 'buyer', 'costs', 'made', 'store', 'cash'],
+  REFINER: ['bought', 'paidAt', 'seller', 'refined', 'fuel', 'costs', 'made', 'store', 'cash'],
+  INTEGRATED: ['pumped', 'refined', 'fuel', 'bought', 'paidAt', 'sold', 'soldAt', 'buyer', 'costs', 'made', 'store', 'cash'],
+  TRADER: ['bought', 'paidAt', 'seller', 'sold', 'soldAt', 'buyer', 'costs', 'made', 'store', 'cash'],
 };
 
 const ALL_COLUMNS: Readonly<Record<string, Column>> = {
-  pumped: { label: 'Pumped', of: (d) => (d.pumped > 0 ? `${bbl(d.pumped)} bbl` : '—') },
-  refined: { label: 'Refined', of: (d) => (d.refined > 0 ? `${bbl(d.refined)} bbl` : '—') },
+  pumped: { label: 'Pumped', of: (d) => (d.pumped > 0 ? `${bblShort(d.pumped)} bbl` : '—') },
+  refined: { label: 'Refined', of: (d) => (d.refined > 0 ? `${bblShort(d.refined)} bbl` : '—') },
   fuel: { label: 'Fuel sold', of: (d) => (d.fuelRevenue > 0 ? money(d.fuelRevenue) : '—'), money: true },
-  bought: { label: 'Bought', of: (d) => (d.boughtQty > 0 ? `${bbl(d.boughtQty)} bbl` : '—') },
-  paid: { label: 'Paid', of: (d) => (d.boughtCost > 0 ? money(d.boughtCost) : '—'), money: true },
-  sold: { label: 'Sold', of: (d) => (d.soldQty > 0 ? `${bbl(d.soldQty)} bbl` : '—') },
-  for: { label: 'For', of: (d) => (d.soldRevenue > 0 ? money(d.soldRevenue) : '—'), money: true },
-  price: { label: 'A barrel', of: (d) => (d.soldQty > 0 ? money(d.soldRevenue / d.soldQty) : d.boughtQty > 0 ? money(d.boughtCost / d.boughtQty) : '—') },
-  margin: { label: 'Bought at / sold at', of: (d) => `${d.boughtQty > 0 ? money(d.boughtCost / d.boughtQty) : '—'} / ${d.soldQty > 0 ? money(d.soldRevenue / d.soldQty) : '—'}` },
+  bought: { label: 'Bought', of: (d) => (d.boughtQty > 0 ? `${bblShort(d.boughtQty)} bbl` : '—') },
+  sold: { label: 'Sold', of: (d) => (d.soldQty > 0 ? `${bblShort(d.soldQty)} bbl` : '—') },
+  soldAt: { label: 'Sold at', of: (d) => (d.soldQty > 0 ? money(d.soldRevenue / d.soldQty) : '—') },
+  paidAt: { label: 'Paid a barrel', of: (d) => (d.boughtQty > 0 ? money(d.boughtCost / d.boughtQty) : '—') },
   buyer: { label: 'Who bought it', of: (d) => who(d.soldTo) },
   seller: { label: 'Who from', of: (d) => who(d.boughtFrom) },
   costs: { label: 'Costs', of: (d) => (d.costs.total > 0 ? money(d.costs.total) : '—'), money: true },
   made: { label: 'Made today', of: (d) => signed(madeOn(d)), money: true },
-  store: { label: 'Crude held', of: (d) => `${bbl(d.stock)} bbl` },
+  store: { label: 'Crude held', of: (d) => `${bblShort(d.stock)} bbl` },
   cash: { label: 'Cash in hand', of: (d) => money(d.cash) },
 };
 

@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { CardOption } from '../../src/game';
-import { dateOf, html, money, raw } from '../../web/dom';
+import { bblShort, dateOf, html, money, raw } from '../../web/dom';
 import { cash, commitmentDays, overTerm } from '../../web/inbox';
 
 describe('the HTML helper', () => {
@@ -19,6 +19,13 @@ describe('the HTML helper', () => {
 describe('formatting', () => {
   it('writes money compactly', () => {
     expect([money(1_234_567), money(85_400), money(4.5), money(-2_000_000)]).toEqual(['$1.2M', '$85K', '$4.50', '−$2.0M']);
+  });
+
+  it('writes barrels short enough for a table, without hiding a change between days', () => {
+    expect([bblShort(950), bblShort(7000), bblShort(12_000), bblShort(1_250_000)]).toEqual(['950', '7k', '12k', '1.25M']);
+    // Two days of a field that pumped almost, but not quite, the same: they must not read alike.
+    expect(bblShort(1980)).not.toBe(bblShort(1919));
+    expect([bblShort(1980), bblShort(1919), bblShort(11_685)]).toEqual(['1.98k', '1.92k', '11.7k']);
   });
 
   it('turns days into dates', () => {
