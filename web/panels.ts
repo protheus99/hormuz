@@ -1,7 +1,7 @@
 // The game screen's panels: the map, the company, markets, deals and cargo, and news.
 
-import { mapLayout, regionName, type PlayerView, type Point } from '../src/game';
-import { bbl, dateOf, html, money, pct, raw, words, type Html } from './dom';
+import { mapLayout, regionName, type DailyPrices, type PlayerView, type Point } from '../src/game';
+import { bbl, dateOf, html, money, pct, raw, signed, words, type Html } from './dom';
 
 const pts = (s: readonly Point[]) => s.map((p) => p.join(',')).join(' ');
 
@@ -110,7 +110,7 @@ const PROJECT_NAMES: Readonly<Record<string, string>> = {
   DRILL: 'New wells', STORAGE: 'More storage', TIER: 'Refinery upgrade', UNIT: 'New processing unit', REFINERY: 'Your own refinery',
 };
 
-function sparkline(values: readonly number[]): Html {
+export function sparkline(values: readonly number[]): Html {
   if (values.length < 2) return raw('');
   const min = Math.min(...values);
   const max = Math.max(...values);
@@ -120,6 +120,59 @@ function sparkline(values: readonly number[]): Html {
 }
 
 const GRADE_NAMES: Readonly<Record<string, string>> = { LIGHT_SWEET: 'Light crude', MEDIUM: 'Medium crude', HEAVY_SOUR: 'Heavy crude' };
+
+/** Where a price was `days` ago, or the oldest day recorded if the game is younger than that. */
+function before(view: PlayerView, days: number): DailyPrices | undefined {
+  return view.history[Math.max(0, view.history.length - 1 - days)];
+}
+
+const arrow = (change: number, price: number) =>
+  Math.abs(change) < price * 0.005 ? html`<span class="flat">steady</span>`
+    : html`<span class="${change > 0 ? 'good' : 'bad'}">${change > 0 ? '▲' : '▼'} ${money(Math.abs(change))}</span>`;
+
+/**
+ * Today's prices next to the decisions (G5). A deal is only good or bad against the market it is
+ * priced off, and against which way that market has been moving, so both belong on the same screen
+ * as the answer — not a tab away.
+ */
+export function priceStrip(view: PlayerView): Html {
+  const week = before(view, 7);
+  const spark = view.history.slice(-30);
+  const home = view.company.region;
+  // Cards quote the price crude fetched where it comes out of the ground, which is the world price
+  // less the freight to reach a buyer. Showing only the world price would leave the two disagreeing.
+  const anyLocal = view.markets.some((m) => m.closes[home] !== undefined);
+  return html`
+    <section class="panel prices">
+      <h2>Today's prices <span class="small muted">and the last week</span></h2>
+      <table>
+        <tr><th></th><th class="num">World</th>${anyLocal ? html`<th class="num">Here</th>` : ''}<th class="num">7 days</th><th></th></tr>
+        ${view.markets.map((m) => {
+          const then = week?.markers[m.node] ?? m.marker;
+          const local = m.closes[home];
+          return html`<tr><td>${GRADE_NAMES[m.grade] ?? m.grade}</td>
+            <td class="num strong">${money(m.marker)}</td>
+            ${anyLocal ? html`<td class="num strong">${local === undefined ? '—' : money(local)}</td>` : ''}
+            <td class="num">${arrow(m.marker - then, m.marker)}</td>
+            <td class="sparkcell">${sparkline(spark.map((d) => d.markers[m.node]))}</td></tr>`;
+        })}
+        ${Object.entries(view.products).map(([name, price]) => {
+          const then = (week?.products as Record<string, number> | undefined)?.[name] ?? price;
+          return html`<tr class="fuel"><td>${words(name)}</td>
+            <td class="num strong">${money(price)}</td>
+            ${anyLocal ? html`<td></td>` : ''}
+            <td class="num">${arrow(price - then, price)}</td>
+            <td class="sparkcell">${sparkline(spark.map((d) => (d.products as Record<string, number>)[name] ?? price))}</td></tr>`;
+        })}
+      </table>
+      <p class="small muted">${anyLocal ? html`<strong>World</strong> is what that crude fetched
+        wherever it traded today; <strong>Here</strong> is what it fetched coming out of
+        ${regionName(home)} — the world price, less the cost of shipping it to a buyer. An offer is
+        worth judging against <strong>Here</strong>.` : html`A price is what crude actually changed
+        hands for today. Judge an offer against the price of that crude, and against which way the
+        arrow points.`}</p>
+    </section>`;
+}
 
 /** Public prices (spec G5): crude markers and fuels, with the last 90 days. */
 export function marketsPanel(view: PlayerView): Html {
@@ -146,9 +199,18 @@ export function dealsPanel(view: PlayerView): Html {
   return html`
     <h3>Deals</h3>
     ${deals.length === 0 ? html`<p class="muted">No deals. Offers arrive as cards, or open “Find a deal”.</p>` : html`
-      <table><tr><th>With</th><th></th><th>Crude</th><th class="num">bbl/day</th><th class="num">Price</th><th class="num">Ends</th></tr>
-      ${deals.map((d) => html`<tr><td>${d.partner}</td><td>${d.role === 'BUYER' ? 'you buy' : 'you sell'}</td><td>${GRADE_NAMES[d.grade] ?? d.grade}</td>
-        <td class="num">${bbl(d.qtyPerDay)}</td><td class="num">${money(d.price)}</td><td class="num">day ${d.endTick}</td></tr>`)}
+      <table><tr><th>With</th><th></th><th>Crude</th><th class="num">bbl/day</th><th class="num">Price</th><th class="num">vs market</th><th>Runs until</th></tr>
+      ${deals.map((d) => {
+        // A deal is worth judging against the price of the same crude today: that gap, times the
+        // daily volume, is what the deal makes or costs you every day it still has to run.
+        const market = view.markets.find((m) => m.grade === d.grade)?.marker ?? d.price;
+        const edge = (d.role === 'BUYER' ? market - d.price : d.price - market) * d.qtyPerDay;
+        const left = Math.max(0, d.endTick - view.tick);
+        return html`<tr><td>${d.partner}</td><td>${d.role === 'BUYER' ? 'you buy' : 'you sell'}</td><td>${GRADE_NAMES[d.grade] ?? d.grade}</td>
+          <td class="num">${bbl(d.qtyPerDay)}</td><td class="num">${money(d.price)}</td>
+          <td class="num ${edge > 0 ? 'good' : edge < 0 ? 'bad' : ''}">${signed(edge)}/day</td>
+          <td>${dateOf(d.endTick)} <span class="muted">(${left} days)</span></td></tr>`;
+      })}
       </table>`}
     <h3 style="margin-top:14px">Your crude at sea</h3>
     ${view.cargo.length === 0 ? html`<p class="muted">None.</p>` : html`
@@ -161,8 +223,27 @@ export function dealsPanel(view: PlayerView): Html {
 /** News and alerts, newest first. */
 export function newsPanel(view: PlayerView): Html {
   const alerts = [...view.alerts].reverse().slice(0, 20);
+  const troubled = view.chokepoints.filter((c) => c.status !== 'OPEN');
   return html`
-    <h3>News</h3>
+    <details class="how">
+      <summary>How the news moves prices</summary>
+      <p>No headline sets a price. Prices are whatever crude actually sold for today, and the news
+        changes what selling costs.</p>
+      <p>A <strong>tense</strong> or <strong>congested</strong> strait adds war-risk cover to every
+        barrel crossing it, and a congested one adds days to the voyage. A <strong>closed</strong>
+        strait stops crossings altogether: ships go the long way round, or crude leaves by pipeline
+        if there is one.</p>
+      <p>So crude stuck on the wrong side of a closed strait gets <em>cheaper</em> — nobody can
+        fetch it — while crude that buyers can still reach gets <em>dearer</em>. That is why a
+        closure is bad news for a producer behind it, and can be good news for one outside it.</p>
+    </details>
+    ${troubled.length === 0 ? html`<p class="small muted">Every strait is open today.</p>` : html`
+      <table class="straits">
+        ${troubled.map((c) => html`<tr><td><span class="risk ${c.status === 'CLOSED' ? 'HIGH' : 'MEDIUM'}">${STRAIT_WORDS[c.status] ?? words(c.status)}</span></td>
+          <td>${c.displayName}</td>
+          <td class="num">${c.status === 'CLOSED' ? 'no crossings' : `${c.surcharge > 0 ? `+${money(c.surcharge)}/bbl` : ''}${c.extraDays > 0 ? `${c.surcharge > 0 ? ', ' : ''}+${c.extraDays} days` : ''}` || '—'}</td></tr>`)}
+      </table>`}
+    <h3 style="margin-top:14px">News</h3>
     ${view.news.length === 0 ? html`<p class="muted">A quiet market so far.</p>` : html`
       <ul class="alerts">${view.news.map((n) => html`<li><span class="sev INFO">${dateOf(n.tick)}</span><strong>${n.headline}.</strong> <span class="muted">${n.body}</span></li>`)}</ul>`}
     <h3 style="margin-top:14px">Your alerts</h3>

@@ -7,7 +7,7 @@ import { NODE_NAMES, type NodeName } from '../data/nodes';
 import type { RegionName } from '../data/regions';
 import { plantOf, plantsOf, wellOf } from '../engine/companies';
 import type { PlantState } from '../engine/model';
-import type { ChokepointStatus, Grade, Product } from '../engine/enums';
+import { ChokepointStatus, type Grade, type Product } from '../engine/enums';
 import type { AgentId, CompanySettings, DealId } from '../engine/model';
 import { netWorth, type World } from '../engine/world';
 import type { Alert } from './alerts';
@@ -83,7 +83,11 @@ export interface PlayerView {
   readonly markets: readonly MarketView[];
   readonly products: Readonly<Record<Product, number>>;
   readonly history: readonly DailyPrices[];
-  readonly chokepoints: readonly { readonly name: ChokepointName; readonly displayName: string; readonly status: ChokepointStatus }[];
+  readonly chokepoints: readonly {
+    readonly name: ChokepointName; readonly displayName: string; readonly status: ChokepointStatus;
+    /** War-risk cover charged on every barrel crossing today, and days added to the crossing. */
+    readonly surcharge: number; readonly extraDays: number;
+  }[];
   readonly pipelines: readonly { readonly id: string; readonly capacity: number; readonly usedToday: number }[];
   readonly deals: readonly {
     readonly id: DealId; readonly role: 'BUYER' | 'SELLER'; readonly partner: string; readonly grade: Grade;
@@ -144,7 +148,15 @@ export function buildPlayerView(
     }),
     products: { ...w.sink.prices },
     history,
-    chokepoints: (Object.keys(CHOKEPOINTS) as ChokepointName[]).map((c) => ({ name: c, displayName: CHOKEPOINTS[c].displayName, status: w.graph.chokepoints[c].status })),
+    chokepoints: (Object.keys(CHOKEPOINTS) as ChokepointName[]).map((c) => {
+      const cp = w.graph.chokepoints[c];
+      const tense = cp.status === ChokepointStatus.TENSION || cp.status === ChokepointStatus.DELAYED;
+      return {
+        name: c, displayName: CHOKEPOINTS[c].displayName, status: cp.status,
+        surcharge: tense ? cp.freightSurcharge : 0,
+        extraDays: cp.status === ChokepointStatus.DELAYED ? cp.delayTicks : 0,
+      };
+    }),
     pipelines: w.graph.edges.filter((e) => e.capacity !== null).map((e) => ({
       id: String(e.id), capacity: e.capacity ?? 0, usedToday: Object.values(e.usedBy).reduce<number>((s, q) => s + (q ?? 0), 0),
     })),

@@ -10,6 +10,12 @@ import { saveGame } from './storage';
 
 type Tab = 'company' | 'markets' | 'deals' | 'news';
 const TABS: readonly [Tab, string][] = [['company', 'Company'], ['markets', 'Markets'], ['deals', 'Deals & cargo'], ['news', 'News']];
+/** What is waiting behind a tab, so the player can see there is something there without opening it. */
+function tabCount(view: PlayerView, id: Tab): number {
+  if (id === 'deals') return view.deals.filter((d) => d.status === 'ACTIVE').length + view.cargo.length;
+  if (id === 'news') return view.news.length;
+  return 0;
+}
 /** "Next decision" runs at most this many days in one go. */
 const NEXT_EVENT_DAYS = 90;
 const AUTOSAVE_DAYS = 30;
@@ -76,7 +82,10 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
   };
 
   const renderTabs = () => {
-    mount($('tabs'), html`${TABS.map(([id, label]) => html`<button class="tab ${tab === id ? 'active' : ''}" data-tab="${id}">${label}</button>`)}`);
+    mount($('tabs'), html`${TABS.map(([id, label]) => {
+      const n = tabCount(view, id);
+      return html`<button class="tab ${tab === id ? 'active' : ''}" data-tab="${id}">${label}${n > 0 ? html` <span class="count">${n}</span>` : ''}</button>`;
+    })}`);
     const body = $('tabbody');
     const scroll = body.scrollTop;
     mount(body, tab === 'company' ? companyPanel(view) : tab === 'markets' ? marketsPanel(view) : tab === 'deals' ? dealsPanel(view) : newsPanel(view));

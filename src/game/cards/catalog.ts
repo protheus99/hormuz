@@ -619,7 +619,10 @@ export const CATALOG: readonly CardDef[] = [
 
   // ── Shipping: anyone who ships crude (spec §7.4) ──
   {
-    type: 'CHARTER_TANKER', kinds: ALL, raised: false, opportunity: true, operating: false,
+    // Freight is paid by whoever buys (settlement), so cargo belongs to the buyer. A producer only
+    // sells: it would never carry anything, and the hire would run for nothing. Refiners, traders
+    // and integrated companies ship what they buy.
+    type: 'CHARTER_TANKER', kinds: ['REFINER', 'INTEGRATED', 'TRADER'], raised: false, opportunity: true, operating: false,
     detect: ({ w, me }) => {
       // One ship at a time is enough for a company this size; a second only burns hire.
       if (w.charters.some((ch) => ch.ownerId === me.agentId)) return null;

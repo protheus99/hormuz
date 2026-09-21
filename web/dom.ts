@@ -34,7 +34,7 @@ export function mount(target: Element, content: Html): void {
 /** $1.2M, $85K, $4.50 — the same style as card text. */
 export function money(x: number): string {
   const a = Math.abs(x);
-  const s = a >= 1e6 ? `$${(a / 1e6).toFixed(1)}M` : a >= 1e4 ? `$${Math.round(a / 1e3)}K` : a >= 100 ? `$${Math.round(a)}` : `$${a.toFixed(2)}`;
+  const s = a >= 1e6 ? `$${(a / 1e6).toFixed(1)}M` : a >= 1e4 ? `$${Math.round(a / 1e3)}K` : a >= 100 ? `$${Math.round(a).toLocaleString('en-US')}` : `$${a.toFixed(2)}`;
   return x < 0 ? `−${s}` : s;
 }
 

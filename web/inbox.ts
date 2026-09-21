@@ -3,6 +3,7 @@
 
 import type { Card, CardOption, PlayerView } from '../src/game';
 import { dateOf, html, money, signed, type Html } from './dom';
+import { priceStrip } from './panels';
 
 const RISK_WORDS = { LOW: 'Low', MEDIUM: 'Medium', HIGH: 'High' } as const;
 const RISK_REASONS = { ROUTES: 'shipping routes through troubled straits', BREAKDOWN: 'a refinery breakdown', CASH: 'running short of cash', NONE: '' } as const;
@@ -13,6 +14,27 @@ function supply(o: CardOption): string {
   if (s.unit === 'days') return `Supply ${s.value.toFixed(1)} days`;
   if (s.unit === 'fill') return `Storage ${Math.round(s.value * 100)}% full`;
   return `Holdings ${money(s.value)}`;
+}
+
+/**
+ * How long an answer ties you in: a deal's term, a run-rate cap's month, a charter's hire. The
+ * meters project 30 days, so without this a 90-day deal and a 30-day one read exactly alike.
+ */
+export function commitmentDays(o: CardOption): number {
+  let days = 0;
+  for (const a of o.actions) {
+    if (a.kind === 'SIGN_DEAL') days = Math.max(days, a.terms.termDays);
+    else if ('days' in a) days = Math.max(days, a.days);
+  }
+  return days;
+}
+
+/** What the answer earns over its whole term, if today's conditions held — a rate is not a total. */
+export function overTerm(o: CardOption): string {
+  const profit = o.impact?.profit ?? 0;
+  const days = commitmentDays(o);
+  if (days <= 30 || Math.abs(profit) < 500) return '';
+  return `${signed((profit * days) / 30)} over ${days} days`;
 }
 
 /**
@@ -36,6 +58,7 @@ function option(card: Card, o: CardOption, answered: string | undefined): Html {
       ${i ? html`<div class="meters">
         <span>${cash(o)}</span>
         <span class="${i.profit > 0 ? 'good' : i.profit < 0 ? 'bad' : ''}">Profit ${Math.abs(i.profit) < 500 ? 'no change' : `${signed(i.profit)}/mo`}</span>
+        ${overTerm(o) === '' ? '' : html`<span class="term ${i.profit > 0 ? 'good' : 'bad'}">≈ ${overTerm(o)}</span>`}
         <span>${supply(o)}</span>
         <span>Risk <span class="risk ${i.risk}">${RISK_WORDS[i.risk]}</span></span>
       </div>` : ''}
@@ -68,6 +91,7 @@ export function inboxPanel(view: PlayerView, answered: ReadonlyMap<string, strin
   const c = view.campaign;
   const ticks = { MET: '✓', FAILED: '✗', PENDING: '•' } as const;
   return html`
+    ${priceStrip(view)}
     ${c ? html`<section class="panel goal">
       <h2>${c.title} <span class="small muted">${c.daysLeft} days left</span></h2>
       ${c.result ? html`<div class="result ${c.result}">${c.result === 'WON' ? 'Scenario won!' : 'Scenario lost.'} ${c.reason}</div>` : ''}
@@ -83,7 +107,9 @@ export function inboxPanel(view: PlayerView, answered: ReadonlyMap<string, strin
         <p><strong>Cash</strong> — what the answer costs you: straight away, or day by day while
           something is built. Either way it is money you are committing.</p>
         <p><strong>Profit</strong> — how much more, or less, you would make each month if today's
-          conditions held for the next 30 days.</p>
+          conditions held for the next 30 days. Where an answer ties you in for longer — a 90-day
+          deal, say — the second figure is what that adds up to over the whole term, which is the
+          difference between signing for three months and signing for one.</p>
         <p><strong>Supply</strong> — the tightest that gets over those 30 days: days of crude left
           for a refinery, how full your tanks get for a producer (full tanks stop your wells), or
           the value of the crude a trader is holding.</p>

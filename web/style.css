@@ -81,7 +81,9 @@ h3 { font-size: 14px; }
 .actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px; }
 
 /* ── Game shell ── */
-.game { display: grid; grid-template-rows: auto 1fr; height: 100vh; min-height: 760px; }
+/* The screen is one viewport tall: the map is capped, and the panels take what is left, so
+   nothing below the fold. The floor is low enough for a laptop screen. */
+.game { display: grid; grid-template-rows: auto 1fr; height: 100vh; min-height: 620px; }
 .topbar {
   display: flex; align-items: center; gap: 20px; padding: 8px 16px; background: var(--panel);
   border-bottom: 1px solid var(--line);
@@ -95,13 +97,15 @@ h3 { font-size: 14px; }
 .menu { display: flex; gap: 6px; }
 
 .body { display: grid; grid-template-columns: 1fr 400px; gap: 12px; padding: 12px; min-height: 0; }
-.left { display: grid; grid-template-rows: auto 1fr; gap: 12px; min-height: 0; }
+.left { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 12px; min-height: 0; }
 .right { display: flex; flex-direction: column; gap: 12px; min-height: 0; overflow: auto; }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; min-height: 0; }
 .panel > h2 { margin-bottom: 8px; display: flex; justify-content: space-between; align-items: baseline; }
 
 /* ── Map ── */
-.map svg { width: 100%; height: auto; display: block; background: var(--sea); border-radius: 6px; }
+/* The map is for orientation, so it takes a third of the height at most: the numbers under it
+   matter more. The viewBox keeps its shape, so a shorter box just draws the map smaller. */
+.map svg { width: 100%; height: auto; max-height: 32vh; display: block; background: var(--sea); border-radius: 6px; }
 .map .land { fill: var(--land); stroke: #cfc6b3; stroke-width: 0.6; }
 .map .water { fill: var(--sea); stroke: #cfc6b3; stroke-width: 0.6; }
 .map .lane { fill: none; stroke: #9bb3c7; stroke-width: 1.2; }
@@ -127,7 +131,22 @@ h3 { font-size: 14px; }
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: -4px -4px 10px; padding: 0 4px; }
 .tab { border: 0; background: none; padding: 8px 12px; border-bottom: 2px solid transparent; color: var(--text-2); }
 .tab.active { border-bottom-color: var(--accent); color: var(--text); font-weight: 600; }
-.tabbody { overflow: auto; }
+.tabbody { overflow: auto; flex: 1; min-height: 0; }
+.tab .count {
+  display: inline-block; min-width: 16px; padding: 0 5px; border-radius: 8px; margin-left: 4px;
+  background: var(--line); color: var(--text-2); font-size: 11px; font-weight: 600;
+}
+.tab.active .count { background: var(--accent); color: #fff; }
+
+/* Today's prices, beside the decisions they should be judged against. */
+.prices table { width: 100%; }
+.prices td { padding: 2px 4px; }
+.prices .strong { font-weight: 600; }
+.prices .flat { color: var(--text-2); }
+.prices .fuel td:first-child { color: var(--text-2); }
+.prices .sparkcell { width: 80px; }
+.prices .spark { width: 80px; height: 20px; }
+.straits td { padding: 2px 6px 2px 0; }
 .lower { display: flex; flex-direction: column; overflow: hidden; }
 
 /* ── Tables and bars ── */
@@ -175,6 +194,7 @@ td.num, th.num { text-align: right; }
 .option .choice.MAYBE { color: var(--warn); }
 .option .choice.NO { color: var(--text-2); }
 .meters { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 4px; font-size: 12px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.meters .term { font-weight: 600; }
 .risk { padding: 0 6px; border-radius: 4px; font-weight: 600; }
 .risk.LOW { background: var(--good-soft); color: var(--good); }
 .risk.MEDIUM { background: var(--warn-soft); color: var(--warn); }

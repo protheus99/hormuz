@@ -224,6 +224,16 @@ describe('AI parity (spec G4.6)', () => {
   });
 });
 
+describe('who may hire a tanker', () => {
+  it('offers a charter to companies that buy crude, and not to a producer, which never ships any', () => {
+    const charter = CATALOG.find((c) => c.type === 'CHARTER_TANKER');
+    expect(charter?.kinds).toEqual(['REFINER', 'INTEGRATED', 'TRADER']);
+    // Freight is paid by the buyer, so a producer's crude always travels on someone else's ship:
+    // a hire it paid for would run empty for its whole term.
+    expect(charter?.kinds).not.toContain('PRODUCER');
+  });
+});
+
 describe('cards in a game (spec G3, G9)', () => {
   it('answers a card and an Opportunity, and replays the game exactly', async () => {
     const s = await GameSession.newGame(refiner);

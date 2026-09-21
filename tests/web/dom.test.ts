@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CardOption } from '../../src/game';
 import { dateOf, html, money, raw } from '../../web/dom';
-import { cash } from '../../web/inbox';
+import { cash, commitmentDays, overTerm } from '../../web/inbox';
 
 describe('the HTML helper', () => {
   it('escapes interpolated text, so a company name cannot inject markup', () => {
@@ -37,5 +37,28 @@ describe('what an answer says it costs', () => {
     expect(cash(option(13_000, 13_000))).toBe('Cash −$13K now');
     expect(cash(option(0, 1_150_000))).toBe('Cash −$1.1M in all');
     expect(cash(option(0, 0))).toBe('Cash no change');
+  });
+});
+
+describe('how long an answer ties you in', () => {
+  const deal = (termDays: number, profit: number): CardOption => ({
+    choice: 'YES', label: `Sign for ${termDays} days.`, totalCost: 0, affordable: true, affordableInDays: null, effect: null,
+    actions: [{ kind: 'SIGN_DEAL', terms: { termDays } }] as never,
+    impact: { cash: 0, profit, supply: null, risk: 'LOW', riskReason: 'NONE' } as never,
+  });
+
+  it(`reads a deal's term, and a hire's days`, () => {
+    expect(commitmentDays(deal(90, 0))).toBe(90);
+    expect(commitmentDays({ ...deal(0, 0), actions: [{ kind: 'CHARTER', size: 'LARGE', days: 45 }] as never })).toBe(45);
+  });
+
+  it('turns a monthly figure into what the whole term is worth, since the meters only see 30 days', () => {
+    expect(overTerm(deal(90, 35_000))).toBe('+$105K over 90 days');
+    expect(overTerm(deal(90, -40_000))).toBe('−$120K over 90 days');
+  });
+
+  it('says nothing for a term the meters already cover, or for a figure too small to matter', () => {
+    expect(overTerm(deal(30, 35_000))).toBe('');
+    expect(overTerm(deal(90, 100))).toBe('');
   });
 });
