@@ -283,6 +283,9 @@ export function dayBookPanel(view: PlayerView): Html {
   const days = [...view.days].reverse();
   const keys = COLUMNS[view.company.kind] ?? COLUMNS.PRODUCER ?? [];
   const columns = keys.map((k) => ALL_COLUMNS[k]).filter((c): c is Column => c !== undefined);
+  // A refinery only buys, a producer only sells: say the one the player will actually see.
+  const buys = view.company.kind !== 'PRODUCER';
+  const sells = view.company.kind !== 'REFINER';
   const month = view.days.slice(-30);
   const sum = (pick: (d: DayLog) => number) => month.reduce((t, d) => t + pick(d), 0);
   const soldQty = sum((d) => d.soldQty), soldFor = sum((d) => d.soldRevenue);
@@ -298,9 +301,11 @@ export function dayBookPanel(view: PlayerView): Html {
           return amount <= 0 ? '' : html`${label} <strong>${money(amount)}</strong> · `;
         })}in all <strong>${money(sum((d) => d.costs.total))}</strong>${fuel > 0 ? html`. Fuel sold brought in <strong>${money(fuel)}</strong>` : ''}.
         <span class="muted">Buying crude is shown separately, in the table.</span></p>
-      <p class="small muted">A sale with no deal against it went on the open market: your company
-        puts the crude up for sale every day, and whoever bids highest gets it. The Deals tab lists
-        only fixed-price contracts, which deliver a set amount every day until they run out.</p>
+      <p class="small muted">Anything with no deal against it went through the open market, where
+        your company trades every day without being asked: ${sells ? html`it puts its crude up for
+        sale and the highest bid takes it${buys ? ', and ' : '. '}` : ''}${buys ? html`it bids for
+        crude, and wins the cargo that lands cheapest. ` : ''}The Deals tab lists only fixed-price
+        contracts, which deliver a set amount every day until they run out.</p>
       <table class="daybook">
         <tr><th>Day</th>${columns.map((c) => html`<th class="num">${c.label}</th>`)}</tr>
         ${days.map((d) => html`<tr><td>${dateOf(d.tick)}</td>${columns.map((c) => html`<td class="num ${c.label === 'Made today' ? (madeOn(d) > 0 ? 'good' : madeOn(d) < 0 ? 'bad' : '') : ''}">${c.of(d)}</td>`)}</tr>`)}
