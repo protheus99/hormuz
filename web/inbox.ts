@@ -28,9 +28,11 @@ export function cash(o: CardOption): string {
 function option(card: Card, o: CardOption, answered: string | undefined): Html {
   const i = o.impact;
   const disabled = answered !== undefined || !o.affordable;
+  const state = answered === undefined ? '' : answered === o.choice ? 'chosen' : 'passed';
   return html`
-    <button class="option" data-card="${card.id}" data-choice="${o.choice}" ${disabled ? 'disabled' : ''}>
+    <button class="option ${state}" data-card="${card.id}" data-choice="${o.choice}" ${disabled ? 'disabled' : ''}>
       <span class="choice ${o.choice}">${o.choice === 'YES' ? 'Yes' : o.choice === 'MAYBE' ? 'Maybe' : 'No'}</span>${o.label}
+      ${state === 'chosen' ? html`<span class="picked">✓ your answer</span>` : ''}
       ${i ? html`<div class="meters">
         <span>${cash(o)}</span>
         <span class="${i.profit > 0 ? 'good' : i.profit < 0 ? 'bad' : ''}">Profit ${Math.abs(i.profit) < 500 ? 'no change' : `${signed(i.profit)}/mo`}</span>

@@ -160,6 +160,16 @@ td.num, th.num { text-align: right; }
 .option { display: block; width: 100%; text-align: left; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); padding: 8px 10px; margin-bottom: 6px; }
 .option:hover:not(:disabled) { border-color: var(--accent); }
 .option:disabled { cursor: not-allowed; }
+
+/* The answer you gave, and the ones you passed over. */
+.option.chosen { border-width: 2px; }
+.option.chosen[data-choice="YES"] { border-color: var(--good); background: var(--good-soft); }
+.option.chosen[data-choice="MAYBE"] { border-color: var(--warn); background: var(--warn-soft); }
+.option.chosen[data-choice="NO"] { border-color: var(--text-2); background: var(--panel-2); }
+.option.passed { opacity: 0.45; }
+.picked { float: right; font-size: 12px; font-weight: 600; color: var(--good); }
+.option.chosen[data-choice="MAYBE"] .picked { color: var(--warn); }
+.option.chosen[data-choice="NO"] .picked { color: var(--text-2); }
 .option .choice { font-weight: 700; margin-right: 6px; }
 .option .choice.YES { color: var(--good); }
 .option .choice.MAYBE { color: var(--warn); }

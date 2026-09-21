@@ -147,6 +147,7 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
         if (r.ok) answered.set(cardId, choice);
         else toast(r.reason);
         renderInbox();
+        renderTop();
       });
     } else if (d.opp !== undefined) {
       void session.openOpportunity(PLAYER_ID, d.opp as CardType).then(refresh);
