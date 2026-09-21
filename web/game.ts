@@ -57,11 +57,13 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
 
   const renderTop = () => {
     const c = view.company;
+    const waiting = view.cards.filter((card) => !card.opportunity && !answered.has(card.id)).length;
     mount($('top'), html`
       <span class="brand">HORMUZ</span>
       <div class="stat"><span class="label">${c.name}</span><span class="value">${dateOf(view.tick)}${view.lengthDays !== null ? html` <span class="small muted">· ${daysLeft(Math.max(0, view.lengthDays - view.tick))}</span>` : ''}</span></div>
       <div class="stat"><span class="label">Cash</span><span class="value ${c.cash < 0 ? 'bad' : ''}">${money(c.cash)}</span></div>
       <div class="stat"><span class="label">Net worth</span><span class="value">${money(c.netWorth)}</span></div>
+      ${waiting > 0 ? html`<div class="stat"><span class="label">Waiting</span><span class="value"><span class="badge">${waiting}</span> ${waiting === 1 ? 'decision' : 'decisions'}</span></div>` : ''}
       ${c.insolvent ? html`<div class="stat"><span class="label">Status</span><span class="value bad">Out of cash and credit</span></div>` : ''}
       <div class="clock">
         ${([0, 1, 2, 4, 8] as const).map((s) => html`<button class="btn ${speed === s ? 'active' : ''}" data-speed="${s}" title="${s === 0 ? 'Pause' : `${s}× speed`}">${s === 0 ? '❚❚' : `×${s}`}</button>`)}

@@ -172,7 +172,14 @@ td.num, th.num { text-align: right; }
 .unaffordable { font-size: 12px; color: var(--bad); margin-top: 2px; }
 .answered { font-size: 13px; color: var(--good); font-weight: 600; }
 details { margin-top: 6px; font-size: 12px; color: var(--text-2); }
-.opps { display: flex; flex-wrap: wrap; gap: 6px; }
+.opps { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+
+/* A decision waiting for an answer: a red count, in the inbox and in the top bar. */
+.badge {
+  display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px;
+  border-radius: 10px; background: var(--bad); color: #fff; font-size: 12px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
 
 /* ── Alerts ── */
 .alerts li { padding: 4px 0; border-bottom: 1px solid var(--line); list-style: none; }

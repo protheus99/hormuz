@@ -15,6 +15,16 @@ function supply(o: CardOption): string {
   return `Holdings ${money(s.value)}`;
 }
 
+/**
+ * What this answer costs. A project — new wells, more tanks, a refinery — takes nothing today and
+ * then bills every day while it is built, so showing "no change" would hide the whole commitment.
+ */
+export function cash(o: CardOption): string {
+  const now = o.impact?.cash ?? 0;
+  if (o.totalCost > now + 1) return `Cash −${money(o.totalCost)} in all`;
+  return now > 0 ? `Cash −${money(now)} now` : 'Cash no change';
+}
+
 function option(card: Card, o: CardOption, answered: string | undefined): Html {
   const i = o.impact;
   const disabled = answered !== undefined || !o.affordable;
@@ -22,7 +32,7 @@ function option(card: Card, o: CardOption, answered: string | undefined): Html {
     <button class="option" data-card="${card.id}" data-choice="${o.choice}" ${disabled ? 'disabled' : ''}>
       <span class="choice ${o.choice}">${o.choice === 'YES' ? 'Yes' : o.choice === 'MAYBE' ? 'Maybe' : 'No'}</span>${o.label}
       ${i ? html`<div class="meters">
-        <span>Cash ${i.cash > 0 ? `−${money(i.cash)}` : 'no change'}</span>
+        <span>${cash(o)}</span>
         <span class="${i.profit > 0 ? 'good' : i.profit < 0 ? 'bad' : ''}">Profit ${Math.abs(i.profit) < 500 ? 'no change' : `${signed(i.profit)}/mo`}</span>
         <span>${supply(o)}</span>
         <span>Risk <span class="risk ${i.risk}">${RISK_WORDS[i.risk]}</span></span>
@@ -38,8 +48,8 @@ function card(c: Card, answered: string | undefined, open: boolean): Html {
       <div class="head"><h3>${c.title}</h3>
         ${c.deadline !== null ? html`<span class="deadline">Decide by ${dateOf(c.deadline)}</span>` : html`<button class="btn small" data-close="${c.id}">Close</button>`}</div>
       <p class="situation">${c.situation}</p>
-      ${answered ? html`<div class="answered">You chose ${answered === 'YES' ? 'Yes' : answered === 'MAYBE' ? 'Maybe' : 'No'} — it takes effect tomorrow.</div>` : ''}
       ${c.options.map((o) => option(c, o, answered))}
+      ${answered ? html`<div class="answered">You chose ${answered === 'YES' ? 'Yes' : answered === 'MAYBE' ? 'Maybe' : 'No'} — it takes effect tomorrow.</div>` : ''}
       <details data-details="${c.id}" ${open ? 'open' : ''}><summary>Details</summary>
         <p>${c.details || 'No further numbers.'}</p>
         ${c.options.map((o) => html`<p>${o.choice}: costs ${money(o.totalCost)} in all${o.impact && o.impact.riskReason !== 'NONE' ? `; risk comes from ${RISK_REASONS[o.impact.riskReason]}` : ''}.</p>`)}
@@ -52,7 +62,7 @@ function card(c: Card, answered: string | undefined, open: boolean): Html {
 export function inboxPanel(view: PlayerView, answered: ReadonlyMap<string, string>, openDetails: ReadonlySet<string>): Html {
   const raised = view.cards.filter((c) => !c.opportunity);
   const opened = view.cards.filter((c) => c.opportunity);
-  const openTypes = new Set(opened.map((c) => c.type as string));
+  const waiting = raised.filter((c) => !answered.has(c.id)).length;
   const c = view.campaign;
   const ticks = { MET: '✓', FAILED: '✗', PENDING: '•' } as const;
   return html`
@@ -65,10 +75,11 @@ export function inboxPanel(view: PlayerView, answered: ReadonlyMap<string, strin
       ${c.milestones.map((m) => html`<div class="cond small"><span class="tick ${m.done ? 'MET' : 'PENDING'}">${m.done ? '✓' : '•'}</span><span>${m.label} <span class="muted">(reward: ${m.reward})</span></span></div>`)}
     </section>` : ''}
     <section class="panel">
-      <h2>Decisions <span class="small muted">${raised.length} open</span></h2>
+      <h2>Decisions ${waiting > 0 ? html`<span class="badge" aria-label="${waiting} waiting for an answer">${waiting}</span>` : html`<span class="small muted">none waiting</span>`}</h2>
       <details class="meters-help">
         <summary>What the numbers mean</summary>
-        <p><strong>Cash</strong> — money that leaves your account straight away.</p>
+        <p><strong>Cash</strong> — what the answer costs you: straight away, or day by day while
+          something is built. Either way it is money you are committing.</p>
         <p><strong>Profit</strong> — how much more, or less, you would make each month if today's
           conditions held for the next 30 days.</p>
         <p><strong>Supply</strong> — the tightest that gets over those 30 days: days of crude left
@@ -83,7 +94,12 @@ export function inboxPanel(view: PlayerView, answered: ReadonlyMap<string, strin
     </section>
     <section class="panel">
       <h2>Opportunities</h2>
+      <div class="opps">${view.opportunities.map((o) => {
+        const card = opened.find((x) => x.type === o.type);
+        return card
+          ? html`<button class="btn active" data-close="${card.id}" title="Close this one">${o.title}</button>`
+          : html`<button class="btn" data-opp="${o.type}">${o.title}</button>`;
+      })}</div>
       ${opened.map((c) => card(c, answered.get(c.id), openDetails.has(c.id)))}
-      <div class="opps">${view.opportunities.filter((o) => !openTypes.has(o.type)).map((o) => html`<button class="btn" data-opp="${o.type}">${o.title}</button>`)}</div>
     </section>`;
 }
