@@ -55,6 +55,12 @@ h3 { font-size: 14px; }
 .newgame h1 { font-size: 32px; letter-spacing: 0.08em; }
 .newgame .lead { margin: 6px 0 24px; color: var(--text-2); }
 .newgame fieldset { border: 0; padding: 0; margin: 0 0 20px; }
+.how { margin: -12px 0 20px; }
+.how summary { cursor: pointer; color: var(--accent); font-weight: 600; }
+.how p { margin: 8px 0; color: var(--text-2); max-width: 62ch; }
+.meters-help { margin: 0 0 10px; }
+.meters-help summary { cursor: pointer; color: var(--accent); }
+.meters-help p { margin: 6px 0; }
 .newgame legend { font-weight: 600; margin-bottom: 8px; }
 .types { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .scenarios { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; max-height: 360px; overflow: auto; }

@@ -31,6 +31,18 @@ export function showNewGame(root: Element, hasSave: boolean, start: (s: GameSett
       <section class="newgame">
         <h1>HORMUZ</h1>
         <p class="lead">You run an oil company. The market runs itself; you make the big calls.</p>
+        <details class="how" ${state.mode === 'CAMPAIGN' ? 'open' : ''}>
+          <summary>How it is played</summary>
+          <p>Your company buys, sells, ships and refines on its own, every day. You never place an
+            order or type a price.</p>
+          <p>What reaches you is <strong>decisions</strong>: a card with two sentences and up to
+            three answers — <strong>Yes</strong>, <strong>Maybe</strong> (a smaller or shorter
+            version) and <strong>No</strong>. Each answer shows what it would do to your cash,
+            your profit, your supply and your risk. Unanswered cards count as No.</p>
+          <p>The clock runs at the speed you choose and stops whenever a decision arrives. Two
+            settings — how much risk you take, and how eagerly you buy or sell — are yours to change
+            at any time, in the Company tab.</p>
+        </details>
         <div class="seg" style="margin-bottom:20px">
           <button data-mode="CAMPAIGN" class="${campaign ? 'active' : ''}">Campaign</button>
           <button data-mode="SANDBOX" class="${campaign ? '' : 'active'}">Sandbox</button>

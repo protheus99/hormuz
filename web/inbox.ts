@@ -66,6 +66,19 @@ export function inboxPanel(view: PlayerView, answered: ReadonlyMap<string, strin
     </section>` : ''}
     <section class="panel">
       <h2>Decisions <span class="small muted">${raised.length} open</span></h2>
+      <details class="meters-help">
+        <summary>What the numbers mean</summary>
+        <p><strong>Cash</strong> — money that leaves your account straight away.</p>
+        <p><strong>Profit</strong> — how much more, or less, you would make each month if today's
+          conditions held for the next 30 days.</p>
+        <p><strong>Supply</strong> — the tightest that gets over those 30 days: days of crude left
+          for a refinery, how full your tanks get for a producer (full tanks stop your wells), or
+          the value of the crude a trader is holding.</p>
+        <p><strong>Risk</strong> — what the figures cannot see: shipping through troubled straits, a
+          refinery breakdown, or running short of cash.</p>
+        <p class="muted">Nothing here is a prediction. It is what today's market would do to you if
+          it stood still, which it will not.</p>
+      </details>
       ${raised.length === 0 ? html`<p class="inbox-empty">No decisions waiting. The company is running itself.</p>` : raised.map((c) => card(c, answered.get(c.id), openDetails.has(c.id)))}
     </section>
     <section class="panel">
