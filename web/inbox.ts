@@ -90,7 +90,7 @@ export function missionPanel(view: PlayerView): Html {
   const ticks = { MET: '✓', FAILED: '✗', PENDING: '•' } as const;
   return html`
     <div class="sheet goal">
-      <h2>${c.title} <span class="small muted">${c.daysLeft} days left</span><button class="btn small" data-mission-close>Close</button></h2>
+      <h2>${c.title} <span class="small muted">${c.daysLeft} days left</span><button class="btn small" data-sheet-close>Close</button></h2>
       ${c.result ? html`<div class="result ${c.result}">${c.result === 'WON' ? 'Scenario won!' : 'Scenario lost.'} ${c.reason}</div>` : ''}
       <p class="small">${c.goal}</p>
       ${c.conditions.map((x) => html`<div class="cond"><span class="tick ${x.status}">${ticks[x.status]}</span><span>${x.progress}</span></div>`)}
@@ -109,7 +109,7 @@ export function inboxPanel(view: PlayerView, answered: ReadonlyMap<string, strin
   const waiting = raised.filter((c) => !answered.has(c.id)).length;
   return html`
     ${priceStrip(view)}
-    <section class="panel ${attention && waiting > 0 ? 'attention' : ''}">
+    ${raised.length > 0 ? html`<section class="panel ${attention && waiting > 0 ? 'attention' : ''}">
       ${attention && waiting > 0 ? html`<div class="stopped">The clock stopped: ${waiting === 1 ? 'a decision is' : `${waiting} decisions are`} waiting for you.</div>` : ''}
       <h2>Decisions ${waiting > 0 ? html`<span class="badge" aria-label="${waiting} waiting for an answer">${waiting}</span>` : html`<span class="small muted">none waiting</span>`}</h2>
       <details class="meters-help">
@@ -128,16 +128,27 @@ export function inboxPanel(view: PlayerView, answered: ReadonlyMap<string, strin
         <p class="muted">Nothing here is a prediction. It is what today's market would do to you if
           it stood still, which it will not.</p>
       </details>
-      ${raised.length === 0 ? html`<p class="inbox-empty">No decisions waiting. The company is running itself.</p>` : raised.map((c) => card(c, answered.get(c.id), openDetails.has(c.id)))}
-    </section>
-    <section class="panel">
-      <h2>Opportunities</h2>
+      ${raised.map((c) => card(c, answered.get(c.id), openDetails.has(c.id)))}
+    </section>` : ''}
+    ${opened.length > 0 ? html`<section class="panel">
+      <h2>Opportunities you opened</h2>
+      ${opened.map((c) => card(c, answered.get(c.id), openDetails.has(c.id)))}
+    </section>` : ''}`;
+}
+
+/** The Opportunities sheet: what the company could do today, whenever the player goes looking. */
+export function opportunitiesPanel(view: PlayerView): Html {
+  const opened = view.cards.filter((c) => c.opportunity);
+  return html`
+    <div class="sheet">
+      <h2>Opportunities<button class="btn small" data-sheet-close>Close</button></h2>
+      <p class="small muted">These are open to you any day. Picking one puts it in the decisions
+        column as a card, with the same four numbers as any other decision.</p>
       <div class="opps">${view.opportunities.map((o) => {
         const card = opened.find((x) => x.type === o.type);
         return card
-          ? html`<button class="btn active" data-close="${card.id}" title="Close this one">${o.title}</button>`
+          ? html`<button class="btn active" data-close="${card.id}" title="Close this one">${o.title} ✓</button>`
           : html`<button class="btn" data-opp="${o.type}">${o.title}</button>`;
       })}</div>
-      ${opened.map((c) => card(c, answered.get(c.id), openDetails.has(c.id)))}
-    </section>`;
+    </div>`;
 }

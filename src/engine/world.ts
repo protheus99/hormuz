@@ -80,7 +80,7 @@ export interface World {
   nodes: Record<NodeName, ExchangeNode>;
   graph: LaneGraph;
   sink: RetailSink;
-  rng: { events: Rng; ai: Rng };
+  rng: { events: Rng; ai: Rng; wells: Rng };
   /** Cumulative total; entries hold only the current tick's fees. */
   ledger: FeeLedger;
   cargo: Cargo[];
@@ -147,7 +147,7 @@ export function createWorld(s: WorldSettings): World {
     nodes,
     graph: buildLaneGraph(config),
     sink: createRetailSink(s.seed, config),
-    rng: { events: rngFor(s.seed, 'events'), ai },
+    rng: { events: rngFor(s.seed, 'events'), ai, wells: rngFor(s.seed, 'wells') },
     ledger: createLedger(),
     cargo: [],
     deals: [],
@@ -199,7 +199,7 @@ export function step(w: World): TickReport {
   let extracted = 0;
   for (const a of w.agents) {
     if (a.kind !== 'PRODUCER' && a.kind !== 'INTEGRATED') continue;
-    const barrels = extract(a, w.ledger, tick, cfg).barrels;
+    const barrels = extract(a, w.ledger, tick, cfg, w.rng.wells).barrels;
     dayOf(a.agentId).extracted += barrels;
     extracted += barrels;
     w.totals.extractedBy[a.agentId] = (w.totals.extractedBy[a.agentId] ?? 0) + barrels;
@@ -294,13 +294,14 @@ export function run(w: World, n: number): TickReport[] {
 
 /**
  * A copy of the world for impact projections (spec G4.5). A calm fork turns product-price noise
- * off and drops every scheduled event that has not happened yet, so a projection can never see
- * the real future.
+ * and the daily swing in what fields pump off, and drops every scheduled event that has not
+ * happened yet, so a projection can never see the real future.
  */
 export function fork(w: World, calm: boolean): World {
   const copy = structuredClone(w);
   if (!calm) return copy;
-  const quiet = withOverrides(copy.config, { PRODUCT_PRICES: { SIGMA: { GASOLINE: 0, DIESEL: 0, FUEL_OIL: 0 } } });
+  // A projection shows what today would do if it stood still, so the fields pump to plan in it.
+  const quiet = withOverrides(copy.config, { PRODUCT_PRICES: { SIGMA: { GASOLINE: 0, DIESEL: 0, FUEL_OIL: 0 } }, EXTRACTION_SPREAD: 0 });
   return { ...copy, config: quiet, events: [] };
 }
 

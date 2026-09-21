@@ -74,11 +74,15 @@ describe('a charter in a running world', () => {
     applyAction(w, buyer.agentId, { kind: 'CHARTER', size: 'LARGE', days: 90 });
     for (let d = 0; d < 20; d++) {
       step(w);
-      const chartered = w.cargo.find((c) => c.charterId !== null && c.ownerId === buyer.agentId);
+      const loaded = w.cargo.filter((c) => c.ownerId === buyer.agentId && c.dispatchTick === w.tick);
+      const chartered = loaded.find((c) => c.charterId !== null);
       if (chartered === undefined) continue;
-      const freight = w.ledger.entries.filter((e) => e.kind === 'FREIGHT' && e.agentId === buyer.agentId);
-      // Whatever it paid this tick was the surcharge on a troubled strait, never the full freight.
-      for (const f of freight) expect(f.amount).toBeLessThan(chartered.route.totalFreight * chartered.qty);
+      // What the day's freight should have come to: full freight for anything on a hired ship,
+      // and for the cargo on its own charter the war-risk surcharge alone.
+      const expected = loaded.reduce((t, c) => t + c.qty * (c.charterId === null ? c.route.totalFreight : c.route.totalSurcharge), 0);
+      const paid = w.ledger.entries.filter((e) => e.kind === 'FREIGHT' && e.agentId === buyer.agentId).reduce((t, e) => t + e.amount, 0);
+      expect(paid).toBeCloseTo(expected, 6);
+      expect(chartered.route.totalFreight).toBeGreaterThan(chartered.route.totalSurcharge);
       return;
     }
     throw new Error('the refiner never shipped on its charter');

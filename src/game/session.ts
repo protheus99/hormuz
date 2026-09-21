@@ -7,6 +7,8 @@
 
 import type { AgentId } from '../engine/model';
 import { step, type World } from '../engine/world';
+import { rngFor, type Rng } from '../engine/rng';
+import { DEFAULT_CONFIG, type Config } from '../engine/config';
 import {
   advise, availableOpportunities, closeOpportunity, createAdvisor, openOpportunity, refreshOpportunities, type AdvisorState,
 } from './cards/advisor';
@@ -122,6 +124,14 @@ export class GameSession {
   /** Restores a saved game exactly. */
   static async load(data: SaveData): Promise<GameSession> {
     if (data.version !== 2) throw new Error(`This save is version ${String(data.version)}; this game reads version 2`);
+    // A save carries the world's settings as they were. A later version may have added one the save
+    // has no value for — and a missing number quietly turns every sum that touches it into NaN — so
+    // anything absent takes today's default, which is what the game would have used in any case.
+    const world = data.world as { config: Config; rng: { wells?: Rng } };
+    world.config = { ...DEFAULT_CONFIG, ...world.config };
+    // The daily swing in what fields pump draws from its own stream, seeded from the game's seed,
+    // so a save written before it existed carries on the same way every time it is loaded.
+    if (world.rng.wells === undefined) world.rng.wells = rngFor(data.settings.seed, 'wells');
     return new GameSession(data);
   }
 

@@ -57,6 +57,7 @@ export interface Config {
   readonly SHUT_IN_THRESHOLD: number;      // output below this share of capacity shuts wells in
   readonly RESTART_COST: number;           // $ per bbl/day of capacity
   readonly RAMP_TICKS: number;
+  readonly EXTRACTION_SPREAD: number;       // day-to-day swing in what a field actually pumps, either way
   readonly FIXED_COST_RATE: { readonly PRODUCER: number; readonly REFINER: number };   // $ per bbl/day of capacity per tick
   readonly DECLINE_RATE: Readonly<Record<DeclineClass, number>>;                      // capacity lost per tick
   readonly DRILL_STEP: number;             // bbl/day added per drilling project
@@ -168,6 +169,9 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
   SHUT_IN_THRESHOLD: 0.25,
   RESTART_COST: 3.00,
   RAMP_TICKS: 10,
+  // No field pumps the same number twice: weather, pumps, water cut, a crew short. Symmetric, so a
+  // year's output is unchanged — but a day's is never quite the plan, and the day book shows it.
+  EXTRACTION_SPREAD: 0.06,
   FIXED_COST_RATE: { PRODUCER: 2.00, REFINER: 4.00 },
   DECLINE_RATE: { SHALE: 0.001, CONVENTIONAL: 0.00017 },
   DRILL_STEP: 500,

@@ -4,7 +4,7 @@
 
 import { GameSession, msPerDay, PLAYER_ID, type CardType, type PlayerView, type SaveData, type Speed } from '../src/game';
 import { dateOf, html, money, mount } from './dom';
-import { inboxPanel, missionPanel } from './inbox';
+import { inboxPanel, missionPanel, opportunitiesPanel } from './inbox';
 import { companyPanel, dayBookPanel, dealsPanel, mapPanel, newsPanel } from './panels';
 import { saveGame } from './storage';
 
@@ -31,8 +31,8 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
   let timer: ReturnType<typeof setTimeout> | undefined;
   let tab: Tab = 'company';
   let busy = false;
-  /** The mission sheet is open, and the clock has stopped for a decision the player has not seen. */
-  let mission = false;
+  /** Which sheet is open over the game, and whether the clock stopped for an unseen decision. */
+  let sheet: 'mission' | 'opportunities' | null = null;
   let attention = false;
   const answered = new Map<string, string>();
   const openDetails = new Set<string>();
@@ -80,7 +80,8 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
         <button class="btn" data-next title="Run until the next decision or alert">Next ▸▸</button>
       </div>
       <div class="menu">
-        ${view.campaign ? html`<button class="btn ${view.campaign.result ? 'primary' : ''}" data-mission>Mission</button>` : ''}
+        <button class="btn" data-sheet="opportunities">Opportunities</button>
+        ${view.campaign ? html`<button class="btn ${view.campaign.result ? 'primary' : ''}" data-sheet="mission">Mission</button>` : ''}
         <button class="btn" data-save>Save</button>
         <button class="btn" data-quit>Menu</button>
       </div>`);
@@ -104,20 +105,21 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
     box.scrollTop = scroll;
   };
 
-  const renderMission = () => mount($('mission'), mission ? html`<div class="overlay">${missionPanel(view)}</div>` : html``);
+  const renderSheet = () => mount($('mission'), sheet === null ? html``
+    : html`<div class="overlay">${sheet === 'mission' ? missionPanel(view) : opportunitiesPanel(view)}</div>`);
 
   const render = () => {
     renderTop();
     mount($('map'), mapPanel(view));
     renderTabs();
     renderInbox();
-    renderMission();
+    renderSheet();
   };
 
   const refresh = async () => {
     const before = view.campaign?.result ?? null;
     view = await session.getView();
-    if (before === null && view.campaign?.result) mission = true;
+    if (before === null && view.campaign?.result) sheet = 'mission';
     // Answers apply at the start of the next day; forget those whose card has gone.
     for (const id of [...answered.keys()]) if (!view.cards.some((c) => c.id === id)) answered.delete(id);
     if (view.tick - lastAutosave >= AUTOSAVE_DAYS) {
@@ -157,7 +159,8 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
     if (!t) return;
     const d = t.dataset;
     if (d.speed !== undefined) setSpeed(Number(d.speed) as Speed);
-    else if (d.mission !== undefined || d.missionClose !== undefined) { mission = d.mission !== undefined && !mission; renderMission(); }
+    else if (d.sheet !== undefined) { sheet = sheet === d.sheet ? null : (d.sheet as 'mission' | 'opportunities'); renderSheet(); }
+    else if (d.sheetClose !== undefined) { sheet = null; renderSheet(); }
     else if (d.next !== undefined && !busy) {
       setSpeed(0);
       busy = true;
@@ -179,6 +182,8 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
         renderTop();
       });
     } else if (d.opp !== undefined) {
+      // The card lands in the decisions column, so the sheet gets out of the way.
+      sheet = null;
       void session.openOpportunity(PLAYER_ID, d.opp as CardType).then(refresh);
     } else if (d.close !== undefined) {
       void session.closeOpportunity(PLAYER_ID, d.close).then(refresh);

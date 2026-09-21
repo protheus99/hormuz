@@ -144,6 +144,24 @@ describe('the day book (spec G5)', () => {
     expect(start + made).toBeCloseTo(view.company.cash, 2);
   });
 
+  it('carries on from a save written before a setting existed, rather than running on NaN', async () => {
+    const s = await GameSession.newGame(producerGame);
+    await runTo(s, 10);
+    const saved = await s.save();
+
+    // An older save: no daily swing setting, and no stream to draw it from.
+    const older = structuredClone(saved) as SaveData;
+    delete (older.world.config as { EXTRACTION_SPREAD?: number }).EXTRACTION_SPREAD;
+    delete (older.world.rng as { wells?: unknown }).wells;
+
+    const reloaded = await GameSession.load(older);
+    await runTo(reloaded, 20);
+    const view = await reloaded.getView();
+    expect(view.company.cash).toBeGreaterThan(0);
+    for (const d of view.days) expect(Number.isFinite(d.pumped)).toBe(true);
+    expect(view.days.some((d) => d.pumped > 0)).toBe(true);
+  });
+
   it('keeps the day book across a save, and starts one for a save written without it', async () => {
     const s = await GameSession.newGame(producerGame);
     await runTo(s, 20);

@@ -100,11 +100,13 @@ export function fillRatio(well: WellState): number {
 }
 
 /**
- * Pumps today's crude (spec §5 phase 1): capacity × extraction rate × ramp factor, up to the free
- * storage — production halts when tanks are full. A shut-in field pumps nothing. After a restart
- * the ramp factor climbs 1/RAMP_TICKS a day back to full output.
+ * Pumps today's crude (spec §5 phase 1): capacity × extraction rate × ramp factor, give or take
+ * the day's swing, up to the free storage — production halts when tanks are full. A shut-in field
+ * pumps nothing. After a restart the ramp factor climbs 1/RAMP_TICKS a day back to full output.
+ *
+ * `rng` draws the day's swing; a projection passes a config with no spread, so its days are level.
  */
-export function extract(company: Producer | IntegratedMajor, ledger: FeeLedger, tick: Tick, config: Config): ExtractResult {
+export function extract(company: Producer | IntegratedMajor, ledger: FeeLedger, tick: Tick, config: Config, rng: Rng): ExtractResult {
   const well = wellOf(company) as WellState;
   if (well.shutIn) return { barrels: 0, cost: 0 };
   let ramp = 1;
@@ -113,7 +115,8 @@ export function extract(company: Producer | IntegratedMajor, ledger: FeeLedger, 
     well.rampTicksRemaining -= 1;
   }
   const free = Math.max(0, well.storageCapacity - well.storage - well.storageEscrow);
-  const barrels = Math.min(well.extractionCapacity * well.extractionRate * ramp, free);
+  const swing = 1 + config.EXTRACTION_SPREAD * (2 * nextFloat(rng) - 1);
+  const barrels = Math.min(well.extractionCapacity * well.extractionRate * ramp * swing, free);
   const cost = barrels * actualCost(company);
   well.storage += barrels;
   company.cash -= cost;
