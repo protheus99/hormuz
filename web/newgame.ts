@@ -107,7 +107,14 @@ export function showNewGame(root: Element, hasSave: boolean, start: (s: GameSett
             <select id="length">${LENGTHS.map((l) => html`<option value="${l.days ?? ''}" ${l.days === state.length ? 'selected' : ''}>${l.label}</option>`)}</select>
           </label>
           <label style="flex-direction:row;align-items:center;gap:8px;margin-top:22px"><input type="checkbox" id="volatile" ${state.volatile ? 'checked' : ''}> Volatile markets</label>
-        </div>`}
+        </div>
+        <p class="small muted" style="max-width:62ch">
+          <strong>Volatile markets</strong> makes fuel prices — petrol, diesel and fuel oil — move
+          about twice as far each day. Crude follows them, because a refinery will only pay for
+          crude what the fuel it makes is worth. Good days are better and bad days are worse, and a
+          company living hand to mouth is likelier to be caught out by one. Nothing else changes:
+          the same rivals, the same straits, the same chance of trouble.
+        </p>`}
         ${state.how ? html`<div class="overlay" id="howsheet">
           <div class="sheet">
             <h2>How it is played<button class="btn small" id="how-close">Close</button></h2>
