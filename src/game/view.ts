@@ -37,6 +37,12 @@ export interface MarketView {
   readonly node: NodeName;
   readonly grade: Grade;
   readonly marker: number;
+  /** Barrels that changed hands here today, and how many trades that took (spec §8). */
+  readonly tradedToday: number;
+  readonly trades: number;
+  /** The lowest and highest price a barrel fetched today, at the seller's own port. */
+  readonly low: number;
+  readonly high: number;
   /** Previous close by origin, and each origin's unsold offer (spec §8 rule 7). */
   readonly closes: Readonly<Partial<Record<RegionName, number>>>;
   readonly offers: Readonly<Partial<Record<RegionName, number>>>;
@@ -152,7 +158,12 @@ export function buildPlayerView(
     company,
     markets: NODE_NAMES.map((n) => {
       const node = w.nodes[n];
-      return { node: n, grade: node.grade, marker: node.markerPrice, closes: { ...node.lastFobByOrigin }, offers: { ...node.lastOfferByOrigin } };
+      const prices = node.fills.map((f) => f.fobPrice);
+      return {
+        node: n, grade: node.grade, marker: node.markerPrice, closes: { ...node.lastFobByOrigin }, offers: { ...node.lastOfferByOrigin },
+        tradedToday: node.fills.reduce((t, f) => t + f.qty, 0), trades: node.fills.length,
+        low: prices.length > 0 ? Math.min(...prices) : 0, high: prices.length > 0 ? Math.max(...prices) : 0,
+      };
     }),
     products: { ...w.sink.prices },
     history,

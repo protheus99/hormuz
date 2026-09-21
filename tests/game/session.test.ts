@@ -125,6 +125,31 @@ describe('the day book (spec G5)', () => {
     for (const d of sold) expect(d.soldRevenue).toBeGreaterThan(0);
   });
 
+  it(`shows the day's clearing at each node, matching what the player was paid`, async () => {
+    const s = await GameSession.newGame(producerGame);
+    await runTo(s, 40);
+    let sawTrade = false;
+    for (let d = 0; d < 20 && !sawTrade; d++) {
+      await s.advance(1);
+      const view = await s.getView();
+      const today = view.days.at(-1);
+      for (const m of view.markets) {
+        if (m.trades === 0) { expect(m.tradedToday).toBe(0); continue; }
+        sawTrade = true;
+        expect(m.tradedToday).toBeGreaterThan(0);
+        expect(m.low).toBeGreaterThan(0);
+        expect(m.high).toBeGreaterThanOrEqual(m.low);
+        // The player sells into this market: what it was paid sits inside the day's range.
+        if (today && today.soldQty > 0 && m.grade === view.company.well?.grade) {
+          const paid = today.soldRevenue / today.soldQty;
+          expect(paid).toBeGreaterThanOrEqual(m.low - 0.01);
+          expect(paid).toBeLessThanOrEqual(m.high + 0.01);
+        }
+      }
+    }
+    expect(sawTrade).toBe(true);
+  });
+
   it('names who bought the crude, and says whether a deal was behind it', async () => {
     const s = await GameSession.newGame(producerGame);
     await runTo(s, 60);

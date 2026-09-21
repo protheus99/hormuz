@@ -177,11 +177,27 @@ export function priceStrip(view: PlayerView): Html {
     </section>`;
 }
 
-/** Deals and crude at sea. */
+/** The open market, deals and crude at sea. */
 export function dealsPanel(view: PlayerView): Html {
   const deals = view.deals.filter((d) => d.status === 'ACTIVE');
+  const traded = view.markets.reduce((t, m) => t + m.tradedToday, 0);
+  const afloat = view.cargo.reduce((t, c) => t + c.qty * (view.markets.find((m) => m.grade === c.grade)?.marker ?? 0), 0);
   return html`
-    <h3>Deals</h3>
+    <h3>The open market today</h3>
+    <p class="small muted">Every company puts its crude up here each day, and the highest bids take
+      it. This is where your crude goes when no deal is against it — ${traded > 0
+        ? html`today ${bbl(traded)} barrels changed hands.`
+        : html`nothing has traded yet today; the day's clearing happens as the clock runs.`}
+      The world price is what that crude is worth in its home market; what a seller was actually
+      paid at its own port is lower, by the cost of shipping it to a buyer.</p>
+    <table><tr><th>Crude</th><th class="num">World price</th><th class="num">Traded today</th><th class="num">Trades</th><th class="num">Paid at the port</th></tr>
+      ${view.markets.map((m) => html`<tr><td>${GRADE_NAMES[m.grade] ?? m.grade}</td>
+        <td class="num">${money(m.marker)}</td>
+        <td class="num">${m.tradedToday > 0 ? `${bbl(m.tradedToday)} bbl` : '—'}</td>
+        <td class="num">${m.trades > 0 ? m.trades : '—'}</td>
+        <td class="num">${m.trades > 0 ? `${money(m.low)}–${money(m.high)}` : '—'}</td></tr>`)}
+    </table>
+    <h3 style="margin-top:14px">Deals</h3>
     ${deals.length === 0 ? html`<p class="muted">No deals. Offers arrive as cards, or open “Find a deal”.</p>` : html`
       <table><tr><th>With</th><th></th><th>Crude</th><th class="num">bbl/day</th><th class="num">Price</th><th class="num">vs market</th><th>Runs until</th></tr>
       ${deals.map((d) => {
@@ -198,8 +214,13 @@ export function dealsPanel(view: PlayerView): Html {
       </table>`}
     <h3 style="margin-top:14px">Your crude at sea</h3>
     ${view.cargo.length === 0 ? html`<p class="muted">None.</p>` : html`
-      <table><tr><th>Crude</th><th class="num">Barrels</th><th>To</th><th>Status</th><th class="num">Days out</th></tr>
-      ${view.cargo.map((c) => html`<tr><td>${GRADE_NAMES[c.grade] ?? c.grade}</td><td class="num">${bbl(c.qty)}</td><td>${regionName(c.destination)}</td>
+      <p class="small muted">Crude is paid for when it is loaded, not when it lands: this is money
+        already spent, on its way to you. ${afloat > 0 ? html`About <strong>${money(afloat)}</strong> of
+        it at today's prices.` : ''}</p>
+      <table><tr><th>Crude</th><th class="num">Barrels</th><th class="num">Worth</th><th>To</th><th>Status</th><th class="num">Days out</th></tr>
+      ${view.cargo.map((c) => html`<tr><td>${GRADE_NAMES[c.grade] ?? c.grade}</td><td class="num">${bbl(c.qty)}</td>
+        <td class="num">${money(c.qty * (view.markets.find((m) => m.grade === c.grade)?.marker ?? 0))}</td>
+        <td>${regionName(c.destination)}</td>
         <td>${c.status === 'HELD' ? html`<span class="bad">waiting at a strait</span>` : words(c.status)}</td><td class="num">${c.daysAtSea}</td></tr>`)}
       </table>`}`;
 }

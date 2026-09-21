@@ -101,9 +101,10 @@ export function missionPanel(view: PlayerView): Html {
 
 /**
  * The inbox. `answered` maps card ids answered today to the choice made; `attention` is set when
- * the clock stopped for a decision, so the panel says why it stopped.
+ * the clock stopped for a decision, and `resume` is the speed it was running at, offered back as a
+ * Continue button once everything waiting has been answered.
  */
-export function inboxPanel(view: PlayerView, answered: ReadonlyMap<string, string>, openDetails: ReadonlySet<string>, attention = false): Html {
+export function inboxPanel(view: PlayerView, answered: ReadonlyMap<string, string>, openDetails: ReadonlySet<string>, attention = false, resume: number | null = null): Html {
   const raised = view.cards.filter((c) => !c.opportunity);
   const opened = view.cards.filter((c) => c.opportunity);
   const waiting = raised.filter((c) => !answered.has(c.id)).length;
@@ -129,6 +130,7 @@ export function inboxPanel(view: PlayerView, answered: ReadonlyMap<string, strin
           it stood still, which it will not.</p>
       </details>
       ${raised.map((c) => card(c, answered.get(c.id), openDetails.has(c.id)))}
+      ${waiting === 0 && resume !== null ? html`<button class="btn primary continue" data-continue>Continue ▸${resume > 1 ? ` (×${resume})` : ''}</button>` : ''}
     </section>` : ''}
     ${opened.length > 0 ? html`<section class="panel">
       <h2>Opportunities you opened</h2>

@@ -250,3 +250,6 @@ details { margin-top: 6px; font-size: 12px; color: var(--text-2); }
 .daybook th { position: sticky; top: 0; background: var(--panel); }
 .daybook td, .daybook th { padding: 3px 8px; white-space: nowrap; }
 .daybook tr:nth-child(even) td { background: var(--panel-2); }
+
+/* Answering is the end of the interruption: the clock is offered straight back. */
+.continue { display: block; width: 100%; margin-top: 10px; padding: 10px; font-size: 15px; font-weight: 600; }

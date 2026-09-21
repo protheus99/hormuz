@@ -34,6 +34,8 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
   /** Which sheet is open over the game, and whether the clock stopped for an unseen decision. */
   let sheet: 'mission' | 'opportunities' | null = null;
   let attention = false;
+  /** The speed the clock was running at when a decision stopped it, to offer back as Continue. */
+  let resume: number | null = null;
   const answered = new Map<string, string>();
   const openDetails = new Set<string>();
   let lastAutosave = view.tick;
@@ -101,7 +103,7 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
   const renderInbox = () => {
     const box = $('inbox');
     const scroll = box.scrollTop;
-    mount(box, inboxPanel(view, answered, openDetails, attention));
+    mount(box, inboxPanel(view, answered, openDetails, attention, resume));
     box.scrollTop = scroll;
   };
 
@@ -130,7 +132,7 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
   };
 
   const setSpeed = (s: Speed) => {
-    if (s > 0) attention = false;
+    if (s > 0) { attention = false; resume = null; }
     if (s !== speed) lastDayAt = performance.now();
     speed = s;
     clearTimeout(timer);
@@ -147,7 +149,7 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
     const r = await session.advance(due);
     busy = false;
     const stopping = r.pausedBy !== null || r.newCards.length > 0 || r.ended;
-    if (stopping && r.newCards.some((c) => !c.opportunity)) attention = true;
+    if (stopping && r.newCards.some((c) => !c.opportunity) && !r.ended) { attention = true; resume = speed; }
     await refresh();
     if (r.ended) toast('The game has ended.');
     if (stopping) setSpeed(0);
@@ -159,6 +161,8 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
     if (!t) return;
     const d = t.dataset;
     if (d.speed !== undefined) setSpeed(Number(d.speed) as Speed);
+    // Answering is the end of the interruption: the clock picks up where it left off.
+    else if (d.continue !== undefined) setSpeed((resume === 0 ? 1 : resume ?? 1) as Speed);
     else if (d.sheet !== undefined) { sheet = sheet === d.sheet ? null : (d.sheet as 'mission' | 'opportunities'); renderSheet(); }
     else if (d.sheetClose !== undefined) { sheet = null; renderSheet(); }
     else if (d.next !== undefined && !busy) {
@@ -167,7 +171,8 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
       void session.advance(NEXT_EVENT_DAYS).then(async (r) => {
         busy = false;
         // "Next" runs until something needs the player: say so, or the stop looks like a glitch.
-        if (r.newCards.some((c) => !c.opportunity)) attention = true;
+        // It was not running at a speed, so Continue offers the slowest one.
+        if (r.newCards.some((c) => !c.opportunity) && !r.ended) { attention = true; resume = 1; }
         await refresh();
       });
     } else if (d.tab !== undefined) { tab = d.tab as Tab; renderTabs(); }
