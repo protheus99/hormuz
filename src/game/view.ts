@@ -9,7 +9,7 @@ import { plantOf, plantsOf, wellOf } from '../engine/companies';
 import type { PlantState } from '../engine/model';
 import { ChokepointStatus, type Grade, type Product } from '../engine/enums';
 import type { AgentId, CompanySettings, DealId } from '../engine/model';
-import { netWorth, type World } from '../engine/world';
+import { barrelsHeld, netWorth, type TickReport, type World } from '../engine/world';
 import type { Alert } from './alerts';
 import type { Card, CardType } from './cards/types';
 import type { CampaignView } from './campaign';
@@ -83,6 +83,8 @@ export interface PlayerView {
   readonly markets: readonly MarketView[];
   readonly products: Readonly<Record<Product, number>>;
   readonly history: readonly DailyPrices[];
+  /** The player's own recent days, newest last (spec G5). */
+  readonly days: readonly DayLog[];
   readonly chokepoints: readonly {
     readonly name: ChokepointName; readonly displayName: string; readonly status: ChokepointStatus;
     /** War-risk cover charged on every barrel crossing today, and days added to the crossing. */
@@ -114,7 +116,7 @@ const siteView = (p: PlantState): PlantView => ({
 });
 
 export function buildPlayerView(
-  w: World, playerId: AgentId, history: readonly DailyPrices[], alerts: readonly Alert[], lengthDays: number | null, cards: CardsView,
+  w: World, playerId: AgentId, history: readonly DailyPrices[], days: readonly DayLog[], alerts: readonly Alert[], lengthDays: number | null, cards: CardsView,
 ): PlayerView {
   const me = w.agents.find((a) => a.agentId === playerId);
   if (me === undefined) throw new Error(`No company ${playerId} in this game`);
@@ -148,6 +150,7 @@ export function buildPlayerView(
     }),
     products: { ...w.sink.prices },
     history,
+    days,
     chokepoints: (Object.keys(CHOKEPOINTS) as ChokepointName[]).map((c) => {
       const cp = w.graph.chokepoints[c];
       const tense = cp.status === ChokepointStatus.TENSION || cp.status === ChokepointStatus.DELAYED;
@@ -175,6 +178,54 @@ export function buildPlayerView(
     reports: [...cards.reports],
     news: [...cards.news],
     campaign: cards.campaign,
+  };
+}
+
+/**
+ * One day of the player's own trading, kept by the session (spec G5). The company runs itself, so
+ * this is the only place a player can see what it actually did: barrels out of the ground, barrels
+ * bought and sold, and what each came to in money.
+ */
+export interface DayLog {
+  readonly tick: number;
+  /** Barrels out of the ground, and barrels put through the refinery. */
+  readonly pumped: number;
+  readonly refined: number;
+  /** What the retail market paid for the fuel made today. */
+  readonly fuelRevenue: number;
+  readonly boughtQty: number;
+  readonly boughtCost: number;
+  readonly soldQty: number;
+  readonly soldRevenue: number;
+  /** Crude held everywhere at the end of the day, and cash. */
+  readonly stock: number;
+  readonly cash: number;
+}
+
+/** The player's day, from the engine's report: spot fills, deal loadings and today's own work. */
+export function dayLog(w: World, playerId: AgentId, report: TickReport): DayLog {
+  const me = w.agents.find((a) => a.agentId === playerId);
+  const work = report.byAgent[playerId];
+  let boughtQty = 0, boughtCost = 0, soldQty = 0, soldRevenue = 0;
+  for (const f of report.fills) {
+    if (f.sellerId === playerId) { soldQty += f.qty; soldRevenue += f.fobPrice * f.qty; }
+    if (f.buyerId === playerId) { boughtQty += f.qty; boughtCost += f.landedPrice * f.qty; }
+  }
+  // A deal pays when the crude is loaded, so the day it moves is the day it is worth counting.
+  for (const d of report.deliveries) {
+    const deal = w.deals.find((x) => x.dealId === d.dealId);
+    if (deal === undefined || d.delivered <= 0) continue;
+    if (deal.sellerId === playerId) { soldQty += d.delivered; soldRevenue += deal.price * d.delivered; }
+    if (deal.buyerId === playerId) { boughtQty += d.delivered; boughtCost += deal.price * d.delivered; }
+  }
+  return {
+    tick: w.tick,
+    pumped: work?.extracted ?? 0,
+    refined: work?.refined ?? 0,
+    fuelRevenue: work?.retail ?? 0,
+    boughtQty, boughtCost, soldQty, soldRevenue,
+    stock: me === undefined ? 0 : barrelsHeld([me], w.cargo.filter((c) => c.ownerId === playerId)),
+    cash: me?.cash ?? 0,
   };
 }
 

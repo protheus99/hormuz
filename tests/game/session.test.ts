@@ -105,6 +105,40 @@ describe('the clock (spec G3)', () => {
   });
 });
 
+describe('the day book (spec G5)', () => {
+  it('records every barrel the company pumped, and what its sales came to', async () => {
+    const s = await GameSession.newGame(producerGame);
+    await runTo(s, 60);
+    const view = await s.getView();
+    const w = await worldOf(s);
+
+    expect(view.days).toHaveLength(60);
+    expect(view.days.at(-1)?.tick).toBe(w.tick);
+    // The book is the company's own history: pumping it records must be pumping the world recorded.
+    const pumped = view.days.reduce((t, d) => t + d.pumped, 0);
+    expect(pumped).toBeCloseTo(w.totals.extractedBy[PLAYER_ID] ?? 0, 6);
+    expect(view.days.at(-1)?.cash).toBeCloseTo(view.company.cash, 6);
+
+    // Something was sold, and every sale has both its barrels and its money.
+    const sold = view.days.filter((d) => d.soldQty > 0);
+    expect(sold.length).toBeGreaterThan(0);
+    for (const d of sold) expect(d.soldRevenue).toBeGreaterThan(0);
+  });
+
+  it('keeps the day book across a save, and starts one for a save written without it', async () => {
+    const s = await GameSession.newGame(producerGame);
+    await runTo(s, 20);
+    const saved = await s.save();
+    expect((await (await GameSession.load(saved)).getView()).days).toHaveLength(20);
+
+    const { days: _dropped, ...older } = saved;
+    const reloaded = await GameSession.load(older as SaveData);
+    expect((await reloaded.getView()).days).toHaveLength(0);
+    await runTo(reloaded, 22);
+    expect((await reloaded.getView()).days).toHaveLength(2);
+  });
+});
+
 describe('saves and replays (spec G9; Phase 8 acceptance)', () => {
   it('reloads a save to an identical state, which then plays on identically', async () => {
     const game = await GameSession.newGame(producerGame);

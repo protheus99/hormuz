@@ -109,10 +109,20 @@ export interface World {
 }
 
 /** What happened in one tick, for metrics and tests. */
+/** What one company did today, so a player can be shown their own day's work (spec G5). */
+export interface AgentDay {
+  readonly extracted: number;
+  readonly refined: number;
+  /** What the retail market paid for the fuel that refining made. */
+  readonly retail: number;
+}
+
 export interface TickReport {
   readonly tick: Tick;
   readonly extracted: number;
   readonly refined: number;
+  /** Today's work, company by company. */
+  readonly byAgent: Readonly<Partial<Record<AgentId, AgentDay>>>;
   readonly fills: readonly Fill[];
   readonly deliveries: readonly DealDelivery[];
   readonly logistics: LogisticsReport;
@@ -184,10 +194,13 @@ export function step(w: World): TickReport {
   routes.resetTick();
 
   // Phase 1: extraction.
+  const byAgent: Partial<Record<AgentId, { extracted: number; refined: number; retail: number }>> = {};
+  const dayOf = (id: AgentId) => (byAgent[id] ??= { extracted: 0, refined: 0, retail: 0 });
   let extracted = 0;
   for (const a of w.agents) {
     if (a.kind !== 'PRODUCER' && a.kind !== 'INTEGRATED') continue;
     const barrels = extract(a, w.ledger, tick, cfg).barrels;
+    dayOf(a.agentId).extracted += barrels;
     extracted += barrels;
     w.totals.extractedBy[a.agentId] = (w.totals.extractedBy[a.agentId] ?? 0) + barrels;
   }
@@ -202,6 +215,9 @@ export function step(w: World): TickReport {
     if (a.kind !== 'REFINER' && a.kind !== 'INTEGRATED') continue;
     for (const p of plantsOf(a)) {
       const r = refine(a, p, w.sink, w.ledger, tick);
+      const d = dayOf(a.agentId);
+      d.refined += r.barrels;
+      d.retail += r.revenue;
       refined += r.barrels;
       w.totals.retailRevenue += r.revenue;
     }
@@ -266,7 +282,7 @@ export function step(w: World): TickReport {
   updateInsolvency(w);
   checkInvariants(w, deliveries);
 
-  return { tick, extracted, refined, fills, deliveries, logistics, fees: w.ledger.total - feesBefore };
+  return { tick, extracted, refined, byAgent, fills, deliveries, logistics, fees: w.ledger.total - feesBefore };
 }
 
 /** Runs n ticks, returning each tick's report. */

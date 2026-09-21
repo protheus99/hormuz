@@ -17,7 +17,7 @@ import { cardText } from '../content/cards';
 import { detectAlerts, pausesAt, rememberForAlerts, type Alert, type AlertMemory, type Severity } from './alerts';
 import { applyCommand, rejectReason, type Command, type CommandResult, type LoggedCommand } from './commands';
 import { newGameWorld, PLAYER_ID, type GameSettings } from './newgame';
-import { buildPlayerView, dailyPrices, type DailyPrices, type PlayerView } from './view';
+import { buildPlayerView, dailyPrices, dayLog, type DailyPrices, type DayLog, type PlayerView } from './view';
 
 /** Clock speeds (spec G3): days per second of real time is speed ÷ 2 at the default pace. */
 export const SPEEDS = [0, 1, 2, 4, 8] as const;
@@ -32,6 +32,8 @@ export function msPerDay(speed: Speed): number {
 
 /** Alerts kept for the view; older ones drop off. */
 const ALERTS_KEPT = 100;
+/** Days of the player's own trading kept for the day book. */
+const DAYS_KEPT = 120;
 
 export interface AdvanceResult {
   /** The tick the world is now at. */
@@ -51,6 +53,8 @@ export interface SaveData {
   readonly world: World;
   readonly log: readonly LoggedCommand[];
   readonly history: readonly DailyPrices[];
+  /** The player's own day book. Absent in saves written before it existed, which start it afresh. */
+  readonly days?: readonly DayLog[];
   readonly alerts: readonly Alert[];
   readonly memory: AlertMemory;
   readonly seq: number;
@@ -68,6 +72,7 @@ export class GameSession {
     world: World;
     log: LoggedCommand[];
     history: DailyPrices[];
+    days: DayLog[];
     alerts: Alert[];
     memory: AlertMemory;
     seq: number;
@@ -81,7 +86,7 @@ export class GameSession {
   private constructor(data: SaveData) {
     const copy = structuredClone(data);
     this.state = {
-      settings: copy.settings, world: copy.world, log: [...copy.log], history: [...copy.history],
+      settings: copy.settings, world: copy.world, log: [...copy.log], history: [...copy.history], days: [...(copy.days ?? [])],
       alerts: [...copy.alerts], memory: copy.memory, seq: copy.seq, pauseAt: copy.pauseAt, advisor: copy.advisor,
       deck: copy.deck, script: copy.script, campaign: copy.campaign,
     };
@@ -106,7 +111,7 @@ export class GameSession {
     if (sc && me) applySetup(world, sc, me);
     const regions = me?.kind === 'TRADER' ? me.offices : me ? [me.region] : [];
     return new GameSession({
-      version: 2, settings, world, log: [], history: [dailyPrices(world)], alerts: [],
+      version: 2, settings, world, log: [], history: [dailyPrices(world)], days: [], alerts: [],
       memory: rememberForAlerts(world, PLAYER_ID), seq: 0, pauseAt: 'HIGH', advisor: createAdvisor(world),
       deck: createDeck(world, settings.seed, settings.difficulty ?? 'NORMAL', sc?.randomEvents ?? true, regions, me?.kind ?? 'PRODUCER'),
       script: sc ? scriptFor(sc, settings.seed) : [],
@@ -143,7 +148,7 @@ export class GameSession {
       news: [...s.deck.news].reverse(),
       campaign: s.campaign ? campaignView(s.world, s.campaign) : null,
     };
-    return structuredClone(buildPlayerView(s.world, playerId, s.history, s.alerts, s.settings.lengthDays ?? null, cards));
+    return structuredClone(buildPlayerView(s.world, playerId, s.history, s.days, s.alerts, s.settings.lengthDays ?? null, cards));
   }
 
   /**
@@ -195,7 +200,7 @@ export class GameSession {
   async save(): Promise<SaveData> {
     const s = this.state;
     return structuredClone({
-      version: 2 as const, settings: s.settings, world: s.world, log: s.log, history: s.history,
+      version: 2 as const, settings: s.settings, world: s.world, log: s.log, history: s.history, days: s.days,
       alerts: s.alerts, memory: s.memory, seq: s.seq, pauseAt: s.pauseAt, advisor: s.advisor,
       deck: s.deck, script: s.script, campaign: s.campaign,
     });
@@ -215,6 +220,8 @@ export class GameSession {
     deckDay(s.world, s.deck, s.script);
     if (s.campaign) scriptedActions(s.world, scenario(s.campaign.id));
     const report = step(s.world);
+    s.days.push(dayLog(s.world, PLAYER_ID, report));
+    if (s.days.length > DAYS_KEPT) s.days.splice(0, s.days.length - DAYS_KEPT);
     const cards = advise(s.world, s.advisor, report.fills);
     refreshOpportunities(s.world, s.advisor);
     s.history.push(dailyPrices(s.world));

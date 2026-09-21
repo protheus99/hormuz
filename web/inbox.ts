@@ -83,24 +83,34 @@ function card(c: Card, answered: string | undefined, open: boolean): Html {
     </article>`;
 }
 
-/** The inbox. `answered` maps card ids answered today to the choice made. */
-export function inboxPanel(view: PlayerView, answered: ReadonlyMap<string, string>, openDetails: ReadonlySet<string>): Html {
-  const raised = view.cards.filter((c) => !c.opportunity);
-  const opened = view.cards.filter((c) => c.opportunity);
-  const waiting = raised.filter((c) => !answered.has(c.id)).length;
+/** The scenario's goal, shown on demand behind the Mission button rather than taking the column. */
+export function missionPanel(view: PlayerView): Html {
   const c = view.campaign;
+  if (!c) return html``;
   const ticks = { MET: '✓', FAILED: '✗', PENDING: '•' } as const;
   return html`
-    ${priceStrip(view)}
-    ${c ? html`<section class="panel goal">
-      <h2>${c.title} <span class="small muted">${c.daysLeft} days left</span></h2>
+    <div class="sheet goal">
+      <h2>${c.title} <span class="small muted">${c.daysLeft} days left</span><button class="btn small" data-mission-close>Close</button></h2>
       ${c.result ? html`<div class="result ${c.result}">${c.result === 'WON' ? 'Scenario won!' : 'Scenario lost.'} ${c.reason}</div>` : ''}
       <p class="small">${c.goal}</p>
       ${c.conditions.map((x) => html`<div class="cond"><span class="tick ${x.status}">${ticks[x.status]}</span><span>${x.progress}</span></div>`)}
       <div class="small muted" style="margin-top:6px">Milestones</div>
       ${c.milestones.map((m) => html`<div class="cond small"><span class="tick ${m.done ? 'MET' : 'PENDING'}">${m.done ? '✓' : '•'}</span><span>${m.label} <span class="muted">(reward: ${m.reward})</span></span></div>`)}
-    </section>` : ''}
-    <section class="panel">
+    </div>`;
+}
+
+/**
+ * The inbox. `answered` maps card ids answered today to the choice made; `attention` is set when
+ * the clock stopped for a decision, so the panel says why it stopped.
+ */
+export function inboxPanel(view: PlayerView, answered: ReadonlyMap<string, string>, openDetails: ReadonlySet<string>, attention = false): Html {
+  const raised = view.cards.filter((c) => !c.opportunity);
+  const opened = view.cards.filter((c) => c.opportunity);
+  const waiting = raised.filter((c) => !answered.has(c.id)).length;
+  return html`
+    ${priceStrip(view)}
+    <section class="panel ${attention && waiting > 0 ? 'attention' : ''}">
+      ${attention && waiting > 0 ? html`<div class="stopped">The clock stopped: ${waiting === 1 ? 'a decision is' : `${waiting} decisions are`} waiting for you.</div>` : ''}
       <h2>Decisions ${waiting > 0 ? html`<span class="badge" aria-label="${waiting} waiting for an answer">${waiting}</span>` : html`<span class="small muted">none waiting</span>`}</h2>
       <details class="meters-help">
         <summary>What the numbers mean</summary>

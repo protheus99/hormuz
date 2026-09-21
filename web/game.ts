@@ -4,12 +4,12 @@
 
 import { GameSession, msPerDay, PLAYER_ID, type CardType, type PlayerView, type SaveData, type Speed } from '../src/game';
 import { dateOf, html, money, mount } from './dom';
-import { inboxPanel } from './inbox';
-import { companyPanel, dealsPanel, mapPanel, marketsPanel, newsPanel } from './panels';
+import { inboxPanel, missionPanel } from './inbox';
+import { companyPanel, dayBookPanel, dealsPanel, mapPanel, newsPanel } from './panels';
 import { saveGame } from './storage';
 
-type Tab = 'company' | 'markets' | 'deals' | 'news';
-const TABS: readonly [Tab, string][] = [['company', 'Company'], ['markets', 'Markets'], ['deals', 'Deals & cargo'], ['news', 'News']];
+type Tab = 'company' | 'daybook' | 'deals' | 'news';
+const TABS: readonly [Tab, string][] = [['company', 'Company'], ['daybook', 'Day book'], ['deals', 'Deals & cargo'], ['news', 'News']];
 /** What is waiting behind a tab, so the player can see there is something there without opening it. */
 function tabCount(view: PlayerView, id: Tab): number {
   if (id === 'deals') return view.deals.filter((d) => d.status === 'ACTIVE').length + view.cargo.length;
@@ -31,6 +31,9 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
   let timer: ReturnType<typeof setTimeout> | undefined;
   let tab: Tab = 'company';
   let busy = false;
+  /** The mission sheet is open, and the clock has stopped for a decision the player has not seen. */
+  let mission = false;
+  let attention = false;
   const answered = new Map<string, string>();
   const openDetails = new Set<string>();
   let lastAutosave = view.tick;
@@ -50,6 +53,7 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
         </div>
         <aside class="right" id="inbox"></aside>
       </div>
+      <div id="mission"></div>
     </div>`);
   const $ = (id: string) => root.querySelector(`#${id}`) as HTMLElement;
 
@@ -76,6 +80,7 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
         <button class="btn" data-next title="Run until the next decision or alert">Next ▸▸</button>
       </div>
       <div class="menu">
+        ${view.campaign ? html`<button class="btn ${view.campaign.result ? 'primary' : ''}" data-mission>Mission</button>` : ''}
         <button class="btn" data-save>Save</button>
         <button class="btn" data-quit>Menu</button>
       </div>`);
@@ -88,26 +93,31 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
     })}`);
     const body = $('tabbody');
     const scroll = body.scrollTop;
-    mount(body, tab === 'company' ? companyPanel(view) : tab === 'markets' ? marketsPanel(view) : tab === 'deals' ? dealsPanel(view) : newsPanel(view));
+    mount(body, tab === 'company' ? companyPanel(view) : tab === 'daybook' ? dayBookPanel(view) : tab === 'deals' ? dealsPanel(view) : newsPanel(view));
     body.scrollTop = scroll;
   };
 
   const renderInbox = () => {
     const box = $('inbox');
     const scroll = box.scrollTop;
-    mount(box, inboxPanel(view, answered, openDetails));
+    mount(box, inboxPanel(view, answered, openDetails, attention));
     box.scrollTop = scroll;
   };
+
+  const renderMission = () => mount($('mission'), mission ? html`<div class="overlay">${missionPanel(view)}</div>` : html``);
 
   const render = () => {
     renderTop();
     mount($('map'), mapPanel(view));
     renderTabs();
     renderInbox();
+    renderMission();
   };
 
   const refresh = async () => {
+    const before = view.campaign?.result ?? null;
     view = await session.getView();
+    if (before === null && view.campaign?.result) mission = true;
     // Answers apply at the start of the next day; forget those whose card has gone.
     for (const id of [...answered.keys()]) if (!view.cards.some((c) => c.id === id)) answered.delete(id);
     if (view.tick - lastAutosave >= AUTOSAVE_DAYS) {
@@ -118,6 +128,7 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
   };
 
   const setSpeed = (s: Speed) => {
+    if (s > 0) attention = false;
     if (s !== speed) lastDayAt = performance.now();
     speed = s;
     clearTimeout(timer);
@@ -133,9 +144,11 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
     lastDayAt = now;
     const r = await session.advance(due);
     busy = false;
+    const stopping = r.pausedBy !== null || r.newCards.length > 0 || r.ended;
+    if (stopping && r.newCards.some((c) => !c.opportunity)) attention = true;
     await refresh();
     if (r.ended) toast('The game has ended.');
-    if (r.pausedBy !== null || r.newCards.length > 0 || r.ended) setSpeed(0);
+    if (stopping) setSpeed(0);
     else setSpeed(speed);
   };
 
@@ -144,10 +157,16 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
     if (!t) return;
     const d = t.dataset;
     if (d.speed !== undefined) setSpeed(Number(d.speed) as Speed);
+    else if (d.mission !== undefined || d.missionClose !== undefined) { mission = d.mission !== undefined && !mission; renderMission(); }
     else if (d.next !== undefined && !busy) {
       setSpeed(0);
       busy = true;
-      void session.advance(NEXT_EVENT_DAYS).then(async () => { busy = false; await refresh(); });
+      void session.advance(NEXT_EVENT_DAYS).then(async (r) => {
+        busy = false;
+        // "Next" runs until something needs the player: say so, or the stop looks like a glitch.
+        if (r.newCards.some((c) => !c.opportunity)) attention = true;
+        await refresh();
+      });
     } else if (d.tab !== undefined) { tab = d.tab as Tab; renderTabs(); }
     else if (d.card !== undefined && d.choice !== undefined) {
       const cardId = d.card;
@@ -155,6 +174,7 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
       void session.submit(PLAYER_ID, { kind: 'ANSWER_CARD', cardId, choice }).then((r) => {
         if (r.ok) answered.set(cardId, choice);
         else toast(r.reason);
+        attention = view.cards.some((c) => !c.opportunity && !answered.has(c.id));
         renderInbox();
         renderTop();
       });

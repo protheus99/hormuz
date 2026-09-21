@@ -1,6 +1,6 @@
 // The game screen's panels: the map, the company, markets, deals and cargo, and news.
 
-import { mapLayout, regionName, type DailyPrices, type PlayerView, type Point } from '../src/game';
+import { mapLayout, regionName, type DailyPrices, type DayLog, type PlayerView, type Point } from '../src/game';
 import { bbl, dateOf, html, money, pct, raw, signed, words, type Html } from './dom';
 
 const pts = (s: readonly Point[]) => s.map((p) => p.join(',')).join(' ');
@@ -82,20 +82,20 @@ export function companyPanel(view: PlayerView): Html {
       ${w ? html`
         ${fact('Crude', words(w.grade))}
         ${fact('Wells pump', `${bbl(w.capacity * w.outputRate)} of ${bbl(w.capacity)} bbl/day${w.shutIn ? ' (stopped: tanks full)' : ''}`)}
-        ${fact(`Storage ${pct(w.storage / Math.max(1, w.storageCapacity))} full`, bar(w.storage / Math.max(1, w.storageCapacity)))}` : ''}
+        ${fact('In store', html`${bbl(w.storage)} of ${bbl(w.storageCapacity)} bbl <span class="muted">(${pct(w.storage / Math.max(1, w.storageCapacity))} full)</span>${bar(w.storage / Math.max(1, w.storageCapacity))}`)}` : ''}
       ${view.company.sites.map((site) => {
         const held = site.stock.LIGHT_SWEET + site.stock.MEDIUM + site.stock.HEAVY_SOUR;
         const where = view.company.sites.length > 1 ? `${regionName(site.region)}: ` : '';
         return html`
           ${fact(`${where}refinery`, `Tier ${site.techTier} · ${bbl(site.capacity)} bbl/day`)}
           ${fact(`${where}running at`, site.online ? pct(site.runRate) : `stopped, ${site.offlineDays} days to go`)}
-          ${fact(`${where}crude in tanks: ${(held / Math.max(1, site.capacity)).toFixed(1)} days`, bar(held / Math.max(1, site.tankCapacity), 2, 2))}
+          ${fact(`${where}crude in tanks`, html`${bbl(held)} of ${bbl(site.tankCapacity)} bbl <span class="muted">(${(held / Math.max(1, site.capacity)).toFixed(1)} days of refining)</span>${bar(held / Math.max(1, site.tankCapacity), 2, 2)}`)}
           ${fact(`${where}on the way`, `${bbl(site.inbound)} bbl`)}
           ${fact(`${where}since maintenance`, `${site.daysSinceMaintenance} days`)}`;
       })}
       ${c.hubs.map((h) => {
         const held = h.stock.LIGHT_SWEET + h.stock.MEDIUM + h.stock.HEAVY_SOUR;
-        return fact(`${regionName(h.region)} office: ${bbl(held)} bbl`, bar(held / Math.max(1, h.capacity)));
+        return fact(`${regionName(h.region)} office`, html`${bbl(held)} of ${bbl(h.capacity)} bbl <span class="muted">(${pct(held / Math.max(1, h.capacity))} full)</span>${bar(held / Math.max(1, h.capacity))}`);
       })}
     </div>
     ${c.projects.length > 0 ? html`
@@ -174,25 +174,6 @@ export function priceStrip(view: PlayerView): Html {
     </section>`;
 }
 
-/** Public prices (spec G5): crude markers and fuels, with the last 90 days. */
-export function marketsPanel(view: PlayerView): Html {
-  const recent = view.history.slice(-90);
-  return html`
-    <table>
-      <tr><th>Crude</th><th class="num">Price</th><th class="num">30 days ago</th><th>Last 90 days</th></tr>
-      ${view.markets.map((m) => {
-        const before = recent[Math.max(0, recent.length - 31)]?.markers[m.node] ?? m.marker;
-        const change = m.marker - before;
-        return html`<tr><td>${GRADE_NAMES[m.grade] ?? m.grade}</td><td class="num">${money(m.marker)}</td>
-          <td class="num ${change >= 0 ? 'good' : 'bad'}">${change >= 0 ? '+' : '−'}${money(Math.abs(change))}</td>
-          <td>${sparkline(recent.map((d) => d.markers[m.node]))}</td></tr>`;
-      })}
-      <tr><th>Fuel</th><th class="num">Price</th><th></th><th></th></tr>
-      ${Object.entries(view.products).map(([name, price]) => html`<tr><td>${words(name)}</td><td class="num">${money(price)}</td><td></td>
-        <td>${sparkline(recent.map((d) => (d.products as Record<string, number>)[name] ?? price))}</td></tr>`)}
-    </table>`;
-}
-
 /** Deals and crude at sea. */
 export function dealsPanel(view: PlayerView): Html {
   const deals = view.deals.filter((d) => d.status === 'ACTIVE');
@@ -217,6 +198,53 @@ export function dealsPanel(view: PlayerView): Html {
       <table><tr><th>Crude</th><th class="num">Barrels</th><th>To</th><th>Status</th><th class="num">Days out</th></tr>
       ${view.cargo.map((c) => html`<tr><td>${GRADE_NAMES[c.grade] ?? c.grade}</td><td class="num">${bbl(c.qty)}</td><td>${regionName(c.destination)}</td>
         <td>${c.status === 'HELD' ? html`<span class="bad">waiting at a strait</span>` : words(c.status)}</td><td class="num">${c.daysAtSea}</td></tr>`)}
+      </table>`}`;
+}
+
+/** A column of the day book: what to call it, and how to read it off a day. */
+interface Column { readonly label: string; readonly of: (d: DayLog) => string; readonly money?: boolean }
+
+const COLUMNS: Readonly<Record<string, readonly string[]>> = {
+  PRODUCER: ['pumped', 'sold', 'for', 'price', 'store', 'cash'],
+  REFINER: ['bought', 'paid', 'price', 'refined', 'fuel', 'store', 'cash'],
+  INTEGRATED: ['pumped', 'refined', 'fuel', 'bought', 'paid', 'sold', 'for', 'store', 'cash'],
+  TRADER: ['bought', 'paid', 'sold', 'for', 'margin', 'store', 'cash'],
+};
+
+const ALL_COLUMNS: Readonly<Record<string, Column>> = {
+  pumped: { label: 'Pumped', of: (d) => (d.pumped > 0 ? `${bbl(d.pumped)} bbl` : '—') },
+  refined: { label: 'Refined', of: (d) => (d.refined > 0 ? `${bbl(d.refined)} bbl` : '—') },
+  fuel: { label: 'Fuel sold', of: (d) => (d.fuelRevenue > 0 ? money(d.fuelRevenue) : '—'), money: true },
+  bought: { label: 'Bought', of: (d) => (d.boughtQty > 0 ? `${bbl(d.boughtQty)} bbl` : '—') },
+  paid: { label: 'Paid', of: (d) => (d.boughtCost > 0 ? money(d.boughtCost) : '—'), money: true },
+  sold: { label: 'Sold', of: (d) => (d.soldQty > 0 ? `${bbl(d.soldQty)} bbl` : '—') },
+  for: { label: 'For', of: (d) => (d.soldRevenue > 0 ? money(d.soldRevenue) : '—'), money: true },
+  price: { label: 'A barrel', of: (d) => (d.soldQty > 0 ? money(d.soldRevenue / d.soldQty) : d.boughtQty > 0 ? money(d.boughtCost / d.boughtQty) : '—') },
+  margin: { label: 'Bought at / sold at', of: (d) => `${d.boughtQty > 0 ? money(d.boughtCost / d.boughtQty) : '—'} / ${d.soldQty > 0 ? money(d.soldRevenue / d.soldQty) : '—'}` },
+  store: { label: 'Crude held', of: (d) => `${bbl(d.stock)} bbl` },
+  cash: { label: 'Cash', of: (d) => money(d.cash) },
+};
+
+/**
+ * What the company actually did, day by day (spec G5). The company trades on its own, so without
+ * this the player sees only a stock level going up and a cash balance moving, and never the
+ * barrels or the prices behind either.
+ */
+export function dayBookPanel(view: PlayerView): Html {
+  const days = [...view.days].reverse();
+  const keys = COLUMNS[view.company.kind] ?? COLUMNS.PRODUCER ?? [];
+  const columns = keys.map((k) => ALL_COLUMNS[k]).filter((c): c is Column => c !== undefined);
+  const month = view.days.slice(-30);
+  const sum = (pick: (d: DayLog) => number) => month.reduce((t, d) => t + pick(d), 0);
+  const soldQty = sum((d) => d.soldQty), soldFor = sum((d) => d.soldRevenue);
+  const boughtQty = sum((d) => d.boughtQty), paid = sum((d) => d.boughtCost);
+  return html`
+    ${days.length === 0 ? html`<p class="muted">Nothing yet — let the clock run.</p>` : html`
+      <p class="small">Over the last ${month.length === 1 ? 'day' : `${month.length} days`}:
+        ${soldQty > 0 ? html`sold <strong>${bbl(soldQty)} bbl</strong> for <strong>${money(soldFor)}</strong>, an average of ${money(soldFor / soldQty)} a barrel` : 'sold nothing'}${boughtQty > 0 ? html`; bought <strong>${bbl(boughtQty)} bbl</strong> for <strong>${money(paid)}</strong>, an average of ${money(paid / boughtQty)} a barrel` : ''}.</p>
+      <table class="daybook">
+        <tr><th>Day</th>${columns.map((c) => html`<th class="num">${c.label}</th>`)}</tr>
+        ${days.map((d) => html`<tr><td>${dateOf(d.tick)}</td>${columns.map((c) => html`<td class="num">${c.of(d)}</td>`)}</tr>`)}
       </table>`}`;
 }
 
