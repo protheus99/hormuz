@@ -125,6 +125,23 @@ describe('the day book (spec G5)', () => {
     for (const d of sold) expect(d.soldRevenue).toBeGreaterThan(0);
   });
 
+  it('names who bought the crude, and says whether a deal was behind it', async () => {
+    const s = await GameSession.newGame(producerGame);
+    await runTo(s, 60);
+    const view = await s.getView();
+    const rivals = new Set(view.rivals.map((r) => r.name));
+
+    const days = view.days.filter((d) => d.soldQty > 0);
+    expect(days.length).toBeGreaterThan(0);
+    for (const d of days) {
+      expect(d.soldTo.length).toBeGreaterThan(0);
+      // Every barrel sold went to someone, and that someone is a company the player can see.
+      expect(d.soldTo.reduce((t, p) => t + p.qty, 0)).toBeCloseTo(d.soldQty, 6);
+      for (const p of d.soldTo) expect(rivals.has(p.name)).toBe(true);
+      expect([...d.soldTo].sort((x, y) => y.qty - x.qty)).toEqual([...d.soldTo]);
+    }
+  });
+
   it('accounts for every dollar the day cost, and the day book adds up to the cash in hand', async () => {
     const s = await GameSession.newGame(producerGame);
     const start = (await s.getView()).company.cash;

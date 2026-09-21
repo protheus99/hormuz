@@ -1,6 +1,6 @@
 // The game screen's panels: the map, the company, markets, deals and cargo, and news.
 
-import { mapLayout, regionName, type DailyPrices, type DayLog, type PlayerView, type Point } from '../src/game';
+import { mapLayout, regionName, type Counterparty, type DailyPrices, type DayLog, type PlayerView, type Point } from '../src/game';
 import { bbl, dateOf, html, money, pct, raw, signed, words, type Html } from './dom';
 
 const pts = (s: readonly Point[]) => s.map((p) => p.join(',')).join(' ');
@@ -214,10 +214,10 @@ const COST_LABELS: readonly (readonly ['pumping' | 'refining' | 'shipping' | 'ru
 interface Column { readonly label: string; readonly of: (d: DayLog) => string; readonly money?: boolean }
 
 const COLUMNS: Readonly<Record<string, readonly string[]>> = {
-  PRODUCER: ['pumped', 'sold', 'for', 'price', 'costs', 'made', 'store', 'cash'],
-  REFINER: ['bought', 'paid', 'price', 'refined', 'fuel', 'costs', 'made', 'store', 'cash'],
-  INTEGRATED: ['pumped', 'refined', 'fuel', 'bought', 'paid', 'sold', 'for', 'costs', 'made', 'store', 'cash'],
-  TRADER: ['bought', 'paid', 'sold', 'for', 'margin', 'costs', 'made', 'store', 'cash'],
+  PRODUCER: ['pumped', 'sold', 'for', 'price', 'buyer', 'costs', 'made', 'store', 'cash'],
+  REFINER: ['bought', 'paid', 'price', 'seller', 'refined', 'fuel', 'costs', 'made', 'store', 'cash'],
+  INTEGRATED: ['pumped', 'refined', 'fuel', 'bought', 'paid', 'sold', 'for', 'buyer', 'costs', 'made', 'store', 'cash'],
+  TRADER: ['bought', 'paid', 'seller', 'sold', 'for', 'buyer', 'costs', 'made', 'store', 'cash'],
 };
 
 const ALL_COLUMNS: Readonly<Record<string, Column>> = {
@@ -230,11 +230,25 @@ const ALL_COLUMNS: Readonly<Record<string, Column>> = {
   for: { label: 'For', of: (d) => (d.soldRevenue > 0 ? money(d.soldRevenue) : '—'), money: true },
   price: { label: 'A barrel', of: (d) => (d.soldQty > 0 ? money(d.soldRevenue / d.soldQty) : d.boughtQty > 0 ? money(d.boughtCost / d.boughtQty) : '—') },
   margin: { label: 'Bought at / sold at', of: (d) => `${d.boughtQty > 0 ? money(d.boughtCost / d.boughtQty) : '—'} / ${d.soldQty > 0 ? money(d.soldRevenue / d.soldQty) : '—'}` },
+  buyer: { label: 'Who bought it', of: (d) => who(d.soldTo) },
+  seller: { label: 'Who from', of: (d) => who(d.boughtFrom) },
   costs: { label: 'Costs', of: (d) => (d.costs.total > 0 ? money(d.costs.total) : '—'), money: true },
   made: { label: 'Made today', of: (d) => signed(madeOn(d)), money: true },
   store: { label: 'Crude held', of: (d) => `${bbl(d.stock)} bbl` },
   cash: { label: 'Cash in hand', of: (d) => money(d.cash) },
 };
+
+/**
+ * The other side of the day's trading. Most days it is one company; when it is more, the biggest
+ * is named and the rest counted, so the column stays one line wide.
+ */
+function who(parties: readonly Counterparty[]): string {
+  const first = parties[0];
+  if (first === undefined) return '—';
+  const rest = parties.length - 1;
+  const where = `${first.name} (${regionName(first.region)})${first.deal ? ', on your deal' : ''}`;
+  return rest === 0 ? where : `${where} +${rest} more`;
+}
 
 /** Money in less money out: sales and fuel, less the crude bought and everything the day cost. */
 const madeOn = (d: DayLog) => d.soldRevenue + d.fuelRevenue - d.boughtCost - d.costs.total;
@@ -263,6 +277,9 @@ export function dayBookPanel(view: PlayerView): Html {
           return amount <= 0 ? '' : html`${label} <strong>${money(amount)}</strong> · `;
         })}in all <strong>${money(sum((d) => d.costs.total))}</strong>${fuel > 0 ? html`. Fuel sold brought in <strong>${money(fuel)}</strong>` : ''}.
         <span class="muted">Buying crude is shown separately, in the table.</span></p>
+      <p class="small muted">A sale with no deal against it went on the open market: your company
+        puts the crude up for sale every day, and whoever bids highest gets it. The Deals tab lists
+        only fixed-price contracts, which deliver a set amount every day until they run out.</p>
       <table class="daybook">
         <tr><th>Day</th>${columns.map((c) => html`<th class="num">${c.label}</th>`)}</tr>
         ${days.map((d) => html`<tr><td>${dateOf(d.tick)}</td>${columns.map((c) => html`<td class="num ${c.label === 'Made today' ? (madeOn(d) > 0 ? 'good' : madeOn(d) < 0 ? 'bad' : '') : ''}">${c.of(d)}</td>`)}</tr>`)}

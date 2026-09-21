@@ -204,11 +204,24 @@ export interface DayLog {
   readonly boughtCost: number;
   readonly soldQty: number;
   readonly soldRevenue: number;
+  /** Who the crude went to, and who it came from: one entry a company, biggest first. */
+  readonly soldTo: readonly Counterparty[];
+  readonly boughtFrom: readonly Counterparty[];
   /** What the day cost, in groups a player can act on. Buying crude is counted separately. */
   readonly costs: DayCosts;
   /** Crude held everywhere at the end of the day, and cash. */
   readonly stock: number;
   readonly cash: number;
+}
+
+/** The other side of a day's trading: a named company, since who is buying is public (spec G5). */
+export interface Counterparty {
+  readonly name: string;
+  readonly qty: number;
+  /** Where the crude went, or came from. */
+  readonly region: RegionName;
+  /** Under a deal, or on the day's open market. */
+  readonly deal: boolean;
 }
 
 export interface DayCosts {
@@ -240,19 +253,29 @@ export function dayLog(w: World, playerId: AgentId, report: TickReport): DayLog 
   const me = w.agents.find((a) => a.agentId === playerId);
   const work = report.byAgent[playerId];
   let boughtQty = 0, boughtCost = 0, soldQty = 0, soldRevenue = 0;
+  const sold = new Map<AgentId, { qty: number; region: RegionName; deal: boolean }>();
+  const bought = new Map<AgentId, { qty: number; region: RegionName; deal: boolean }>();
+  const add = (into: typeof sold, id: AgentId, qty: number, region: RegionName, deal: boolean) => {
+    const at = into.get(id);
+    if (at === undefined) into.set(id, { qty, region, deal });
+    else at.qty += qty;
+  };
   for (const f of report.fills) {
     // Both sides at the price of the crude itself: freight and tariffs are costs, and counting them
     // here as well would charge the same dollar twice.
-    if (f.sellerId === playerId) { soldQty += f.qty; soldRevenue += f.fobPrice * f.qty; }
-    if (f.buyerId === playerId) { boughtQty += f.qty; boughtCost += f.fobPrice * f.qty; }
+    if (f.sellerId === playerId) { soldQty += f.qty; soldRevenue += f.fobPrice * f.qty; add(sold, f.buyerId, f.qty, f.deliveryRegion, f.dealId !== null); }
+    if (f.buyerId === playerId) { boughtQty += f.qty; boughtCost += f.fobPrice * f.qty; add(bought, f.sellerId, f.qty, f.originRegion, f.dealId !== null); }
   }
   // A deal pays when the crude is loaded, so the day it moves is the day it is worth counting.
   for (const d of report.deliveries) {
     const deal = w.deals.find((x) => x.dealId === d.dealId);
     if (deal === undefined || d.delivered <= 0) continue;
-    if (deal.sellerId === playerId) { soldQty += d.delivered; soldRevenue += deal.price * d.delivered; }
-    if (deal.buyerId === playerId) { boughtQty += d.delivered; boughtCost += deal.price * d.delivered; }
+    if (deal.sellerId === playerId) { soldQty += d.delivered; soldRevenue += deal.price * d.delivered; add(sold, deal.buyerId, d.delivered, deal.deliveryRegion, true); }
+    if (deal.buyerId === playerId) { boughtQty += d.delivered; boughtCost += deal.price * d.delivered; add(bought, deal.sellerId, d.delivered, deal.originRegion, true); }
   }
+  const named = (from: typeof sold): Counterparty[] => [...from.entries()]
+    .map(([id, x]) => ({ name: w.agents.find((a) => a.agentId === id)?.name ?? 'someone', qty: x.qty, region: x.region, deal: x.deal }))
+    .sort((a, b) => b.qty - a.qty);
   // The ledger holds today's fees only: the engine empties it at the start of every tick.
   const costs = { pumping: 0, refining: 0, shipping: 0, running: 0, building: 0, total: 0 };
   for (const e of w.ledger.entries) {
@@ -263,6 +286,8 @@ export function dayLog(w: World, playerId: AgentId, report: TickReport): DayLog 
   return {
     tick: w.tick,
     costs,
+    soldTo: named(sold),
+    boughtFrom: named(bought),
     pumped: work?.extracted ?? 0,
     refined: work?.refined ?? 0,
     fuelRevenue: work?.retail ?? 0,
