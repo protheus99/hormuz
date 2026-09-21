@@ -14,8 +14,9 @@ Recommendations are marked **R**.
 > interface is usable. 6b: dropped. 6c: you will read the text. 7: **D** — all three built (D41,
 > D34, D42). 4: **A** — the band is set and the campaign sits inside it (D43, D44).
 >
-> Nothing here is open. What remains is yours: playtests once the interface is usable, and a read
-> through the card text.
+> Confirmed by the owner on 2026-09-21. Nothing here is open. Question 5 is closed for now — the
+> hand-drawn map is good enough and needs no more work before a release decision. Playtests are
+> under way (6a), and the card text is yours to read (6c).
 
 ## 1. Producers have few decisions once they have taken the obvious ones ✅ accepted (A)
 
@@ -133,7 +134,7 @@ the refiner that declined them ran dry. A deal is now never offered above what t
 fetched (D43). And the Supply meter counted barrels weeks away at sea, so it read comfortably while
 a plant was about to run dry; it now counts only what is in the tanks.
 
-## 5. The map: hand-drawn outlines, or the real coastlines? ✅ answered (B — revisit later)
+## 5. The map: hand-drawn outlines, or the real coastlines? ✅ closed (B — good enough for now)
 
 **What this is.** The world map shows land shapes I wrote by hand from memory — about a dozen rough
 outlines. They are recognisable (you can find the Gulf, the Red Sea, Malacca) but crude: no islands
@@ -168,7 +169,7 @@ internet into your repository, and it adds a build step you will maintain.
 
 These are not code. Each needs you, or someone you ask.
 
-**6a. Playtests.** Phase 10's acceptance says a first-time player finishes a tutorial unaided. I can
+**6a. Playtests** — *under way.* Phase 10's acceptance says a first-time player finishes a tutorial unaided. I can
 run robots all day; I cannot watch a person get confused. What I would want: three to five people
 who have never seen it, each playing one tutorial (about 20 minutes), with you noting where they
 hesitate and what they misread.
