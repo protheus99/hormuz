@@ -58,6 +58,18 @@ h3 { font-size: 14px; }
 .how { margin: -12px 0 20px; }
 .how summary { cursor: pointer; color: var(--accent); font-weight: 600; }
 .how p { margin: 8px 0; color: var(--text-2); max-width: 62ch; }
+.how-open { margin: -8px 0 20px; }
+.sheet p { margin: 10px 0; color: var(--text-2); }
+
+/* Which company a scenario puts you in charge of, in its own colour per kind. */
+.type .play {
+  display: inline-block; margin-bottom: 4px; padding: 1px 8px; border-radius: 10px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase;
+}
+.type .play.PRODUCER { background: var(--good-soft); color: var(--good); }
+.type .play.REFINER { background: var(--accent-soft); color: var(--accent); }
+.type .play.TRADER { background: var(--warn-soft); color: var(--warn); }
+.type .play.ANY { background: var(--panel-2); color: var(--text-2); }
 .meters-help { margin: 0 0 10px; }
 .meters-help summary { cursor: pointer; color: var(--accent); }
 .meters-help p { margin: 6px 0; }

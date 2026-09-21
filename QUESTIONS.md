@@ -8,6 +8,17 @@ Recommendations are marked **R**.
 
 ---
 
+## Noted during playtesting, to do before release
+
+- **The refiner tutorial has to explain FOB.** A producer is paid the day its crude is loaded and
+  never thinks about the voyage, which is why the producer scenarios can leave it unsaid. A refiner
+  is the buyer: it pays on loading day, waits ten to twenty days for crude it has already paid for,
+  pays the freight that day and the destination tariff when the cargo lands. That is the difference
+  between a full tank and an empty one, and R1 "Keep the Lights On" cannot be learned without it.
+  Raised by the owner on 2026-09-21.
+
+---
+
 > **All seven answered.** 1: **A, accepted**. 2: **A, agreed** — neglect now bites (D39).
 > 3: **A, with the steer that volume is the lever** — done (D40): a trader answering by the meters
 > now makes 19–51% a year. 5: **B** — the hand-drawn map stays for now. 6a: playtests once the
