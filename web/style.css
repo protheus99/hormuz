@@ -59,6 +59,8 @@ h3 { font-size: 14px; }
 .how summary { cursor: pointer; color: var(--accent); font-weight: 600; }
 .how p { margin: 8px 0; color: var(--text-2); max-width: 62ch; }
 .how-open { margin: -8px 0 20px; }
+.pick { display: block; max-width: 340px; }
+.pick select { margin-top: 4px; }
 .sheet p { margin: 10px 0; color: var(--text-2); }
 
 /* Which company a scenario puts you in charge of, in its own colour per kind. */

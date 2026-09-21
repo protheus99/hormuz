@@ -19,16 +19,37 @@ const LEVEL_WORDS = { EASY: 'Tutorial', MEDIUM: 'Medium', HARD: 'Hard' } as cons
 /** A scenario puts you in charge of one kind of company; the finale lets you pick. */
 const PLAY_WORDS = { PRODUCER: 'Producer', REFINER: 'Refiner', TRADER: 'Trader' } as const;
 
+const NAME_FOR: Readonly<Record<PlayType, string>> = {
+  PRODUCER: 'Lone Star Crude', REFINER: 'Harbour Refining', TRADER: 'Meridian Trading',
+};
+const DEFAULT_NAMES: readonly string[] = Object.values(NAME_FOR);
+
 export function showNewGame(root: Element, hasSave: boolean, start: (s: GameSettings) => void, resume: () => void): void {
   const state: Choice = { mode: 'CAMPAIGN', scenario: 'P1', type: 'PRODUCER', region: 'US_Permian', name: 'Lone Star Crude', difficulty: 'NORMAL', length: 365, second: '', volatile: false, how: false };
   const campaignMode = () => state.mode === 'CAMPAIGN';
 
+  /** A name the player has not troubled to change follows the company they picked. */
+  const setType = (type: PlayType) => {
+    if (DEFAULT_NAMES.includes(state.name)) state.name = NAME_FOR[type];
+    state.type = type;
+    render();
+  };
+
   const render = () => {
     const regions = regionsFor(state.type);
     if (!regions.includes(state.region as never)) state.region = regions[0] ?? '';
-    const sc = SCENARIOS.find((x) => x.id === state.scenario);
     const campaign = campaignMode();
-    const pickType = !campaign || sc?.playType === null;
+    // The campaign lists one company's scenarios at a time. The finale sets no company of its own,
+    // so it belongs to whichever is chosen and appears at the end of each of the three lists.
+    const shown = SCENARIOS.filter((x) => x.playType === state.type || x.playType === null);
+    const sc = SCENARIOS.find((x) => x.id === state.scenario);
+    if (campaign && sc && sc.playType !== null && sc.playType !== state.type) {
+      state.scenario = shown[0]?.id ?? state.scenario;
+    }
+    const chosen = SCENARIOS.find((x) => x.id === state.scenario);
+    // Sandbox still picks a company from the three cards; the campaign picks it above the list.
+    const pickType = !campaign;
+    const pickRegion = !campaign || chosen?.region === null;
     mount(root, html`
       <section class="newgame">
         <h1>HORMUZ</h1>
@@ -40,17 +61,24 @@ export function showNewGame(root: Element, hasSave: boolean, start: (s: GameSett
         </div>
         ${campaign ? html`
         <fieldset>
+          <legend>Which company do you want to run?</legend>
+          <label class="pick">Company
+            <select id="playtype">${TYPES.map((t) => html`<option value="${t.type}" ${t.type === state.type ? 'selected' : ''}>${t.title} — ${t.difficulty.toLowerCase()}</option>`)}</select>
+          </label>
+          <p class="small muted">${TYPES.find((t) => t.type === state.type)?.blurb}</p>
+        </fieldset>
+        <fieldset>
           <legend>Choose a scenario</legend>
           <div class="scenarios">
-            ${SCENARIOS.map((x) => html`
+            ${shown.map((x) => html`
               <button class="type ${x.id === state.scenario ? 'active' : ''}" data-scenario="${x.id}">
-                <strong>${x.id === 'FINALE' ? '★' : x.id} · ${x.title}</strong>
-                <span class="play ${x.playType ?? 'ANY'}">${x.playType === null ? 'Your choice of company' : PLAY_WORDS[x.playType]}</span>
+                <strong>${x.playType === null ? '★' : x.id} · ${x.title}${x.playType === null ? ` as a ${PLAY_WORDS[state.type].toLowerCase()}` : ''}</strong>
+                <span class="play ${x.playType ?? state.type}">${PLAY_WORDS[x.playType ?? state.type]}</span>
                 <span class="muted">${x.blurb}</span>
                 <div class="small muted">${x.tutorial ? 'Tutorial' : LEVEL_WORDS[x.level]} · ${Math.round(x.lengthDays / 30)} months</div>
               </button>`)}
           </div>
-          ${sc ? html`<p style="margin-top:12px"><strong>Goal:</strong> ${sc.goalText}</p>` : ''}
+          ${chosen ? html`<p style="margin-top:12px"><strong>Goal:</strong> ${chosen.goalText}</p>` : ''}
         </fieldset>` : ''}
         ${pickType ? html`<fieldset>
           <legend>What kind of company?</legend>
@@ -62,10 +90,10 @@ export function showNewGame(root: Element, hasSave: boolean, start: (s: GameSett
           </div>
         </fieldset>` : ''}
         <div class="row">
-          ${pickType ? html`<label>Home region
+          ${pickRegion ? html`<label>Home region
             <select id="region">${regions.map((r) => html`<option value="${r}" ${r === state.region ? 'selected' : ''}>${regionName(r)}</option>`)}</select>
           </label>` : ''}
-          ${pickType && state.type === 'TRADER' ? html`
+          ${pickRegion && state.type === 'TRADER' ? html`
           <label>Second office (optional)
             <select id="second"><option value="">None</option>${regionsFor('TRADER').filter((r) => r !== state.region).map((r) => html`<option value="${r}" ${r === state.second ? 'selected' : ''}>${regionName(r)}</option>`)}</select>
           </label>` : ''}
@@ -102,6 +130,7 @@ export function showNewGame(root: Element, hasSave: boolean, start: (s: GameSett
         </div>
       </section>`);
 
+    const value = (id: string) => (root.querySelector(`#${id}`) as HTMLInputElement | HTMLSelectElement | null)?.value ?? '';
     root.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach((b) => b.addEventListener('click', () => {
       state.mode = b.dataset.mode as Choice['mode'];
       render();
@@ -110,11 +139,8 @@ export function showNewGame(root: Element, hasSave: boolean, start: (s: GameSett
       state.scenario = b.dataset.scenario as ScenarioId;
       render();
     }));
-    root.querySelectorAll<HTMLButtonElement>('[data-type]').forEach((b) => b.addEventListener('click', () => {
-      state.type = b.dataset.type as PlayType;
-      render();
-    }));
-    const value = (id: string) => (root.querySelector(`#${id}`) as HTMLInputElement | HTMLSelectElement | null)?.value ?? '';
+    root.querySelectorAll<HTMLButtonElement>('[data-type]').forEach((b) => b.addEventListener('click', () => setType(b.dataset.type as PlayType)));
+    root.querySelector('#playtype')?.addEventListener('change', () => setType(value('playtype') as PlayType));
     root.querySelector('#region')?.addEventListener('change', () => { state.region = value('region'); render(); });
     root.querySelector('#name')?.addEventListener('input', () => { state.name = value('name'); });
     root.querySelector('#second')?.addEventListener('change', () => { state.second = value('second'); });
