@@ -10,6 +10,7 @@ import type { PlantState } from '../engine/model';
 import { ChokepointStatus, type Grade, type Product } from '../engine/enums';
 import type { AgentId, CompanySettings, DealId } from '../engine/model';
 import { barrelsHeld, netWorth, type TickReport, type World } from '../engine/world';
+import type { FeeKind } from '../engine/enums';
 import type { Alert } from './alerts';
 import type { Card, CardType } from './cards/types';
 import type { CampaignView } from './campaign';
@@ -55,7 +56,12 @@ export interface OwnCompanyView {
   readonly netWorth: number;
   /** Capital projects under way. */
   readonly projects: readonly { readonly kind: string; readonly daysLeft: number; readonly dailyCost: number; readonly paused: boolean }[];
-  readonly well: null | { readonly grade: Grade; readonly capacity: number; readonly storage: number; readonly storageCapacity: number; readonly outputRate: number; readonly shutIn: boolean };
+  readonly well: null | {
+    readonly grade: Grade; readonly capacity: number; readonly storage: number; readonly storageCapacity: number;
+    readonly outputRate: number; readonly shutIn: boolean;
+    /** The best this field ever managed. Fields decline, and the "running dry" card compares to it. */
+    readonly peakCapacity: number;
+  };
   readonly plant: null | PlantView;
   /** Every refinery the company runs: one, or two once it builds a second site (D34). */
   readonly sites: readonly PlantView[];
@@ -131,7 +137,7 @@ export function buildPlayerView(
     projects: w.projects.filter((p) => p.agentId === playerId).map((p) => ({ kind: p.kind, daysLeft: p.ticksLeft, dailyCost: p.dailyCost, paused: p.heldUntil > w.tick })),
     well: well ? {
       grade: well.grade, capacity: well.extractionCapacity, storage: well.storage, storageCapacity: well.storageCapacity,
-      outputRate: well.extractionRate, shutIn: well.shutIn,
+      outputRate: well.extractionRate, shutIn: well.shutIn, peakCapacity: well.peakCapacity,
     } : null,
     plant: plant ? siteView(plant) : null,
     sites: plantsOf(me).map(siteView),
@@ -194,13 +200,40 @@ export interface DayLog {
   /** What the retail market paid for the fuel made today. */
   readonly fuelRevenue: number;
   readonly boughtQty: number;
+  /** What the crude itself cost. Shipping it is a cost of its own, below. */
   readonly boughtCost: number;
   readonly soldQty: number;
   readonly soldRevenue: number;
+  /** What the day cost, in groups a player can act on. Buying crude is counted separately. */
+  readonly costs: DayCosts;
   /** Crude held everywhere at the end of the day, and cash. */
   readonly stock: number;
   readonly cash: number;
 }
+
+export interface DayCosts {
+  /** Getting crude out of the ground, and restarting wells that were shut in. */
+  readonly pumping: number;
+  /** Running the refinery: processing, maintenance and repairs. */
+  readonly refining: number;
+  /** Freight, tariffs and waiting at a strait. */
+  readonly shipping: number;
+  /** Keeping the company open: fixed costs, offices, leases, charters, reports and interest. */
+  readonly running: number;
+  /** Paid out on whatever is being built. */
+  readonly building: number;
+  readonly total: number;
+}
+
+/** Which plain-language group each fee belongs to. */
+const COST_GROUP: Readonly<Record<FeeKind, keyof Omit<DayCosts, 'total'>>> = {
+  EXTRACTION: 'pumping', RESTART: 'pumping',
+  REFINING_OPEX: 'refining', MAINTENANCE: 'refining', REPAIR: 'refining',
+  FREIGHT: 'shipping', DEMURRAGE: 'shipping', ORIGIN_TARIFF: 'shipping', DESTINATION_TARIFF: 'shipping',
+  FIXED_COST: 'running', OFFICE: 'running', LEASE: 'running', CHARTER: 'running', RESERVATION: 'running',
+  REPORT: 'running', CREDIT_INTEREST: 'running',
+  CAPITAL: 'building',
+};
 
 /** The player's day, from the engine's report: spot fills, deal loadings and today's own work. */
 export function dayLog(w: World, playerId: AgentId, report: TickReport): DayLog {
@@ -208,8 +241,10 @@ export function dayLog(w: World, playerId: AgentId, report: TickReport): DayLog 
   const work = report.byAgent[playerId];
   let boughtQty = 0, boughtCost = 0, soldQty = 0, soldRevenue = 0;
   for (const f of report.fills) {
+    // Both sides at the price of the crude itself: freight and tariffs are costs, and counting them
+    // here as well would charge the same dollar twice.
     if (f.sellerId === playerId) { soldQty += f.qty; soldRevenue += f.fobPrice * f.qty; }
-    if (f.buyerId === playerId) { boughtQty += f.qty; boughtCost += f.landedPrice * f.qty; }
+    if (f.buyerId === playerId) { boughtQty += f.qty; boughtCost += f.fobPrice * f.qty; }
   }
   // A deal pays when the crude is loaded, so the day it moves is the day it is worth counting.
   for (const d of report.deliveries) {
@@ -218,8 +253,16 @@ export function dayLog(w: World, playerId: AgentId, report: TickReport): DayLog 
     if (deal.sellerId === playerId) { soldQty += d.delivered; soldRevenue += deal.price * d.delivered; }
     if (deal.buyerId === playerId) { boughtQty += d.delivered; boughtCost += deal.price * d.delivered; }
   }
+  // The ledger holds today's fees only: the engine empties it at the start of every tick.
+  const costs = { pumping: 0, refining: 0, shipping: 0, running: 0, building: 0, total: 0 };
+  for (const e of w.ledger.entries) {
+    if (e.agentId !== playerId) continue;
+    costs[COST_GROUP[e.kind]] += e.amount;
+    costs.total += e.amount;
+  }
   return {
     tick: w.tick,
+    costs,
     pumped: work?.extracted ?? 0,
     refined: work?.refined ?? 0,
     fuelRevenue: work?.retail ?? 0,

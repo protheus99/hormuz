@@ -82,6 +82,9 @@ export function companyPanel(view: PlayerView): Html {
       ${w ? html`
         ${fact('Crude', words(w.grade))}
         ${fact('Wells pump', `${bbl(w.capacity * w.outputRate)} of ${bbl(w.capacity)} bbl/day${w.shutIn ? ' (stopped: tanks full)' : ''}`)}
+        ${fact('Field', w.capacity >= w.peakCapacity - 1
+          ? html`${bbl(w.capacity)} bbl/day, the best it has managed`
+          : html`${bbl(w.capacity)} bbl/day, <span class="bad">down ${pct(1 - w.capacity / Math.max(1, w.peakCapacity))}</span> from its best of ${bbl(w.peakCapacity)}. Fields decline: drilling is what brings them back.`)}
         ${fact('In store', html`${bbl(w.storage)} of ${bbl(w.storageCapacity)} bbl <span class="muted">(${pct(w.storage / Math.max(1, w.storageCapacity))} full)</span>${bar(w.storage / Math.max(1, w.storageCapacity))}`)}` : ''}
       ${view.company.sites.map((site) => {
         const held = site.stock.LIGHT_SWEET + site.stock.MEDIUM + site.stock.HEAVY_SOUR;
@@ -201,14 +204,20 @@ export function dealsPanel(view: PlayerView): Html {
       </table>`}`;
 }
 
+/** The cost groups, in the order they are worth reading. */
+const COST_LABELS: readonly (readonly ['pumping' | 'refining' | 'shipping' | 'running' | 'building', string])[] = [
+  ['pumping', 'pumping'], ['refining', 'refining'], ['shipping', 'shipping'],
+  ['running', 'running the company'], ['building', 'building'],
+];
+
 /** A column of the day book: what to call it, and how to read it off a day. */
 interface Column { readonly label: string; readonly of: (d: DayLog) => string; readonly money?: boolean }
 
 const COLUMNS: Readonly<Record<string, readonly string[]>> = {
-  PRODUCER: ['pumped', 'sold', 'for', 'price', 'store', 'cash'],
-  REFINER: ['bought', 'paid', 'price', 'refined', 'fuel', 'store', 'cash'],
-  INTEGRATED: ['pumped', 'refined', 'fuel', 'bought', 'paid', 'sold', 'for', 'store', 'cash'],
-  TRADER: ['bought', 'paid', 'sold', 'for', 'margin', 'store', 'cash'],
+  PRODUCER: ['pumped', 'sold', 'for', 'price', 'costs', 'made', 'store', 'cash'],
+  REFINER: ['bought', 'paid', 'price', 'refined', 'fuel', 'costs', 'made', 'store', 'cash'],
+  INTEGRATED: ['pumped', 'refined', 'fuel', 'bought', 'paid', 'sold', 'for', 'costs', 'made', 'store', 'cash'],
+  TRADER: ['bought', 'paid', 'sold', 'for', 'margin', 'costs', 'made', 'store', 'cash'],
 };
 
 const ALL_COLUMNS: Readonly<Record<string, Column>> = {
@@ -221,9 +230,14 @@ const ALL_COLUMNS: Readonly<Record<string, Column>> = {
   for: { label: 'For', of: (d) => (d.soldRevenue > 0 ? money(d.soldRevenue) : '—'), money: true },
   price: { label: 'A barrel', of: (d) => (d.soldQty > 0 ? money(d.soldRevenue / d.soldQty) : d.boughtQty > 0 ? money(d.boughtCost / d.boughtQty) : '—') },
   margin: { label: 'Bought at / sold at', of: (d) => `${d.boughtQty > 0 ? money(d.boughtCost / d.boughtQty) : '—'} / ${d.soldQty > 0 ? money(d.soldRevenue / d.soldQty) : '—'}` },
+  costs: { label: 'Costs', of: (d) => (d.costs.total > 0 ? money(d.costs.total) : '—'), money: true },
+  made: { label: 'Made today', of: (d) => signed(madeOn(d)), money: true },
   store: { label: 'Crude held', of: (d) => `${bbl(d.stock)} bbl` },
-  cash: { label: 'Cash', of: (d) => money(d.cash) },
+  cash: { label: 'Cash in hand', of: (d) => money(d.cash) },
 };
+
+/** Money in less money out: sales and fuel, less the crude bought and everything the day cost. */
+const madeOn = (d: DayLog) => d.soldRevenue + d.fuelRevenue - d.boughtCost - d.costs.total;
 
 /**
  * What the company actually did, day by day (spec G5). The company trades on its own, so without
@@ -238,13 +252,20 @@ export function dayBookPanel(view: PlayerView): Html {
   const sum = (pick: (d: DayLog) => number) => month.reduce((t, d) => t + pick(d), 0);
   const soldQty = sum((d) => d.soldQty), soldFor = sum((d) => d.soldRevenue);
   const boughtQty = sum((d) => d.boughtQty), paid = sum((d) => d.boughtCost);
+  const fuel = sum((d) => d.fuelRevenue);
   return html`
     ${days.length === 0 ? html`<p class="muted">Nothing yet — let the clock run.</p>` : html`
       <p class="small">Over the last ${month.length === 1 ? 'day' : `${month.length} days`}:
         ${soldQty > 0 ? html`sold <strong>${bbl(soldQty)} bbl</strong> for <strong>${money(soldFor)}</strong>, an average of ${money(soldFor / soldQty)} a barrel` : 'sold nothing'}${boughtQty > 0 ? html`; bought <strong>${bbl(boughtQty)} bbl</strong> for <strong>${money(paid)}</strong>, an average of ${money(paid / boughtQty)} a barrel` : ''}.</p>
+      <p class="small">Costs over the same ${month.length === 1 ? 'day' : 'days'}:
+        ${COST_LABELS.map(([key, label]) => {
+          const amount = sum((d) => d.costs[key]);
+          return amount <= 0 ? '' : html`${label} <strong>${money(amount)}</strong> · `;
+        })}in all <strong>${money(sum((d) => d.costs.total))}</strong>${fuel > 0 ? html`. Fuel sold brought in <strong>${money(fuel)}</strong>` : ''}.
+        <span class="muted">Buying crude is shown separately, in the table.</span></p>
       <table class="daybook">
         <tr><th>Day</th>${columns.map((c) => html`<th class="num">${c.label}</th>`)}</tr>
-        ${days.map((d) => html`<tr><td>${dateOf(d.tick)}</td>${columns.map((c) => html`<td class="num">${c.of(d)}</td>`)}</tr>`)}
+        ${days.map((d) => html`<tr><td>${dateOf(d.tick)}</td>${columns.map((c) => html`<td class="num ${c.label === 'Made today' ? (madeOn(d) > 0 ? 'good' : madeOn(d) < 0 ? 'bad' : '') : ''}">${c.of(d)}</td>`)}</tr>`)}
       </table>`}`;
 }
 

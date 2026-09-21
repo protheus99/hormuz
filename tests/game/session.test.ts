@@ -125,6 +125,25 @@ describe('the day book (spec G5)', () => {
     for (const d of sold) expect(d.soldRevenue).toBeGreaterThan(0);
   });
 
+  it('accounts for every dollar the day cost, and the day book adds up to the cash in hand', async () => {
+    const s = await GameSession.newGame(producerGame);
+    const start = (await s.getView()).company.cash;
+    await runTo(s, 60);
+    const view = await s.getView();
+    expect(view.company.creditDrawn).toBe(0);   // borrowing would be money in from outside the book
+
+    for (const d of view.days) {
+      const { pumping, refining, shipping, running, building, total } = d.costs;
+      expect(pumping + refining + shipping + running + building).toBeCloseTo(total, 6);
+      expect(running).toBeGreaterThan(0);       // a company costs something to keep open every day
+      if (d.pumped > 0) expect(pumping).toBeGreaterThan(0);
+    }
+
+    // Money in, less crude bought and everything the day cost, is the change in the bank.
+    const made = view.days.reduce((t, d) => t + d.soldRevenue + d.fuelRevenue - d.boughtCost - d.costs.total, 0);
+    expect(start + made).toBeCloseTo(view.company.cash, 2);
+  });
+
   it('keeps the day book across a save, and starts one for a save written without it', async () => {
     const s = await GameSession.newGame(producerGame);
     await runTo(s, 20);
