@@ -1154,9 +1154,14 @@ A producer holds **leases**; a lease holds **wells**. Reserves are finite and dr
   drilling buys production now and a shorter life, which is the bargain it really offers.
 - **A field that is shut in does not decline**, since the oil stays where it is. Under the old
   constant it faded whether it was pumped or not.
-- Wells have states — pumping, down, maintenance, drilling — **run by the engine**, as refinery
-  outages are. The player sees the board and answers cards about policy. Per-well switches and a
-  crew system stay out of scope (§13).
+- Wells have states — pumping, down, maintenance, drilling, spent — **run by the engine**, as
+  refinery outages are. A well is serviced every `WELL.MAINT_INTERVAL` days and may fail between
+  times, on the same rising hazard a refinery has: a well left alone finds a way to stop. A failure
+  waits 5–15 days for a workover crew and is paid for the day it happens. Across the world that
+  costs about 1.5% of well-days — 0.7% failed, 0.8% in for a service, some 36 failures a year across
+  roughly 150 wells — which shows on the board without deciding anybody's year.
+  The player sees the board and answers cards about policy. Per-well switches and a crew system stay
+  out of scope (§13).
 - 6–12 wells a lease: few enough that one well is legible and losing two matters.
 
 ### 12A.4 Operating rights and the auction
@@ -1350,7 +1355,10 @@ it is that good and bad decisions both make money. Losses must stay avoidable by
    asks, a licence unlocks nothing, and the LICENSED class only marks where a licence *would* be
    wanted. What the auction does today is let a producer replace the reserves under its own feet,
    which is the depletion problem stage 2 created.
-4. Hazards and the card deck, including the ethical cards, designed with the owner.
+4. Hazards and the card deck. **Done:** wells are serviced, fail, wait for a crew and are paid for
+   (§12A.3), and the board shows each state. **Still to design with the owner:** the deck itself —
+   the policy cards that let a player do something about it, and the ethical dilemmas of §12A.6,
+   which the owner wants in quantity.
 5. The Opportunities cleanup: the 11 purchases move into their panels.
 6. The economics rebalance and company failure (§12A.8), then one retune of every scenario target
    and the D44 band.
@@ -1746,6 +1754,7 @@ The free web version stays available after Steam launches. Schools mostly use Ch
 | 3.1 | 2026-09-18 | Closed the real-world framing decision as D32: real geography, fictional companies, faceless and non-violent event wording, coastline-only map. Renamed nine companies whose names matched or crowded real companies. Removed the refiner's "Buy an oilfield" card: only producers can become integrated. |
 | 3.2 | 2026-09-18 | Made every chokepoint a live risk: an event profile for each of the seven, deck rules, route cards that react to delays as well as tension, a campaign featuring six of the seven, verification runs S13–S17, and a property test that no single closure strands a region. |
 | 3.5 | 2026-09-19 | Phase 7 calibration: price discovery (bids climb towards value as tanks empty; unsold asks decay; closing offers published), refiners count the voyage in stock targets and tank space, credit lines, recoverable insolvency, AI output cuts, personality mixes, the global portfolio's cash and storage, and the D35 decisions. Global S0: markers about 78 / 71 / 63 in grade order on ~90% of days, no insolvencies. |
+| 4.5 | 2026-09-22 | Ground is named for its region, and wells are serviced, fail and wait for a crew (stage 4's engine half). The cards that respond to it wait for the owner. |
 | 4.4 | 2026-09-22 | Phase 13 stage 3: the yearly sealed lease auction with bid levels rather than typed prices, operating rights per region, and the lease register. Operating in a second region is deferred to stage 3b. |
 | 4.3 | 2026-09-22 | Measured why nothing can lose money, and agreed the economics rebalance, company failure with replacement, and its timing after the lease system (§12A.8, D57). |
 | 4.2 | 2026-09-22 | Phase 13 stage 2: wells decline by depletion and `DECLINE_RATE` is deleted; drilling sinks one well at a time with dry holes; wells share one reservoir, so infill drilling buys production now and a shorter life; a shut-in field no longer declines. |

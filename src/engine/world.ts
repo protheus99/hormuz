@@ -22,7 +22,7 @@ import { FeeKind, type ChokepointStatus, type Grade, type Personality, type Prod
 import { runLogistics, type LogisticsReport } from './logistics';
 import { makeOrderId, type Agent, type AgentId, type Cargo, type Charter, type ChokepointName, type Deal, type Fill, type NodeName, type Order, type Tick } from './model';
 import { nextFloat, rngFor, type Rng } from './rng';
-import { ageWells, capacityOf } from './leases';
+import { advanceWells, capacityOf } from './leases';
 import { nameGround } from '../data/leasenames';
 import { aiBid, award, placeBid, surveyLots, type Auction } from './auction';
 import { decideOrders, recordSales, rememberMarkers, updateOutput, updateThrottle, type MarketView } from './rules';
@@ -197,7 +197,12 @@ export function step(w: World): TickReport {
   updatePrices(w.sink, baselineOutput(w), cfg);
   for (const a of w.agents) {
     if (a.kind === 'REFINER' || a.kind === 'INTEGRATED') for (const p of plantsOf(a)) advancePlant(a, p, w.rng.events, w.ledger, tick, cfg, !w.cardsActive);
-    if (a.kind === 'PRODUCER' || a.kind === 'INTEGRATED') { applyDecline(a, cfg); for (const lease of wellOf(a)?.leases ?? []) ageWells(lease); }
+    if (a.kind === 'PRODUCER' || a.kind === 'INTEGRATED') {
+      // Wells take their upkeep before the field's decline is worked out, so a well that went down
+      // today is already out of the count when capacity is recomputed.
+      for (const lease of wellOf(a)?.leases ?? []) advanceWells(lease, a, w.rng.wells, w.ledger, tick, cfg);
+      applyDecline(a, cfg);
+    }
   }
   runAuction(w, tick);
   const routes = new LaneRouteProvider(w.graph);
@@ -364,7 +369,6 @@ export function checkInvariants(w: World, deliveries: readonly DealDelivery[] = 
       }
     }
     // 8. Limits.
-    if (well && well.extractionCapacity > well.fieldMaxCapacity + 1e-6) fail(`${a.name} pumps above its field maximum`);
     if (a.creditDrawn > a.creditLimit + 1e-6) fail(`${a.name} has drawn $${a.creditDrawn} on a $${a.creditLimit} line`);
     // 9. Solvency: cash is never negative while credit remains.
     if (a.cash < -1e-6 && a.creditDrawn < a.creditLimit - 1e-6) fail(`${a.name} has $${a.cash} with credit left`);

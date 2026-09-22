@@ -173,6 +173,7 @@ export interface WellState {
   leases: Lease[];
   /** Regions this company may take ground in: home at the start, more by licence (§12A.4). */
   licences: RegionName[];
+  /** Kept for saves written before leases; the ceiling on drilling is a lease's slots (§12A.3). */
   fieldMaxCapacity: number;
   /** $/bbl before the region's labor index. */
   readonly baseExtractionCost: number;

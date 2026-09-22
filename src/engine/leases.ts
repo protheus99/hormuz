@@ -9,8 +9,10 @@
 
 import type { Config } from './config';
 import type { Grade } from './enums';
-import { asLeaseId, asWellId, LeaseBand, WellStatus, type Lease, type RegionName, type Well } from './model';
+import { asLeaseId, asWellId, LeaseBand, WellStatus, type Agent, type Lease, type RegionName, type Tick, type Well } from './model';
 import { nextFloat, type Rng } from './rng';
+import { FeeKind } from './enums';
+import { recordFee, type FeeLedger } from './economics';
 
 /**
  * Years of a lease's own output that each published band stands for (§12A.2). Five to ten years:
@@ -203,10 +205,56 @@ export function depleteWells(lease: Lease, cfg: Config): void {
   }
 }
 
-/** A day older, for every well that is running. Maintenance and outages are stage 3. */
-export function ageWells(lease: Lease): void {
-  for (const w of lease.wells) {
-    if (w.status === WellStatus.PUMPING) w.daysSinceMaintenance += 1;
-    else if (w.ticksRemaining > 0) w.ticksRemaining -= 1;
+/**
+ * The chance a well fails today, rising with the time since it was last serviced — the same shape
+ * as a refinery's (§12A.3). A well left alone long enough will find a way to stop.
+ */
+export function wellHazard(well: Well, cfg: Config): number {
+  return cfg.WELL.BASE_HAZARD * (1 + well.daysSinceMaintenance / cfg.WELL.MAINT_INTERVAL) ** cfg.HAZARD_EXPONENT;
+}
+
+/**
+ * A day of upkeep for every well on a lease. Work in progress counts down; a well due a service
+ * goes down for one; and a running well may fail and wait for a workover crew. Exactly one draw is
+ * taken per well per day, whatever it is doing, so one well's luck never shifts another's.
+ *
+ * The player does not switch any of this: they see the board and answer cards about policy (§12A.3).
+ */
+export function advanceWells(lease: Lease, owner: Agent, rng: Rng, ledger: FeeLedger, tick: Tick, cfg: Config): void {
+  for (const well of lease.wells) {
+    const roll = nextFloat(rng);
+    if (well.status === WellStatus.SPENT) continue;
+    if (well.ticksRemaining > 0) {
+      well.ticksRemaining -= 1;
+      if (well.ticksRemaining === 0) {
+        if (well.status === WellStatus.MAINTENANCE) well.daysSinceMaintenance = 0;
+        well.status = WellStatus.PUMPING;
+      }
+      continue;
+    }
+    if (well.status !== WellStatus.PUMPING) { well.status = WellStatus.PUMPING; continue; }
+
+    well.daysSinceMaintenance += 1;
+    if (well.daysSinceMaintenance >= cfg.WELL.MAINT_INTERVAL) {
+      well.status = WellStatus.MAINTENANCE;
+      well.ticksRemaining = cfg.WELL.MAINT_TICKS;
+      charge(owner, ledger, tick, FeeKind.MAINTENANCE, cfg.WELL.MAINT_COST * well.rate);
+      continue;
+    }
+    const hazard = wellHazard(well, cfg);
+    if (roll < hazard) {
+      // The same draw, rescaled, sets how long it waits, so the stream stays one draw a day.
+      const { min, max } = cfg.WELL.WORKOVER_TICKS;
+      well.status = WellStatus.DOWN;
+      well.ticksRemaining = min + Math.min(max - min, Math.floor((roll / hazard) * (max - min + 1)));
+      charge(owner, ledger, tick, FeeKind.REPAIR, cfg.WELL.WORKOVER_COST * well.rate);
+    }
   }
+}
+
+/** Work down a hole is paid for the day it is ordered, and shows in the day's costs under pumping. */
+function charge(owner: Agent, ledger: FeeLedger, tick: Tick, kind: FeeKind, amount: number): void {
+  if (amount <= 0) return;
+  owner.cash -= amount;
+  recordFee(ledger, { tick, agentId: owner.agentId, kind, amount });
 }

@@ -60,6 +60,14 @@ export interface Config {
   readonly EXTRACTION_SPREAD: number;       // day-to-day swing in what a field actually pumps, either way
   readonly FIXED_COST_RATE: { readonly PRODUCER: number; readonly REFINER: number };   // $ per bbl/day of capacity per tick
   readonly ABANDON_SHARE: number;          // a well is spent below this share of what it first made
+  readonly WELL: {                         // what goes wrong down a hole (§12A.3)
+    readonly MAINT_INTERVAL: number;       // ticks between services
+    readonly MAINT_TICKS: number;          // and how long one takes
+    readonly MAINT_COST: number;           // $ per bbl/day the well makes
+    readonly BASE_HAZARD: number;          // failure chance a day, freshly serviced
+    readonly WORKOVER_TICKS: Range;        // how long a failed well waits for a crew
+    readonly WORKOVER_COST: number;        // $ per bbl/day the well makes
+  };
   readonly AUCTION: {                      // the yearly lease auction (§12A.4)
     readonly EVERY_TICKS: number;          // twice a year
     readonly NOTICE_TICKS: number;         // lots are published this long before they are awarded
@@ -191,6 +199,12 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
   EXTRACTION_SPREAD: 0.06,
   FIXED_COST_RATE: { PRODUCER: 2.00, REFINER: 4.00 },
   ABANDON_SHARE: 0.05,
+  // A well is a simpler thing than a refinery and there are a dozen of them, so each one fails
+  // rarely; together they cost a producer a couple of per cent of its output a year.
+  WELL: {
+    MAINT_INTERVAL: 240, MAINT_TICKS: 3, MAINT_COST: 30,
+    BASE_HAZARD: 0.00015, WORKOVER_TICKS: { min: 5, max: 15 }, WORKOVER_COST: 150,
+  },
   AUCTION: {
     // Twice a year. Yearly put the only award on the last day of every 365-day scenario, too late
     // to drill what you had just bought, so the auction existed and no campaign could use it.
