@@ -5,11 +5,11 @@
 import { GameSession, msPerDay, PLAYER_ID, type CardType, type PlayerView, type SaveData, type Speed } from '../src/game';
 import { dateOf, html, money, mount } from './dom';
 import { inboxPanel, missionPanel, opportunitiesPanel } from './inbox';
-import { companyPanel, activityPanel, dealsPanel, leasesPanel, mapPanel, newsPanel } from './panels';
+import { companyPanel, activityPanel, dealsPanel, leaderboardPanel, leasesPanel, mapPanel, newsPanel } from './panels';
 import { saveGame } from './storage';
 
-type Tab = 'company' | 'activity' | 'leases' | 'deals' | 'news';
-const TABS: readonly [Tab, string][] = [['company', 'Company'], ['activity', 'Activity'], ['leases', 'Leases'], ['deals', 'Deals & cargo'], ['news', 'News']];
+type Tab = 'company' | 'activity' | 'leases' | 'deals' | 'board' | 'news';
+const TABS: readonly [Tab, string][] = [['company', 'Company'], ['activity', 'Activity'], ['leases', 'Leases'], ['deals', 'Deals & cargo'], ['board', 'Leaderboard'], ['news', 'News']];
 /** The register is only for companies that drill; everyone else never sees the tab. */
 const tabsFor = (view: PlayerView) => TABS.filter(([id]) => id !== 'leases' || view.register.length > 0);
 /** What is waiting behind a tab, so the player can see there is something there without opening it. */
@@ -102,6 +102,7 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
     mount(body, tab === 'company' ? companyPanel(view)
       : tab === 'activity' ? activityPanel(view)
       : tab === 'leases' ? leasesPanel(view)
+      : tab === 'board' ? leaderboardPanel(view)
       : tab === 'deals' ? dealsPanel(view) : newsPanel(view));
     body.scrollTop = scroll;
   };

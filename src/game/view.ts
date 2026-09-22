@@ -134,6 +134,34 @@ export interface LotView {
   readonly daysLeft: number;
 }
 
+/**
+ * The leaderboard (spec G5). What one company may know about another is what the industry knows:
+ * how big it is, where it is, and what ground it holds. Cash, stock, deals and what anyone is worth
+ * stay private — a company's books are its own business, and a board that showed them would hand
+ * the player something no rival could ever see.
+ *
+ * Ranked within kind, because a trader's warehouse and a producer's field are not the same thing
+ * and pretending otherwise would be a league table of nothing.
+ */
+export interface Standing {
+  readonly name: string;
+  readonly region: RegionName;
+  readonly displayName: string;
+  /** Barrels a day: pumped for a field, put through for a refinery, held for a trading office. */
+  readonly size: number;
+  /** Blocks of ground held, for companies that drill. */
+  readonly blocks: number;
+  readonly mine: boolean;
+  /** Down if it is smaller than it was a month ago, up if bigger. */
+  readonly trend: 'UP' | 'DOWN' | 'LEVEL';
+}
+
+export interface StandingsGroup {
+  readonly kind: 'PRODUCER' | 'REFINER' | 'TRADER';
+  readonly measure: string;
+  readonly rows: readonly Standing[];
+}
+
 export interface PlantView {
   readonly region: RegionName;
   readonly techTier: number;
@@ -161,6 +189,8 @@ export interface PlayerView {
   readonly register: readonly RegionLeases[];
   /** Ground up for auction right now, with what a bid would cost. Empty between auctions. */
   readonly lots: readonly LotView[];
+  /** Who is biggest, by kind (spec G5). Public knowledge only. */
+  readonly standings: readonly StandingsGroup[];
   readonly chokepoints: readonly {
     readonly name: ChokepointName; readonly displayName: string; readonly status: ChokepointStatus;
     /** War-risk cover charged on every barrel crossing today, and days added to the crossing. */
@@ -193,6 +223,7 @@ const siteView = (p: PlantState): PlantView => ({
 
 export function buildPlayerView(
   w: World, playerId: AgentId, history: readonly DailyPrices[], days: readonly DayLog[], alerts: readonly Alert[], lengthDays: number | null, cards: CardsView,
+  sizesAMonthAgo: Record<string, number> = {},
 ): PlayerView {
   const me = w.agents.find((a) => a.agentId === playerId);
   if (me === undefined) throw new Error(`No company ${playerId} in this game`);
@@ -239,6 +270,7 @@ export function buildPlayerView(
     days,
     register: leaseRegister(w, playerId),
     lots: lotsFor(w, playerId),
+    standings: standingsFor(w, playerId, sizesAMonthAgo),
     chokepoints: (Object.keys(CHOKEPOINTS) as ChokepointName[]).map((c) => {
       const cp = w.graph.chokepoints[c];
       const tense = cp.status === ChokepointStatus.TENSION || cp.status === ChokepointStatus.DELAYED;
@@ -409,6 +441,57 @@ function lotsFor(w: World, playerId: AgentId): LotView[] {
       daysLeft: Math.max(0, auction.tick - w.tick),
     };
   });
+}
+
+/** How big a company is, in the terms its own trade is measured in. */
+function sizeOf(a: World['agents'][number]): number {
+  const field = wellOf(a);
+  if (a.kind === 'TRADER') {
+    let space = 0;
+    for (const hub of Object.values(a.hubs)) if (hub) space += hub.capacity;
+    return space;
+  }
+  if (field !== undefined) return field.extractionCapacity;
+  return plantsOf(a).reduce((t, p) => t + p.processingCapacity, 0);
+}
+
+/** Every company's size today, for the session to keep so a month's trend can be worked out. */
+export function sizesNow(w: World): Record<string, number> {
+  const sizes: Record<string, number> = {};
+  for (const a of w.agents) sizes[String(a.agentId)] = sizeOf(a);
+  return sizes;
+}
+
+const MEASURES = {
+  PRODUCER: 'barrels a day out of the ground',
+  REFINER: 'barrels a day through the plant',
+  TRADER: 'barrels of storage held',
+} as const;
+
+/** The board, biggest first within each kind. Nothing here is private to anybody (G5). */
+function standingsFor(w: World, playerId: AgentId, before: Record<string, number>): StandingsGroup[] {
+  const groups: StandingsGroup[] = [];
+  for (const kind of ['PRODUCER', 'REFINER', 'TRADER'] as const) {
+    const rows = w.agents
+      // An integrated company is counted among producers: it is what the industry calls it.
+      .filter((a) => (kind === 'PRODUCER' ? a.kind === 'PRODUCER' || a.kind === 'INTEGRATED' : a.kind === kind))
+      .map((a) => {
+        const size = sizeOf(a);
+        const was = before[String(a.agentId)];
+        return {
+          name: a.name,
+          region: a.region,
+          displayName: REGIONS[a.region].displayName,
+          size,
+          blocks: wellOf(a)?.leases.length ?? 0,
+          mine: a.agentId === playerId,
+          trend: was === undefined || Math.abs(size - was) < 1 ? 'LEVEL' as const : size > was ? 'UP' as const : 'DOWN' as const,
+        };
+      })
+      .sort((x, y) => y.size - x.size);
+    if (rows.length > 0) groups.push({ kind, measure: MEASURES[kind], rows });
+  }
+  return groups;
 }
 
 /** The register, built from every company's ground. Reserves and well counts are left out. */

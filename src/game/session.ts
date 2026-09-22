@@ -24,7 +24,7 @@ import { cardText } from '../content/cards';
 import { detectAlerts, pausesAt, rememberForAlerts, type Alert, type AlertMemory, type Severity } from './alerts';
 import { applyCommand, rejectReason, type Command, type CommandResult, type LoggedCommand } from './commands';
 import { newGameWorld, PLAYER_ID, type GameSettings } from './newgame';
-import { buildPlayerView, dailyPrices, dayLog, type DailyPrices, type DayLog, type PlayerView } from './view';
+import { buildPlayerView, dailyPrices, dayLog, sizesNow, type DailyPrices, type DayLog, type PlayerView } from './view';
 
 /** Clock speeds (spec G3): days per second of real time is speed ÷ 2 at the default pace. */
 export const SPEEDS = [0, 1, 2, 4, 8] as const;
@@ -62,6 +62,8 @@ export interface SaveData {
   readonly history: readonly DailyPrices[];
   /** The player's own recent days. Absent in saves written before it existed, which start it afresh. */
   readonly days?: readonly DayLog[];
+  /** A month of company sizes, for the leaderboard's trend. Absent in older saves. */
+  readonly sizes?: readonly Record<string, number>[];
   readonly alerts: readonly Alert[];
   readonly memory: AlertMemory;
   readonly seq: number;
@@ -80,6 +82,8 @@ export class GameSession {
     log: LoggedCommand[];
     history: DailyPrices[];
     days: DayLog[];
+    /** Every company's size a month ago, so the leaderboard can show which way each is going. */
+    sizes: Record<string, number>[];
     alerts: Alert[];
     memory: AlertMemory;
     seq: number;
@@ -94,6 +98,7 @@ export class GameSession {
     const copy = structuredClone(data);
     this.state = {
       settings: copy.settings, world: copy.world, log: [...copy.log], history: [...copy.history], days: [...(copy.days ?? [])],
+      sizes: [...(copy.sizes ?? [])],
       alerts: [...copy.alerts], memory: copy.memory, seq: copy.seq, pauseAt: copy.pauseAt, advisor: copy.advisor,
       deck: copy.deck, script: copy.script, campaign: copy.campaign,
     };
@@ -121,7 +126,7 @@ export class GameSession {
     if (sc && me) applySetup(world, sc, me);
     const regions = me?.kind === 'TRADER' ? me.offices : me ? [me.region] : [];
     return new GameSession({
-      version: 2, settings, world, log: [], history: [dailyPrices(world)], days: [], alerts: [],
+      version: 2, settings, world, log: [], history: [dailyPrices(world)], days: [], sizes: [], alerts: [],
       memory: rememberForAlerts(world, PLAYER_ID), seq: 0, pauseAt: 'HIGH', advisor: createAdvisor(world),
       deck: createDeck(world, settings.seed, settings.difficulty ?? 'NORMAL', sc?.randomEvents ?? true, regions, me?.kind ?? 'PRODUCER'),
       script: sc ? scriptFor(sc, settings.seed) : [],
@@ -183,7 +188,7 @@ export class GameSession {
       news: [...s.deck.news].reverse(),
       campaign: s.campaign ? campaignView(s.world, s.campaign) : null,
     };
-    return structuredClone(buildPlayerView(s.world, playerId, s.history, s.days, s.alerts, s.settings.lengthDays ?? null, cards));
+    return structuredClone(buildPlayerView(s.world, playerId, s.history, s.days, s.alerts, s.settings.lengthDays ?? null, cards, s.sizes[0] ?? {}));
   }
 
   /**
@@ -235,7 +240,7 @@ export class GameSession {
   async save(): Promise<SaveData> {
     const s = this.state;
     return structuredClone({
-      version: 2 as const, settings: s.settings, world: s.world, log: s.log, history: s.history, days: s.days,
+      version: 2 as const, settings: s.settings, world: s.world, log: s.log, history: s.history, days: s.days, sizes: s.sizes,
       alerts: s.alerts, memory: s.memory, seq: s.seq, pauseAt: s.pauseAt, advisor: s.advisor,
       deck: s.deck, script: s.script, campaign: s.campaign,
     });
@@ -257,6 +262,9 @@ export class GameSession {
     const report = step(s.world);
     s.days.push(dayLog(s.world, PLAYER_ID, report));
     if (s.days.length > DAYS_KEPT) s.days.splice(0, s.days.length - DAYS_KEPT);
+    // A month of sizes is all the leaderboard's trend needs.
+    s.sizes.push(sizesNow(s.world));
+    if (s.sizes.length > 31) s.sizes.splice(0, s.sizes.length - 31);
     const cards = advise(s.world, s.advisor, report.fills);
     refreshOpportunities(s.world, s.advisor);
     s.history.push(dailyPrices(s.world));

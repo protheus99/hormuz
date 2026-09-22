@@ -1216,6 +1216,24 @@ absolute profit, or by what net worth did over the run.
 **Public in the lease register:** the region, its class, each lease's owner and its published band.
 Drilling results and remaining reserves stay private, as rivals' orders and deals already do.
 
+### 12A.4a The leaderboard
+
+Every company, ranked within its own trade — barrels a day out of the ground, through the plant, or
+held in storage — with which way each has moved over the past month and how many blocks it holds.
+
+**Only what the industry knows.** G5 keeps rivals' cash, stock, deals and orders private, so the
+board shows size and direction and nothing else. A board ranked on net worth would hand the player a
+view no rival could ever have, and would quietly turn the game into a scoreboard rather than a
+market. What a company is worth stays its own business, as the player's does theirs.
+
+**Ranked within kind**, because a trader's storage and a producer's field are not the same thing and
+a single table of them would be a league of nothing. It is also how the finale already judges, which
+makes the board something a player can steer by.
+
+Its most useful property is unplanned: since depletion arrived, most producers drift **down** every
+month unless they drill or buy. The board therefore shows at a glance who is replacing their
+reserves and who is quietly running out — which is exactly what the auction is for.
+
 ### 12A.5 Cards are events, not actions
 
 Of the 36 cards built by Phase 12, 11 are player-initiated purchases wearing a decision card's

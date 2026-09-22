@@ -287,3 +287,9 @@ details { margin-top: 6px; font-size: 12px; color: var(--text-2); }
 .lots { width: 100%; }
 .lots td { padding: 6px 8px; vertical-align: top; border-bottom: 1px solid var(--line); }
 .lots .btn { margin: 0 0 4px 6px; }
+
+/* ── The leaderboard: how big everyone is, and which way they are going ── */
+.board { width: 100%; font-variant-numeric: tabular-nums; }
+.board td { padding: 3px 8px; border-bottom: 1px solid var(--line); }
+.board .rank { color: var(--text-3); width: 28px; }
+.board tr.mine td { background: var(--accent-soft); font-weight: 600; }

@@ -379,6 +379,36 @@ export function leasesPanel(view: PlayerView): Html {
     </table>`;
 }
 
+const KIND_WORDS: Readonly<Record<string, string>> = {
+  PRODUCER: 'Producers', REFINER: 'Refiners', TRADER: 'Traders',
+};
+const TREND_MARKS: Readonly<Record<string, string>> = { UP: '▲', DOWN: '▼', LEVEL: '·' };
+
+/**
+ * The leaderboard (spec G5). How big everyone is, and which way they are going — which is what the
+ * industry knows about its competitors. What a company is worth, what it holds and what it has
+ * signed are its own business, and a board that showed them would hand the player something no
+ * rival could ever see.
+ */
+export function leaderboardPanel(view: PlayerView): Html {
+  return html`
+    <p class="small muted">How big every company is, and which way it has moved this month. Ranked
+      within its own trade, because a trader's storage and a producer's field are not the same
+      thing. What anyone is worth stays their own business — as yours does theirs.</p>
+    ${view.standings.map((g) => html`
+      <h3 style="margin-top:14px">${KIND_WORDS[g.kind] ?? g.kind} <span class="small muted">${g.measure}</span></h3>
+      <table class="board">
+        ${g.rows.map((r, i) => html`<tr class="${r.mine ? 'mine' : ''}">
+          <td class="num rank">${i + 1}</td>
+          <td>${r.name}${r.mine ? html` <span class="small good">you</span>` : ''}</td>
+          <td class="small muted">${r.displayName}</td>
+          <td class="num">${bbl(r.size)}</td>
+          <td class="num small ${r.trend === 'UP' ? 'good' : r.trend === 'DOWN' ? 'bad' : 'muted'}">${TREND_MARKS[r.trend] ?? ''}</td>
+          <td class="num small muted">${r.blocks > 0 ? `${r.blocks} ${r.blocks === 1 ? 'block' : 'blocks'}` : ''}</td>
+        </tr>`)}
+      </table>`)}`;
+}
+
 /** News and alerts, newest first. */
 export function newsPanel(view: PlayerView): Html {
   const alerts = [...view.alerts].reverse().slice(0, 20);

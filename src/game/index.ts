@@ -4,7 +4,7 @@ export { GameSession, MS_PER_DAY_AT_X1, msPerDay, SPEEDS, type AdvanceResult, ty
 export { DIFFICULTY, PLAYER_ID, regionsFor, type Difficulty, type GameSettings, type PlayType } from './newgame';
 export type { Command, CommandResult, LoggedCommand } from './commands';
 export type { Alert, Severity } from './alerts';
-export type { Counterparty, DailyPrices, DayLog, LeaseView, LotView, MarketView, OwnCompanyView, PlayerView, RegionLeases } from './view';
+export type { Counterparty, DailyPrices, DayLog, LeaseView, LotView, MarketView, OwnCompanyView, PlayerView, RegionLeases, Standing, StandingsGroup } from './view';
 export type { Card, CardOption, CardType, Choice, Impact, RiskLevel } from './cards/types';
 export type { CardsView } from './view';
 export { mapLayout, regionName, type MapLayout, type MapLane, type MapRegion, type Point } from './map';
