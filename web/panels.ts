@@ -124,13 +124,15 @@ const WELL_WORDS: Readonly<Record<string, string>> = {
 function leaseBlock(l: LeaseView): Html {
   const pumping = l.wells.filter((x) => x.status === 'PUMPING').length;
   const spent = l.wells.filter((x) => x.status === 'SPENT').length;
+  const down = l.wells.filter((x) => x.status === 'DOWN').length;
+  const serviced = l.wells.filter((x) => x.status === 'MAINTENANCE').length;
   return html`
     <h3 style="margin-top:14px">${l.name} <span class="small muted">estimated size ${BAND_WORDS[l.band] ?? l.band}</span></h3>
     <div class="wells">
       ${l.wells.map((x) => html`<span class="well ${x.status}" title="${bbl(x.rate)} bbl/day, ${WELL_WORDS[x.status] ?? x.status}${x.daysLeft > 0 ? `, ${x.daysLeft} days to go` : ''}"></span>`)}
       ${Array.from({ length: Math.max(0, l.maxWells - l.wells.length) }, () => html`<span class="well SLOT" title="room for another well"></span>`)}
     </div>
-    <div class="small muted">${pumping} of ${l.wells.length} wells pumping, ${bbl(l.capacity)} bbl/day${spent > 0 ? ` · ${spent} spent` : ''}${l.maxWells > l.wells.length ? ` · room for ${l.maxWells - l.wells.length} more` : ' · no room for more'}</div>`;
+    <div class="small muted">${pumping} of ${l.wells.length} wells pumping, ${bbl(l.capacity)} bbl/day${down > 0 ? html` · <span class="bad">${down} waiting on a crew</span>` : ''}${serviced > 0 ? ` · ${serviced} being serviced` : ''}${spent > 0 ? ` · ${spent} spent` : ''}${l.maxWells > l.wells.length ? ` · room for ${l.maxWells - l.wells.length} more` : ' · no room for more'}</div>`;
 }
 
 const PROJECT_NAMES: Readonly<Record<string, string>> = {
