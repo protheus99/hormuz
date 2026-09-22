@@ -10,6 +10,12 @@ Recommendations are marked **R**.
 
 ## Noted during playtesting, to do before release
 
+- **Daily reporting.** The engine keeps the day and will (D56), so the Activity tab is a list of
+  days and nothing rolls those days up. Wanted: a reporting layer over the daily record — a day's
+  own line, and the same figures gathered into months and years — so a player can read the business
+  at the length they care about without the engine losing its resolution. Asked for by the owner on
+  2026-09-22, explicitly not to be built yet.
+
 - **The refiner tutorial has to explain FOB.** A producer is paid the day its crude is loaded and
   never thinks about the voyage, which is why the producer scenarios can leave it unsaid. A refiner
   is the buyer: it pays on loading day, waits ten to twenty days for crude it has already paid for,
