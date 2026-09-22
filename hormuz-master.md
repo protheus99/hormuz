@@ -1,7 +1,7 @@
 # HORMUZ MASTER PLAN
 ## Game Design, Engine Specification & Build Plan
 
-**Status:** In build — engine Phases 0–7, the game session (Phase 8) and decision cards (Phase 9) complete; the Phase 10 interface and Phase 11 events, news, campaign and difficulty are built, Phase 12's first balance pass is done, and the owner's first eight rounds of playtest notes are answered (D45–D52); the open balance and process questions are in `QUESTIONS.md`. This is the single source of truth for the Hormuz game and its market engine (GEMS, the Global Energy Market Simulator). It supersedes all earlier GEMS specifications and prototypes.
+**Status:** In build — engine Phases 0–7, the game session (Phase 8) and decision cards (Phase 9) complete; the Phase 10 interface and Phase 11 events, news, campaign and difficulty are built, Phase 12's first balance pass is done, the owner's first eight rounds of playtest notes are answered (D45–D52), and Phase 13 — producer leases, wells and the card philosophy — is designed in §12A and being built; the open balance and process questions are in `QUESTIONS.md`. This is the single source of truth for the Hormuz game and its market engine (GEMS, the Global Energy Market Simulator). It supersedes all earlier GEMS specifications and prototypes.
 **Build:** TypeScript. `src/engine/` in Phases 1–7, then `src/game/` and `web/` in Phases 8–13 (§14).
 
 Anything not written here is out of scope. Every number in this document — labor indices, tariffs, transit times, freight rates, capacities, costs, scenario targets — is an **illustrative placeholder** to be tuned for play, not market data. There are no open decisions (§12).
@@ -1074,6 +1074,9 @@ The build proceeds on these. Changing one means updating the sections it names.
 | D25 | Disruptions are staged events (`RUMOR → TENSION → DISRUPTION → RECOVERY`), with a `TENSION` chokepoint status (G7.1) |
 | D35 | Owner decisions 2026-09-19: chokepoint throughput falls in steps with status (a closure stops 100% of the strait but redirection by bypass stays possible, so the bypasses keep their capacity); producers dump at a discount to the reference, not at cash cost; the AI trader arbitrages between regions with tariff-aware spreads, from two offices at lower running cost; starting cash raised and credit lines 10× larger; insolvency is recoverable, because the world has too few companies to lose them |
 | D34 | Refiners grow through processing units, tier upgrades, storage and one second refinery in another refining region (not the Gulf); rival buyouts are out of scope. Chosen over a single site, which left refiners no late game, and over acquisitions, which add valuation and merger rules a teenager should not need |
+| D53 | Owner's design session, 2026-09-22: producers get leases and wells (§12A). Reserves are finite and hidden behind a Low/Medium/High band; a lease counts toward net worth at what was paid, so nothing measured on net worth needs retuning; lease attributes are capacity multipliers only; wells are drilled one at a time and some miss; well states are run by the engine, not switched by the player, keeping §13's ban on a staff system. Operating rights per region — Open, Licensed, National — gate who may bid, which replaces the exception that was going to keep Gulf acreage off the market and gives P3 its shape. Leases change hands at a yearly sealed auction where the player picks a bid level rather than typing a price (G4.3) |
+| D54 | Owner's design session, 2026-09-22: a card means something happened. The 11 player-initiated purchases built by Phase 12 become standing actions in the panel where the thing lives, with no deadline and no meters, and the Opportunities sheet goes away. Sequenced after the lease system at the owner's direction |
+| D55 | Owner's design session, 2026-09-22: ethical dilemmas, with no projection shown, since four meters would decide the matter for the player. The payoff is Enron-shaped, in the owner's words — "unethical choices can win big but there should always be a cost": gains are real and can run for years, while hidden exposure accumulates, never washes off, applies a constant quiet drag, and raises the odds and size of a reckoning that scales with what was accumulated. Told plainly and soberly, including deaths, which extends the game past D32's non-violent wording for geopolitical events |
 | D52 | Owner's eighth playtest: the campaign picks the company first, from a select box, and then shows that company's three scenarios. The finale sets no company of its own, so instead of sitting alone at the bottom of one long list it appears at the end of all three, as "The Strait as a producer", "as a refiner" and "as a trader" — the same scenario, entered as whichever company was chosen, which is what its null `playType` always meant. A default company name follows the choice, until the player types their own |
 | D51 | Owner's seventh playtest: each scenario says which company it puts you in charge of — a coloured word on the card, the finale saying the choice is yours — and "How it is played" opens as a modal rather than a drawer that pushed the scenarios down the page. Noted for later, in `QUESTIONS.md`: the refiner tutorial must explain FOB, because a refiner is the buyer and pays on the day of loading for crude that lands a fortnight later, where a producer never has to think about the voyage at all |
 | D50 | Owner's sixth playtest: the open market is on screen — the Deals tab opens with what cleared today at each node: barrels, how many trades, and the range a seller was paid at its own port, against the world price. Prices and volumes are public (G5); who traded with whom is not, and is shown only for the player's own trades. Crude at sea carries its worth at today's prices, since it is money already paid and not yet landed. Confirmed in answering the owner's question: sales are FOB, so the seller is paid when the cargo is loaded and the buyer carries the voyage — the model already charges the buyer at loading, and the destination tariff when it lands. A decision now ends with a Continue button that restarts the clock at the speed it was running at, instead of leaving the player to find the speed buttons again |
@@ -1107,6 +1110,117 @@ The build proceeds on these. Changing one means updating the sections it names.
 | ID | Decision |
 |---|---|
 | D32 | Real geography with fictional companies. Events are faceless and non-violent (G7.1); the map shows coastlines only; companies use invented or derived names cleared against real companies (§10.2). Chosen over renamed places on a real map, which keeps the recognisable shapes but loses the educational value, and over a fictional world, which would lose the game's name and flagship scenario |
+
+## 12A. Producer Leases, Wells and the Card Philosophy (designed, being built)
+
+Agreed with the owner on 2026-09-22, before any code. Phase 13.
+
+### 12A.1 Why
+
+A producer's field declines by a fixed share a day, forever, and never runs out, so the long game is
+a fade with no decision in it and drilling is a capacity upgrade bought when affordable. A producer
+also has no operational hazard at all — refiners break down, producers only decline — which is much
+of why it is the easy play type.
+
+### 12A.2 Leases
+
+A producer holds **leases**; a lease holds **wells**. Reserves are finite and drawn down by pumping.
+
+- **Reserves are engine-only.** The player sees a band — Low, Medium or High — fixed at auction and
+  never revised. No barrel figure is ever shown.
+- **A lease is carried at what was paid for it.** Oil in the ground counts nothing toward net worth,
+  so no campaign target measured on net worth moves, and no display can leak the hidden number.
+- **Attributes are capacity multipliers.** Fracking, horizontal drilling and water rights multiply a
+  well's rate. `maxWells` caps the count. Nothing else.
+- **Sizing (to tune):** a starting lease holds roughly 6–10 years of its producer's output — Low ≈ 4
+  years, Medium ≈ 7, High ≈ 12. Nothing runs dry in a one-year tutorial; depletion bites across the
+  three-year finale.
+- **Invariant:** a lease's remaining reserves plus everything its wells have ever produced equals
+  what it started with.
+
+### 12A.3 Wells
+
+- Wells are drilled **one at a time**, and some miss. Hit rate starts near 85% on fresh acreage and
+  falls a few points per well drilled — the best prospects go first — with a floor near 45%.
+- A well's rate falls as it depletes its share, which replaces the flat `DECLINE_RATE`.
+- Wells have states — pumping, down, maintenance, drilling — **run by the engine**, as refinery
+  outages are. The player sees the board and answers cards about policy. Per-well switches and a
+  crew system stay out of scope (§13).
+- 6–12 wells a lease: few enough that one well is legible and losing two matters.
+
+### 12A.4 Operating rights and the auction
+
+Every region carries a **leasing class**, alongside its roles, grades, labour index and tariff:
+
+| Class | Meaning | Regions |
+|---|---|---|
+| **Open** | Anyone may bid | US Permian, US Gulf Coast, Western Canada, North Sea, Vaca Muerta, Guyana–Suriname, Southeast Asia |
+| **Licensed** | A licence must be held first — an application with a cost and a wait | Mexico Gulf, Colombia, Brazil pre-salt, West Africa, North Africa, Caspian, Russia Far East, Gulf of Oman |
+| **National** | The state company holds the ground; no lease ever comes up | Middle East, Venezuela Orinoco, Russia West, Red Sea Coast |
+
+A company starts with rights at home and nowhere else. The licence is the producer's growth decision,
+as the second office is a trader's and the second refinery a refiner's.
+
+This replaces the hand-written exception that would have kept Gulf acreage off the market: the
+Middle East is National, so nobody can bid there, and §11's constraint that Gulf production stays
+above local refining holds by rule. It also gives P3 "Gulf Giant" its shape — you are the state
+company, nobody can bid against you, and you cannot buy more at home either.
+
+**The auction** runs yearly. A few leases come up with their band and attributes published. Every
+producer bids sealed and once; the highest takes it. The player never types a price (G4.3): the card
+offers three bid levels the advisor computes from the survey and the company's cash.
+
+**Public in the lease register:** the region, its class, each lease's owner and its published band.
+Drilling results and remaining reserves stay private, as rivals' orders and deals already do.
+
+### 12A.5 Cards are events, not actions
+
+Of the 36 cards built by Phase 12, 11 are player-initiated purchases wearing a decision card's
+clothes — market report, find a deal, expand storage, build a refinery, upgrade tier, add a unit,
+expand tanks, second refinery, charter a tanker, lease storage, open an office. They have deadlines
+they should not have and meters that only restate a price.
+
+**Purchases become standing actions in the panel where the thing lives:** refinery upgrades beside
+the refinery, storage beside the tanks, charters beside the cargo, leases and drilling in the Leases
+tab, "find a deal" beside Deals. Always available, no deadline, no meters. The Opportunities sheet
+then has nothing left and goes away.
+
+**A card means something happened.** That is the whole deck. Built after the lease system, per the
+owner's sequencing.
+
+### 12A.6 Ethical dilemmas
+
+Cards where no answer is clean, and the meters must not answer the question.
+
+- **No projection is shown.** Every other card offers four meters; these offer none, because a
+  projected profit would decide the matter for the player. They state plainly what is certain and
+  say that the rest cannot be projected.
+- **Consequences arrive later.** An answer schedules a future event with a probability — a
+  generalisation of the machinery that already returns a deal offer days after "Find a deal".
+- **The payoff is Enron-shaped** (the owner's steer, 2026-09-22): cutting corners *works*, sometimes
+  for years, and the gains are real. What accumulates is hidden **exposure**, which never washes off.
+  Exposure applies a constant quiet drag — insurance, inspections, partners slower to deal — so
+  there is always a cost. It also raises the odds and the size of a reckoning that scales with
+  everything accumulated. Cheat once and pay a little, late; build a career on it and be far ahead
+  for years, then face something that ends you. A scenario that ends before the reckoning tells the
+  player in its epilogue what happened afterwards.
+- **Tone:** plain and sober. A wellhead fire that kills two of the crew is told as that, without
+  dramatisation. This deliberately extends the game past D32, whose faceless, non-violent wording
+  governs the geopolitical events: safety against profit is the central ethical question of this
+  industry, and a game that never asks it teaches something false.
+- **Rare.** A small deck, never two in quick succession. Every third card a crisis of conscience is
+  melodrama.
+
+### 12A.7 Build order
+
+1. Leases and wells under the hood: model, generation for all 19 producers from present capacity,
+   extraction summing wells, `extractionCapacity` derived, the conservation invariant, a plain well
+   board. Day-one output unchanged; golden re-recorded.
+2. Depletion and drilling: the depletion curve replaces `DECLINE_RATE`, drilling one well at a time
+   with dry holes, `maxWells` and water limits, the "wells running dry" card rewritten. Retune.
+3. The auction, operating rights and the lease register.
+4. Hazards and the card deck, including the ethical cards, designed with the owner.
+5. The Opportunities cleanup: the 11 purchases move into their panels.
 
 ## 13. Out of Scope & Deferred
 
@@ -1499,6 +1613,7 @@ The free web version stays available after Steam launches. Schools mostly use Ch
 | 3.1 | 2026-09-18 | Closed the real-world framing decision as D32: real geography, fictional companies, faceless and non-violent event wording, coastline-only map. Renamed nine companies whose names matched or crowded real companies. Removed the refiner's "Buy an oilfield" card: only producers can become integrated. |
 | 3.2 | 2026-09-18 | Made every chokepoint a live risk: an event profile for each of the seven, deck rules, route cards that react to delays as well as tension, a campaign featuring six of the seven, verification runs S13–S17, and a property test that no single closure strands a region. |
 | 3.5 | 2026-09-19 | Phase 7 calibration: price discovery (bids climb towards value as tanks empty; unsold asks decay; closing offers published), refiners count the voyage in stock targets and tank space, credit lines, recoverable insolvency, AI output cuts, personality mixes, the global portfolio's cash and storage, and the D35 decisions. Global S0: markers about 78 / 71 / 63 in grade order on ~90% of days, no insolvencies. |
+| 4.0 | 2026-09-22 | Phase 13 designed with the owner: producer leases and wells, finite hidden reserves, operating rights and a yearly lease auction; cards become events and purchases become standing actions; ethical dilemmas with accumulating exposure (§12A, D53–D55). |
 | 3.17 | 2026-09-21 | The campaign picks a company first and lists that company's scenarios, with the finale at the end of each (D52). |
 | 3.16 | 2026-09-21 | Scenarios name their company type, and "How it is played" became a modal (D51). |
 | 3.15 | 2026-09-21 | The open market and the worth of crude at sea on screen, and a Continue button after a decision (D50). |
