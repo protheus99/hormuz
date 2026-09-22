@@ -11,6 +11,8 @@ import { ChokepointStatus, type Grade, type Product } from '../engine/enums';
 import type { AgentId, CompanySettings, DealId } from '../engine/model';
 import { barrelsHeld, netWorth, type TickReport, type World } from '../engine/world';
 import { leaseCapacity } from '../engine/leases';
+import { leasableRegions, mayBid } from '../engine/auction';
+import { REGIONS } from '../data/regions';
 import type { FeeKind } from '../engine/enums';
 import type { Alert } from './alerts';
 import type { Card, CardType } from './cards/types';
@@ -95,6 +97,23 @@ export interface LeaseView {
   readonly capacity: number;
 }
 
+/**
+ * The lease register (spec §12A.4): every region that can be leased, who may take ground there, and
+ * which blocks are held by whom. Published surveys and ownership only — what anyone's drilling
+ * found, and what is left under the ground, stays theirs.
+ */
+export interface RegionLeases {
+  readonly region: RegionName;
+  readonly displayName: string;
+  readonly leasing: 'OPEN' | 'LICENSED' | 'NATIONAL';
+  /** Whether this player may bid for ground here today. */
+  readonly mayBid: boolean;
+  readonly blocks: readonly {
+    readonly name: string; readonly owner: string; readonly mine: boolean;
+    readonly band: 'LOW' | 'MEDIUM' | 'HIGH'; readonly slots: number; readonly grade: Grade;
+  }[];
+}
+
 export interface PlantView {
   readonly region: RegionName;
   readonly techTier: number;
@@ -118,6 +137,8 @@ export interface PlayerView {
   readonly history: readonly DailyPrices[];
   /** The player's own recent days, newest last (spec G5). */
   readonly days: readonly DayLog[];
+  /** Who holds which ground, region by region (spec §12A.4). Empty for companies that do not drill. */
+  readonly register: readonly RegionLeases[];
   readonly chokepoints: readonly {
     readonly name: ChokepointName; readonly displayName: string; readonly status: ChokepointStatus;
     /** War-risk cover charged on every barrel crossing today, and days added to the crossing. */
@@ -194,6 +215,7 @@ export function buildPlayerView(
     products: { ...w.sink.prices },
     history,
     days,
+    register: leaseRegister(w, playerId),
     chokepoints: (Object.keys(CHOKEPOINTS) as ChokepointName[]).map((c) => {
       const cp = w.graph.chokepoints[c];
       const tense = cp.status === ChokepointStatus.TENSION || cp.status === ChokepointStatus.DELAYED;
@@ -282,7 +304,7 @@ const COST_GROUP: Readonly<Record<FeeKind, keyof Omit<DayCosts, 'total'>>> = {
   FREIGHT: 'shipping', DEMURRAGE: 'shipping', ORIGIN_TARIFF: 'shipping', DESTINATION_TARIFF: 'shipping',
   FIXED_COST: 'running', OFFICE: 'running', LEASE: 'running', CHARTER: 'running', RESERVATION: 'running',
   REPORT: 'running', CREDIT_INTEREST: 'running',
-  CAPITAL: 'building',
+  CAPITAL: 'building', LEASE_BONUS: 'building',
 };
 
 /** The player's day, from the engine's report: spot fills, deal loadings and today's own work. */
@@ -332,6 +354,27 @@ export function dayLog(w: World, playerId: AgentId, report: TickReport): DayLog 
     stock: me === undefined ? 0 : barrelsHeld([me], w.cargo.filter((c) => c.ownerId === playerId)),
     cash: me?.cash ?? 0,
   };
+}
+
+/** The register, built from every company's ground. Reserves and well counts are left out. */
+function leaseRegister(w: World, playerId: AgentId): RegionLeases[] {
+  const me = w.agents.find((a) => a.agentId === playerId);
+  if (me === undefined || wellOf(me) === undefined) return [];
+  const rows: RegionLeases[] = [];
+  for (const region of leasableRegions()) {
+    const blocks: RegionLeases['blocks'] = w.agents.flatMap((a) =>
+      (wellOf(a)?.leases ?? [])
+        .filter((l) => l.region === region)
+        .map((l) => ({ name: l.name, owner: a.name, mine: a.agentId === playerId, band: l.band, slots: l.maxWells, grade: l.grade })));
+    rows.push({
+      region,
+      displayName: REGIONS[region].displayName,
+      leasing: REGIONS[region].leasing,
+      mayBid: mayBid(me, region),
+      blocks,
+    });
+  }
+  return rows;
 }
 
 /** Today's public prices, for the session's history. */

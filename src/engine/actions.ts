@@ -4,7 +4,8 @@
 // each action does to the world and what it costs.
 
 import { internalTransfer, refreshCapacity, startMaintenance } from './agents';
-import { drillWell } from './leases';
+import { bestLeaseToDrill, drillWell } from './leases';
+import { mayWork, placeBid } from './auction';
 import { charterCost, newCharter } from './charters';
 import {
   acceptedGrades, averageCost, CLOSED_TO_NEW_REFINING, integrate, integrationPlant, plantAt, plantCost, plantOf, plantsOf, secondPlant, secondPlantSpec, total, wellOf,
@@ -90,6 +91,7 @@ export type Action =
   | { readonly kind: 'SELL_AT_SEA'; readonly share: number }
   | { readonly kind: 'CHARTER'; readonly size: CharterSize; readonly days: number }
   | { readonly kind: 'KEEP_AFLOAT'; readonly days: number }
+  | { readonly kind: 'BID_LEASE'; readonly lotId: string; readonly amount: number }
   | { readonly kind: 'PAY'; readonly amount: number; readonly what: 'REPORT' };
 
 export type ActionKind = Action['kind'];
@@ -137,6 +139,9 @@ export function actionCost(w: World, agentId: AgentId, action: Action): { readon
       return { now: 0, total: charterCost(cfg, action.size, action.days) };
     case 'KEEP_AFLOAT':
       return { now: 0, total: 0 };
+    case 'BID_LEASE':
+      // Nothing leaves until the lot is awarded, and only if this bid is the one that takes it.
+      return { now: 0, total: action.amount };
     case 'PAY':
       return { now: action.amount, total: action.amount };
     case 'STANDING_ORDER':
@@ -340,6 +345,14 @@ export function applyAction(w: World, agentId: AgentId, action: Action): void {
       w.charters.push(newCharter(cfg, agentId, action.size, action.days, tick, w.charterSeq));
       return;
     }
+    case 'BID_LEASE': {
+      // A sealed bid: it is recorded and nothing more happens until the lot is awarded (§12A.4).
+      const lot = w.auction?.lots.find((l) => l.lotId === action.lotId);
+      const agent = w.agents.find((a) => a.agentId === agentId);
+      if (lot === undefined || agent === undefined || !mayWork(agent, lot)) return;
+      placeBid(lot, agentId, action.amount);
+      return;
+    }
     case 'KEEP_AFLOAT': {
       // Every cargo of this company that is riding one of its own ships waits at sea instead of
       // unloading: the hire is already paid, so floating storage costs nothing further (spec §7.4).
@@ -463,7 +476,7 @@ function complete(w: World, a: Agent, p: CapitalProject, cfg: Config): void {
       // A programme sinks its wells one at a time, and some find nothing (§12A.3). What a well makes
       // follows the oil it can reach: on fresh ground that is a full DRILL_STEP, on ground the other
       // wells have already claimed it is less, which is the lease telling you it is finished.
-      const lease = well?.leases[0];
+      const lease = bestLeaseToDrill(well?.leases ?? []);
       if (well && lease) {
         // A well still starts at the rate a programme buys. What changes on tired ground is how
         // long it lasts: it can only reach what no other well has claimed, so on a lease that is

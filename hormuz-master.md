@@ -1177,9 +1177,19 @@ Middle East is National, so nobody can bid there, and §11's constraint that Gul
 above local refining holds by rule. It also gives P3 "Gulf Giant" its shape — you are the state
 company, nobody can bid against you, and you cannot buy more at home either.
 
-**The auction** runs yearly. A few leases come up with their band and attributes published. Every
-producer bids sealed and once; the highest takes it. The player never types a price (G4.3): the card
-offers three bid levels the advisor computes from the survey and the company's cash.
+**The auction** runs yearly. Three lots come up with their band and slots published, drawn where the
+industry already is so that every one has somebody who could work it — and the player's own region is
+always among them, since a round it could never enter is no round. Every producer that could work a
+lot bids sealed and once; the highest takes it, subject to a reserve of 35% of worth and to nobody
+bidding away more than half their cash. A lot's worth is what it would cost to drill out, scaled by
+the survey, so a HIGH block draws about twice a LOW one. The player never types a price (G4.3): the
+card offers **bid strong** at 1.3× worth, which beats the keenest rival's 1.2× ceiling and pays for
+the privilege, or **bid steady** at 0.75×, which wins only when the field is shy. That gap is the
+decision.
+
+A company cannot afford a block's reserve on its first day and can afford a whole one by the first
+auction a year later, which is the intended shape: the auction is a decision about money you have
+made, not money you started with.
 
 **Public in the lease register:** the region, its class, each lease's owner and its published band.
 Drilling results and remaining reserves stay private, as rivals' orders and deals already do.
@@ -1255,7 +1265,10 @@ Deferred from the same list: a plugging bill when a lease is spent, and credit l
 prices fall (the borrowing-base redetermination that actually kills producers).
 
 **Companies may fail, and are replaced** (owner's choice). A rival that runs out of road is wound up
-and a new entrant takes its place, so the cast refreshes rather than thinning — which keeps D35's
+and a new entrant takes its place, so the cast refreshes rather than thinning. An entrant arrives
+**fully capitalised but not fully formed** (the owner's words, 2026-09-22): money and nothing else —
+no acreage, no wells, no production. It has to bid at auction and drill like everybody else, and it
+takes years to become a rival worth watching — which keeps D35's
 real concern (too few companies for a market) while letting failure mean something. This needs an
 entry mechanism the game does not have yet, and it pairs with the auction: **a failed company's
 leases go under the hammer**, which is where a bust hands its assets to whoever kept their powder
@@ -1286,7 +1299,21 @@ it is that good and bad decisions both make money. Losses must stay avoidable by
    tutorials 3/3, Medium 7/9, Hard 6/9, finale 1/3, against the D44 band of almost always / ~3 in 4
    / ~1 in 2 / ~1 in 4. P2 is harder than it was (1/3) and R3 easier (3/3); both are on the list for
    the stage 3 retune.
-3. The auction, operating rights and the lease register.
+3. ✅ The auction, operating rights and the lease register. Lots are published 30 days before the
+   day they are awarded, every producer that could work one bids sealed and once, and the highest
+   takes it; the player answers a card that offers **bid strong** (1.3× worth, which clears the
+   keenest rival) or **bid steady** (0.75×, which wins only against a shy field), never a typed
+   number. A block is bought empty: no wells, no production, and the drilling still to pay for, and
+   a drilling programme goes to whichever block has room and the most oil left. Regions carry their
+   leasing class, so no lot is ever drawn on state-held ground. The bonus leaves the economy the way
+   a tariff does, recorded as a `LEASE_BONUS` fee. Ground stands in net worth at what was paid.
+
+   **Not yet, and deliberately: operating in a second region (stage 3b).** A producer sells one
+   grade from one region — `sellableStock` throws for anything else — so a lot is only offered to a
+   company whose own region and grade it matches. Until a lease holds its own oil and posts its own
+   asks, a licence unlocks nothing, and the LICENSED class only marks where a licence *would* be
+   wanted. What the auction does today is let a producer replace the reserves under its own feet,
+   which is the depletion problem stage 2 created.
 4. Hazards and the card deck, including the ethical cards, designed with the owner.
 5. The Opportunities cleanup: the 11 purchases move into their panels.
 6. The economics rebalance and company failure (§12A.8), then one retune of every scenario target
@@ -1683,6 +1710,7 @@ The free web version stays available after Steam launches. Schools mostly use Ch
 | 3.1 | 2026-09-18 | Closed the real-world framing decision as D32: real geography, fictional companies, faceless and non-violent event wording, coastline-only map. Renamed nine companies whose names matched or crowded real companies. Removed the refiner's "Buy an oilfield" card: only producers can become integrated. |
 | 3.2 | 2026-09-18 | Made every chokepoint a live risk: an event profile for each of the seven, deck rules, route cards that react to delays as well as tension, a campaign featuring six of the seven, verification runs S13–S17, and a property test that no single closure strands a region. |
 | 3.5 | 2026-09-19 | Phase 7 calibration: price discovery (bids climb towards value as tanks empty; unsold asks decay; closing offers published), refiners count the voyage in stock targets and tank space, credit lines, recoverable insolvency, AI output cuts, personality mixes, the global portfolio's cash and storage, and the D35 decisions. Global S0: markers about 78 / 71 / 63 in grade order on ~90% of days, no insolvencies. |
+| 4.4 | 2026-09-22 | Phase 13 stage 3: the yearly sealed lease auction with bid levels rather than typed prices, operating rights per region, and the lease register. Operating in a second region is deferred to stage 3b. |
 | 4.3 | 2026-09-22 | Measured why nothing can lose money, and agreed the economics rebalance, company failure with replacement, and its timing after the lease system (§12A.8, D57). |
 | 4.2 | 2026-09-22 | Phase 13 stage 2: wells decline by depletion and `DECLINE_RATE` is deleted; drilling sinks one well at a time with dry holes; wells share one reservoir, so infill drilling buys production now and a shorter life; a shut-in field no longer declines. |
 | 4.1 | 2026-09-22 | Stage 1 of Phase 13 built: producers hold leases and leases hold wells, with reserves engine-only and `extractionCapacity` derived. Lease bands set to 5–10 years. The tick stays a day (D56). |

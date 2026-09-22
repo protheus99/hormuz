@@ -277,3 +277,9 @@ details { margin-top: 6px; font-size: 12px; color: var(--text-2); }
 .well.DRILLING { background: var(--accent-soft); border-color: var(--accent); }
 .well.SPENT { background: var(--line); border-color: var(--line); }
 .well.SLOT { background: transparent; border-style: dashed; }
+
+/* ── The lease register ── */
+.register { width: 100%; }
+.register td, .register th { padding: 4px 8px; vertical-align: top; border-bottom: 1px solid var(--line); }
+.register tr.open td:first-child { font-weight: 600; }
+.register .mine { color: var(--accent); font-weight: 600; }

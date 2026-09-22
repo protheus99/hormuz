@@ -113,13 +113,13 @@ describe('the world every producer already lives in', () => {
 
   it('keeps every barrel accounted for across a year of pumping', () => {
     const w = createWorld({ seed: 'leases', portfolio: GLOBAL_PORTFOLIO, personalityMix: 'EVEN' });
-    const leases = w.agents.flatMap((a) => wellOf(a)?.leases ?? []);
-    const held = reservesOf(leases);
+    expect(reservesOf(w.agents.flatMap((a) => wellOf(a)?.leases ?? []))).toBeGreaterThan(0);
     for (let d = 0; d < 365; d++) step(w);
     const now = w.agents.flatMap((a) => wellOf(a)?.leases ?? []);
     for (const l of now) expect(l.reserves + l.produced).toBeCloseTo(l.originalReserves, 6);
-    // A year of the world's pumping came out of the ground, not out of nowhere.
-    expect(held - reservesOf(now)).toBeCloseTo(w.totals.extracted, 4);
+    // A year of the world's pumping came out of the ground, not out of nowhere. Measured against
+    // what the leases say they lifted, since ground bought at auction brings its own reserves in.
+    expect(now.reduce((t, l) => t + l.produced, 0)).toBeCloseTo(w.totals.extracted, 4);
   });
 });
 

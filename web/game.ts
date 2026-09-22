@@ -5,13 +5,16 @@
 import { GameSession, msPerDay, PLAYER_ID, type CardType, type PlayerView, type SaveData, type Speed } from '../src/game';
 import { dateOf, html, money, mount } from './dom';
 import { inboxPanel, missionPanel, opportunitiesPanel } from './inbox';
-import { companyPanel, activityPanel, dealsPanel, mapPanel, newsPanel } from './panels';
+import { companyPanel, activityPanel, dealsPanel, leasesPanel, mapPanel, newsPanel } from './panels';
 import { saveGame } from './storage';
 
-type Tab = 'company' | 'activity' | 'deals' | 'news';
-const TABS: readonly [Tab, string][] = [['company', 'Company'], ['activity', 'Activity'], ['deals', 'Deals & cargo'], ['news', 'News']];
+type Tab = 'company' | 'activity' | 'leases' | 'deals' | 'news';
+const TABS: readonly [Tab, string][] = [['company', 'Company'], ['activity', 'Activity'], ['leases', 'Leases'], ['deals', 'Deals & cargo'], ['news', 'News']];
+/** The register is only for companies that drill; everyone else never sees the tab. */
+const tabsFor = (view: PlayerView) => TABS.filter(([id]) => id !== 'leases' || view.register.length > 0);
 /** What is waiting behind a tab, so the player can see there is something there without opening it. */
 function tabCount(view: PlayerView, id: Tab): number {
+  if (id === 'leases') return view.register.reduce((t, r) => t + r.blocks.filter((b) => b.mine).length, 0);
   if (id === 'deals') return view.deals.filter((d) => d.status === 'ACTIVE').length + view.cargo.length;
   if (id === 'news') return view.news.length;
   return 0;
@@ -90,13 +93,16 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
   };
 
   const renderTabs = () => {
-    mount($('tabs'), html`${TABS.map(([id, label]) => {
+    mount($('tabs'), html`${tabsFor(view).map(([id, label]) => {
       const n = tabCount(view, id);
       return html`<button class="tab ${tab === id ? 'active' : ''}" data-tab="${id}">${label}${n > 0 ? html` <span class="count">${n}</span>` : ''}</button>`;
     })}`);
     const body = $('tabbody');
     const scroll = body.scrollTop;
-    mount(body, tab === 'company' ? companyPanel(view) : tab === 'activity' ? activityPanel(view) : tab === 'deals' ? dealsPanel(view) : newsPanel(view));
+    mount(body, tab === 'company' ? companyPanel(view)
+      : tab === 'activity' ? activityPanel(view)
+      : tab === 'leases' ? leasesPanel(view)
+      : tab === 'deals' ? dealsPanel(view) : newsPanel(view));
     body.scrollTop = scroll;
   };
 

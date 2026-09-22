@@ -23,6 +23,7 @@ import { runLogistics, type LogisticsReport } from './logistics';
 import { makeOrderId, type Agent, type AgentId, type Cargo, type Charter, type ChokepointName, type Deal, type Fill, type NodeName, type Order, type Tick } from './model';
 import { nextFloat, rngFor, type Rng } from './rng';
 import { ageWells, capacityOf } from './leases';
+import { aiBid, award, placeBid, surveyLots, type Auction } from './auction';
 import { decideOrders, recordSales, rememberMarkers, updateOutput, updateThrottle, type MarketView } from './rules';
 import { placeOrder, releaseEscrow, settleFills } from './settlement';
 import { avoidFor, buildLaneGraph, edgeCapacity, LaneRouteProvider, setChokepoint, type LaneGraph } from './transport';
@@ -100,6 +101,9 @@ export interface World {
   charters: Charter[];
   /** Numbers charters as they are hired, so their ids are stable in a replay. */
   charterSeq: number;
+  /** The lots on offer, from the day they are published to the day they are awarded (§12A.4). */
+  auction: Auction | null;
+  auctionSeq: number;
   standingOrders: StandingOrder[];
   reservations: ReservationRecord[];
   /**
@@ -165,6 +169,8 @@ export function createWorld(s: WorldSettings): World {
     leases: [],
     charters: [],
     charterSeq: 0,
+    auction: null,
+    auctionSeq: 0,
     standingOrders: [],
     reservations: [],
     cardsActive: false,
@@ -191,6 +197,7 @@ export function step(w: World): TickReport {
     if (a.kind === 'REFINER' || a.kind === 'INTEGRATED') for (const p of plantsOf(a)) advancePlant(a, p, w.rng.events, w.ledger, tick, cfg, !w.cardsActive);
     if (a.kind === 'PRODUCER' || a.kind === 'INTEGRATED') { applyDecline(a, cfg); for (const lease of wellOf(a)?.leases ?? []) ageWells(lease); }
   }
+  runAuction(w, tick);
   const routes = new LaneRouteProvider(w.graph);
   routes.resetTick();
 
@@ -500,6 +507,34 @@ function chargeRunningCosts(w: World, tick: Tick): void {
  * assets are valued at replacement cost: the plant at FACTORY_COST plus its tier upgrades, wells at
  * DRILL_COST and tanks at STORAGE_COST, all times the region's labor index.
  */
+/**
+ * The yearly lease auction (spec §12A.4). Lots are published `NOTICE_TICKS` before the day they are
+ * awarded, which is the window a player has to decide; the AI companies bid on the day, since they
+ * have nothing to think about. On the day itself the highest bid takes each lot.
+ */
+function runAuction(w: World, tick: Tick): void {
+  const cfg = w.config;
+  if (w.auction !== null && w.auction.tick === tick) {
+    for (const lot of w.auction.lots) {
+      for (const agent of w.agents) {
+        if (agent.controller === 'HUMAN') continue;             // the player's bid came from a card
+        placeBid(lot, agent.agentId, aiBid(agent, lot, cfg, w.rng.ai));
+      }
+    }
+    // Ground bought is ground with nothing on it, so nothing about the winner's output changes
+    // today: it has wells to drill before a barrel moves (§12A.4). The bonus leaves the economy
+    // the way a tariff does, so it is recorded as a fee or the cash invariant would catch it.
+    for (const { winner, price } of award(w.auction.lots, w.agents)) {
+      recordFee(w.ledger, { tick, agentId: winner.agentId, kind: FeeKind.LEASE_BONUS, amount: price });
+    }
+    w.auction = null;
+  }
+  if (w.auction === null && tick % cfg.AUCTION.EVERY_TICKS === cfg.AUCTION.EVERY_TICKS - cfg.AUCTION.NOTICE_TICKS) {
+    w.auctionSeq += 1;
+    w.auction = { tick: (tick + cfg.AUCTION.NOTICE_TICKS) as Tick, lots: surveyLots(w.auctionSeq, cfg, w.rng.wells, w.agents) };
+  }
+}
+
 /** Every hired tanker costs its daily rate, carrying cargo or not (spec §7.4). */
 function chargeCharters(w: World, tick: Tick): void {
   for (const ch of w.charters) {
@@ -628,6 +663,10 @@ export function netWorth(w: World, a: Agent): number {
   }
   for (const c of w.cargo) if (c.ownerId === a.agentId) value += c.qty * marker(c.grade);
   value += capitalAssets(a, w.config);
+  // Ground bought at auction stands at what was paid for it (§12A.2). Oil in the ground is worth
+  // nothing here on purpose: counting it would put a secret number on the screen, and every target
+  // measured on net worth would have to be retuned around a figure the player cannot see.
+  if (well) for (const lease of well.leases) value += lease.acquiredFor;
   for (const p of w.projects) if (p.agentId === a.agentId) value += p.totalCost - p.dailyCost * p.ticksLeft;
   return value;
 }

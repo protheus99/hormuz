@@ -4,7 +4,7 @@
 // Rates and shares are fractions, so 25% is written 0.25.
 // All values are placeholders to be tuned in Phases 7 and 12.
 
-import type { AppetiteSetting, ChokepointStatus, Product, SellingSetting, StockpileSetting } from './enums';
+import type { AppetiteSetting, ChokepointStatus, Grade, Product, SellingSetting, StockpileSetting } from './enums';
 import type { CompanySettings } from './model';
 
 export interface Range {
@@ -60,6 +60,18 @@ export interface Config {
   readonly EXTRACTION_SPREAD: number;       // day-to-day swing in what a field actually pumps, either way
   readonly FIXED_COST_RATE: { readonly PRODUCER: number; readonly REFINER: number };   // $ per bbl/day of capacity per tick
   readonly ABANDON_SHARE: number;          // a well is spent below this share of what it first made
+  readonly AUCTION: {                      // the yearly lease auction (§12A.4)
+    readonly EVERY_TICKS: number;          // one a year
+    readonly NOTICE_TICKS: number;         // lots are published this long before they are awarded
+    readonly LOTS: number;                 // blocks on offer each time
+    readonly WELLS: { readonly MIN: number; readonly MAX: number };   // slots on a lot
+    readonly RESERVE_SHARE: number;        // no lot sells below this share of what it is worth
+    readonly MAX_CASH_SHARE: number;       // and nobody bids away more than this much of their cash
+    readonly AI_BID: { readonly MIN: number; readonly MAX: number };  // appetite, as a share of worth
+    readonly STRONG_SHARE: number;         // the player's bold bid, above what any rival will offer
+    readonly STEADY_SHARE: number;         // and its careful one, which wins only when rivals are shy
+    readonly BASE_COST: Readonly<Record<Grade, number>>;              // $/bbl to lift new ground
+  };
   readonly DRY_HOLE: {                     // a well may find nothing (§12A.3)
     readonly FIRST: number;                // chance the first well on fresh ground hits
     readonly PER_ATTEMPT: number;          // chance lost with every well already sunk there
@@ -179,6 +191,15 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
   EXTRACTION_SPREAD: 0.06,
   FIXED_COST_RATE: { PRODUCER: 2.00, REFINER: 4.00 },
   ABANDON_SHARE: 0.05,
+  AUCTION: {
+    EVERY_TICKS: 365, NOTICE_TICKS: 30, LOTS: 3, WELLS: { MIN: 6, MAX: 12 },
+    RESERVE_SHARE: 0.35, MAX_CASH_SHARE: 0.5, AI_BID: { MIN: 0.5, MAX: 1.2 },
+    // Bidding strong clears the keenest rival, so it wins — and pays a third over the odds for the
+    // privilege. Bidding steady wins only against a shy field. That is the decision (§12A.4).
+    STRONG_SHARE: 1.3, STEADY_SHARE: 0.75,
+    // New ground costs more to lift than the fields already running: the easy barrels went first.
+    BASE_COST: { LIGHT_SWEET: 38, MEDIUM: 36, HEAVY_SOUR: 34 },
+  },
   // The best prospects are drilled first, so the last slots on a lease are a gamble (§12A.3).
   DRY_HOLE: { FIRST: 0.85, PER_ATTEMPT: 0.04, FLOOR: 0.45 },
   DRILL_STEP: 500,

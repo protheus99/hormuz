@@ -171,6 +171,8 @@ export interface WellState {
   extractionCapacity: number;
   /** The ground this company may drill. One lease until it buys another (§12A.4). */
   leases: Lease[];
+  /** Regions this company may take ground in: home at the start, more by licence (§12A.4). */
+  licences: RegionName[];
   fieldMaxCapacity: number;
   /** $/bbl before the region's labor index. */
   readonly baseExtractionCost: number;

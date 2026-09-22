@@ -51,6 +51,12 @@ const TEXT: Readonly<Record<string, CardText>> = {
       + 'wells; each takes {ticks} days to drill, and not every one finds oil.',
     yes: 'Drill {steps} new wells.', maybe: 'Drill half as many.', no: 'Leave the fields as they are.',
   },
+  LEASE_AUCTION: {
+    title: 'Ground is coming up for auction',
+    situation: '{lot} is on offer: the survey calls it {band}, with room for {slots} wells. '
+      + 'Bids are sealed, everyone gets one, and the highest takes it. Nobody is told how much oil is really down there.',
+    yes: 'Bid strong, {strong}.', maybe: 'Bid steady, {steady}.', no: 'Stay out of it.',
+  },
   EXPORT_ROUTE_TROUBLE: {
     title: 'Trouble on your export route',
     situation: 'The {strait} is {status}. Your buyers’ cargo passes through it.',

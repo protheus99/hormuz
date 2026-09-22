@@ -119,14 +119,14 @@ export function integrate(p: Producer, plant: PlantSpec): IntegratedMajor {
   if (CLOSED_TO_NEW_REFINING.includes(p.region)) fail(spec, `no new refineries may be built in ${p.region} (spec §10.3)`);
   if (p.storageEscrow !== 0 || p.cashReserved !== 0) fail(spec, 'integration must happen between ticks, with no escrow held');
   const {
-    kind, grade, extractionCapacity, leases, fieldMaxCapacity, baseExtractionCost, storageCapacity, storage, storageEscrow,
+    kind, grade, extractionCapacity, leases, licences, fieldMaxCapacity, baseExtractionCost, storageCapacity, storage, storageEscrow,
     peakCapacity, extractionRate, shutIn, rampTicksRemaining, daysUnsold, breakevenStreak, ...company
   } = p;
   return {
     ...company,
     kind: AgentKind.INTEGRATED,
     well: {
-      grade, extractionCapacity, leases, fieldMaxCapacity, baseExtractionCost, storageCapacity, storage, storageEscrow,
+      grade, extractionCapacity, leases, licences, fieldMaxCapacity, baseExtractionCost, storageCapacity, storage, storageEscrow,
       peakCapacity, extractionRate, shutIn, rampTicksRemaining, daysUnsold, breakevenStreak,
     },
     plant: buildPlant(spec, p.region, plant),
@@ -180,7 +180,7 @@ function buildWell(owner: CompanySpec, region: RegionName, w: WellSpec): WellSta
   const shape = leaseShapeFor(w.extractionCapacity, REGIONS[region].declineClass === 'SHALE');
   const lease = newLease({
     id: `${owner.id}-L1`,
-    name: `${REGIONS[region].displayName} Block 1`,
+    name: `${REGIONS[region].displayName} field`,
     region,
     grade: w.grade,
     capacity: w.extractionCapacity,
@@ -195,6 +195,8 @@ function buildWell(owner: CompanySpec, region: RegionName, w: WellSpec): WellSta
     grade: w.grade,
     extractionCapacity: w.extractionCapacity,
     leases: [lease],
+    // A company may take ground at home from the start; anywhere else wants a licence (§12A.4).
+    licences: [region],
     fieldMaxCapacity: 2 * w.extractionCapacity,
     baseExtractionCost: w.baseExtractionCost,
     storageCapacity: w.storageCapacity,

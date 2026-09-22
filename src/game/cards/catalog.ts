@@ -9,12 +9,14 @@ import { REGIONS, type RegionName } from '../../data/regions';
 import { leaseRate, leaseRegions, OFFICE_HUB_CAPACITY, projectCost, type Action } from '../../engine/actions';
 import { actualCost, effectiveUtilization, fillRatio } from '../../engine/agents';
 import { previousClose, referencePrice } from '../../engine/clearing';
-import { acceptedGrades, averageCost, CLOSED_TO_NEW_REFINING, integrationPlant, plantOf, plantsOf, total, wellOf } from '../../engine/companies';
+import { acceptedGrades, availableCash, averageCost, CLOSED_TO_NEW_REFINING, integrationPlant, plantOf, plantsOf, total, wellOf } from '../../engine/companies';
 import { configFor } from '../../engine/config';
 import { priceDeal, signDeal, type DealTerms } from '../../engine/deals';
 import type { Grade } from '../../engine/enums';
-import type { Agent, AgentId, Deal, PlantState, Producer } from '../../engine/model';
+import type { Agent, AgentId, Deal, PlantState, Producer, Tick } from '../../engine/model';
 import { refinerQuote, type MarketView } from '../../engine/rules';
+import { baseWorth, mayWork } from '../../engine/auction';
+import { bestLeaseToDrill } from '../../engine/leases';
 import { avoidFor, findRoute, LaneRouteProvider } from '../../engine/transport';
 import { netWorth, type World } from '../../engine/world';
 import { money } from '../../content/cards';
@@ -241,6 +243,9 @@ const PRODUCERS: Agent['kind'][] = ['PRODUCER', 'INTEGRATED'];
 const PLANTS: Agent['kind'][] = ['REFINER', 'INTEGRATED'];
 const ALL: Agent['kind'][] = ['PRODUCER', 'REFINER', 'INTEGRATED', 'TRADER'];
 
+/** How a survey's band reads on a card. */
+const BAND_WORDS: Readonly<Record<string, string>> = { LOW: 'small', MEDIUM: 'fair-sized', HIGH: 'large' };
+
 export const CATALOG: readonly CardDef[] = [
   // ── Shared ──
   {
@@ -313,12 +318,43 @@ export const CATALOG: readonly CardDef[] = [
     },
   },
   {
+    // The one card in the deck where the player names a price, and they name it by picking a level
+    // rather than typing a number (G4.3, §12A.4). Nobody is told what is under the ground.
+    type: 'LEASE_AUCTION', kinds: PRODUCERS, raised: true, opportunity: false, operating: false,
+    detect: ({ w, me }) => {
+      const auction = w.auction;
+      if (auction === null) return null;
+      const lot = auction.lots.find((l) => mayWork(me, l) && !l.bids.some((b) => b.agentId === me.agentId));
+      if (lot === undefined) return null;
+      const worth = baseWorth(lot, w.config);
+      return {
+        key: `auction-${lot.lotId}`,
+        deadline: (auction.tick - 1) as Tick,
+        data: {
+          lot: lot.name, band: BAND_WORDS[lot.band] ?? 'unsurveyed', slots: lot.maxWells, lotId: lot.lotId,
+          strong: money(w.config.AUCTION.STRONG_SHARE * worth), steady: money(w.config.AUCTION.STEADY_SHARE * worth),
+          reserve: money(lot.reserve),
+        },
+      };
+    },
+    options: ({ w, me }, s) => {
+      const lotId = String(s.data.lotId);
+      const lot = w.auction?.lots.find((l) => l.lotId === lotId);
+      const worth = lot === undefined ? 0 : baseWorth(lot, w.config);
+      const afford = (amount: number) => Math.min(amount, availableCash(me));
+      return {
+        yes: { actions: [{ kind: 'BID_LEASE', lotId, amount: afford(w.config.AUCTION.STRONG_SHARE * worth) }] },
+        maybe: { actions: [{ kind: 'BID_LEASE', lotId, amount: afford(w.config.AUCTION.STEADY_SHARE * worth) }] },
+      };
+    },
+  },
+  {
     type: 'WELLS_DECLINING', kinds: PRODUCERS, raised: true, opportunity: false, operating: false,
     detect: ({ w, me }) => {
       const well = wellOf(me);
       if (!well || well.extractionCapacity >= 0.9 * well.peakCapacity || w.projects.some((p) => p.agentId === me.agentId && p.kind === 'DRILL')) return null;
-      // Nothing to offer when the ground is drilled out: buying more is stage 3's auction (§12A.4).
-      const lease = well.leases[0];
+      // Nothing to offer when every block is drilled out: buying more is the auction's business.
+      const lease = bestLeaseToDrill(well.leases);
       const slots = lease === undefined ? 0 : lease.maxWells - lease.wells.length;
       if (lease === undefined || slots <= 0 || lease.reserves <= 0) return null;
       return {
@@ -331,7 +367,7 @@ export const CATALOG: readonly CardDef[] = [
     },
     options: ({ w, me }) => {
       const well = wellOf(me) as NonNullable<ReturnType<typeof wellOf>>;
-      const lease = well.leases[0];
+      const lease = bestLeaseToDrill(well.leases);
       const slots = lease === undefined ? 0 : lease.maxWells - lease.wells.length;
       const steps = Math.min(slots, Math.max(1, Math.ceil((well.peakCapacity - well.extractionCapacity) / w.config.DRILL_STEP)));
       return {

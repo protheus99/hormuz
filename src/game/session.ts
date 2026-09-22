@@ -144,7 +144,7 @@ export class GameSession {
       if (field === undefined || field.leases !== undefined) continue;
       const shape = leaseShapeFor(field.extractionCapacity);
       field.leases = [newLease({
-        id: `${agent.agentId}-L1`, name: `${REGIONS[agent.region].displayName} Block 1`, region: agent.region,
+        id: `${agent.agentId}-L1`, name: `${REGIONS[agent.region].displayName} field`, region: agent.region,
         grade: field.grade, capacity: field.extractionCapacity, band: shape.band,
         baseExtractionCost: field.baseExtractionCost, acquiredFor: 0, wells: shape.wells, maxWells: shape.maxWells,
       })];

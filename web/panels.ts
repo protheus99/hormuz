@@ -336,6 +336,30 @@ export function activityPanel(view: PlayerView): Html {
       </table>`}`;
 }
 
+const LEASING_WORDS: Readonly<Record<string, string>> = {
+  OPEN: 'open to anyone', LICENSED: 'licence needed', NATIONAL: 'held by the state',
+};
+
+/**
+ * The lease register (spec §12A.4): who holds ground where, and where you could take some. The
+ * survey's band and the owner are public; what anyone's wells found is not.
+ */
+export function leasesPanel(view: PlayerView): Html {
+  const held = view.register.flatMap((r) => r.blocks.filter((b) => b.mine)).length;
+  return html`
+    <p class="small">You hold ${held === 1 ? 'one block' : `${held} blocks`}. Ground changes hands
+      once a year: bids are sealed, everyone gets one, and the highest takes it. What a survey calls
+      it is all anyone is told — the barrels underneath are nobody's business but the owner's.</p>
+    <table class="register">
+      <tr><th>Region</th><th>Ground</th><th>Blocks held</th></tr>
+      ${view.register.map((r) => html`<tr class="${r.mayBid ? 'open' : ''}">
+        <td>${r.displayName}${r.mayBid ? html` <span class="small good">you may bid</span>` : ''}</td>
+        <td class="small muted">${LEASING_WORDS[r.leasing] ?? r.leasing}</td>
+        <td>${r.blocks.length === 0 ? html`<span class="muted">none</span>` : r.blocks.map((b) => html`<div class="${b.mine ? 'mine' : ''}">${b.name} <span class="small muted">· ${b.owner} · ${BAND_WORDS[b.band] ?? b.band} · ${b.slots} slots</span></div>`)}</td>
+      </tr>`)}
+    </table>`;
+}
+
 /** News and alerts, newest first. */
 export function newsPanel(view: PlayerView): Html {
   const alerts = [...view.alerts].reverse().slice(0, 20);

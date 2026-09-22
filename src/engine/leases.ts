@@ -42,9 +42,9 @@ export interface LeaseSpec {
  * its own output.
  */
 export function newLease(spec: LeaseSpec): Lease {
-  const count = Math.max(1, Math.round(spec.wells));
+  const count = Math.max(0, Math.round(spec.wells));
   const reserves = spec.capacity * 365 * BAND_YEARS[spec.band];
-  const maxWells = Math.max(count, spec.maxWells);
+  const maxWells = Math.max(count, spec.maxWells, 1);
   const lease: Lease = {
     leaseId: asLeaseId(spec.id),
     name: spec.name,
@@ -122,6 +122,20 @@ export function capacityOf(leases: readonly Lease[]): number {
   let total = 0;
   for (const lease of leases) total += leaseCapacity(lease);
   return total;
+}
+
+/**
+ * Where a drilling programme should go: ground with room for another well and the most oil still
+ * under it. A block bought at auction has every slot free, so it is drilled before an old lease is
+ * crowded further — which is what a company would actually do.
+ */
+export function bestLeaseToDrill(leases: readonly Lease[]): Lease | undefined {
+  let best: Lease | undefined;
+  for (const lease of leases) {
+    if (lease.wells.length >= lease.maxWells || lease.reserves <= 0) continue;
+    if (best === undefined || lease.reserves > best.reserves) best = lease;
+  }
+  return best;
 }
 
 /** Oil still in the ground across a company's leases. Engine-only: never shown to a player. */
