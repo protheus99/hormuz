@@ -1074,6 +1074,7 @@ The build proceeds on these. Changing one means updating the sections it names.
 | D25 | Disruptions are staged events (`RUMOR → TENSION → DISRUPTION → RECOVERY`), with a `TENSION` chokepoint status (G7.1) |
 | D35 | Owner decisions 2026-09-19: chokepoint throughput falls in steps with status (a closure stops 100% of the strait but redirection by bypass stays possible, so the bypasses keep their capacity); producers dump at a discount to the reference, not at cash cost; the AI trader arbitrages between regions with tariff-aware spreads, from two offices at lower running cost; starting cash raised and credit lines 10× larger; insolvency is recoverable, because the world has too few companies to lose them |
 | D34 | Refiners grow through processing units, tier upgrades, storage and one second refinery in another refining region (not the Gulf); rival buyouts are out of scope. Chosen over a single site, which left refiners no late game, and over acquisitions, which add valuation and merger rules a teenager should not need |
+| D57 | Owner asked, 2026-09-22, why nothing in the simulation can lose money. Measured: a well pays back in 44 days against 1.5–3 years in the industry, producer fixed costs are 2.5% of revenue against 15–30%, a price shock has a 14-day half-life, and producers were below cash cost on 13 of 6,935 producer-days while one turned $5M into $145M in a year. The cause is that the model has operating costs and almost no capital costs, prices that cannot stay bad, and no entry to surge supply. Agreed: raise capital costs about fourfold, slow price mean-reversion and add demand shocks, and make fixed costs real (§12A.8 A, B, C). Companies that fail are wound up and replaced by new entrants rather than the cast thinning, which keeps D35's concern intact and sends a failed company's leases to auction — a bust handing its assets to whoever kept powder dry. All of it after the lease system is finished, so the campaign is retuned once |
 | D56 | Owner asked, 2026-09-22, whether a tick should be a month rather than a day. Measured, and the day stays. Voyages in the lane graph run 2–20 days, so at a monthly tick every voyage is a fraction of one and crude effectively teleports — the bypass round the Cape, cargo held at a strait and demurrage all stop existing, and geography is what this game is about. Half the event deck is shorter than a month (Suez 5–10 days, Bosphorus 2–10, Malacca 5–20). The marker is the volume-weighted average of today's fills, so monthly clearing would leave twelve prices a year and no market for a trader to read. Deals are 30 or 90 days and deliver daily. Against that: 67 day- or tick-scaled constants, the event deck, every scenario length, the calibration targets, the golden and most of the tests would have to be re-derived — and speed is no argument, since three years runs in 2.3 seconds. The long-horizon feel the question was really about is answered by a reporting layer over the daily record (`QUESTIONS.md`) and a faster clock, not by a new unit of time |
 | D53 | Owner's design session, 2026-09-22: producers get leases and wells (§12A). Reserves are finite and hidden behind a Low/Medium/High band; a lease counts toward net worth at what was paid, so nothing measured on net worth needs retuning; lease attributes are capacity multipliers only; wells are drilled one at a time and some miss; well states are run by the engine, not switched by the player, keeping §13's ban on a staff system. Operating rights per region — Open, Licensed, National — gate who may bid, which replaces the exception that was going to keep Gulf acreage off the market and gives P3 its shape. Leases change hands at a yearly sealed auction where the player picks a bid level rather than typing a price (G4.3) |
 | D54 | Owner's design session, 2026-09-22: a card means something happened. The 11 player-initiated purchases built by Phase 12 become standing actions in the panel where the thing lives, with no deadline and no meters, and the Opportunities sheet goes away. Sequenced after the lease system at the owner's direction |
@@ -1221,6 +1222,53 @@ Cards where no answer is clean, and the meters must not answer the question.
 - **Rare.** A small deck, never two in quick succession. Every third card a crisis of conscience is
   melodrama.
 
+### 12A.8 Why nothing can lose money, and what to do about it
+
+Measured on 2026-09-22, seed `cal-1`, one year of the global world, after stage 2:
+
+| | This simulation | The industry |
+|---|---|---|
+| A 500 bbl/day well pays back in | 44 days | 1.5–3 years |
+| Producer fixed costs | 2.5% of revenue | 15–30% |
+| Half-life of a price shock | 14 days | busts run 2–3 years |
+| Producer-days below cash cost | 13 of 6,935 (0.19%) | 2015–16: years |
+| Refining underwater | 1 day of 365 | routine |
+| Volga Export, one year | $5M → $145M | — |
+
+**The diagnosis.** The model has operating costs and almost no capital costs. Real oil companies
+rarely lose money on the next barrel at $80 — they lose it by spending more on new barrels than the
+old ones return, and by carrying debt through years of low prices. Here a well costs $1M and earns
+it back in six weeks, so growth is nearly free and full-cycle economics are never tested. Prices
+cannot stay bad either: products mean-revert with a 14-day half-life, and the retail sink buys
+everything at any price, so there is no demand side to collapse. And nobody enters, so supply never
+surges the way it does in a real bust.
+
+**The package (owner's choice, 2026-09-22): A, B and C.**
+
+| | Change | Effect |
+|---|---|---|
+| A | `DRILL_COST` 2,000 → 8,000–10,000, `FACTORY_COST` to match | Payback 1.5–2 years. With depletion, holding production flat eats most of the cash flow — which is why shale destroys capital |
+| B | `THETA` 0.05 → about 0.01, plus demand-shock events | Half-life 14 → ~69 days; a recession cuts fuel demand for 6–12 months and margins with it |
+| C | `FIXED_COST_RATE` 2.00 → 6–8 | Fixed costs 8–10% of revenue, and a company that stops pumping still bleeds |
+
+Deferred from the same list: a plugging bill when a lease is spent, and credit limits that shrink as
+prices fall (the borrowing-base redetermination that actually kills producers).
+
+**Companies may fail, and are replaced** (owner's choice). A rival that runs out of road is wound up
+and a new entrant takes its place, so the cast refreshes rather than thinning — which keeps D35's
+real concern (too few companies for a market) while letting failure mean something. This needs an
+entry mechanism the game does not have yet, and it pairs with the auction: **a failed company's
+leases go under the hammer**, which is where a bust hands its assets to whoever kept their powder
+dry. That is the shape of a real downturn, and it makes the auction matter most exactly when money
+is tightest.
+
+**Timing (owner's choice): after the whole lease system.** The auction, the hazards and the ethical
+cards land first; then one economics pass over the finished thing, and one retune of every scenario
+target and the D44 band rather than three.
+
+**The line to hold when it is built.** The complaint that started this was not that money is easy —
+it is that good and bad decisions both make money. Losses must stay avoidable by deciding well.
+
 ### 12A.7 Build order
 
 1. ✅ Leases and wells under the hood: model, generation for all 19 producers from present capacity,
@@ -1241,6 +1289,8 @@ Cards where no answer is clean, and the meters must not answer the question.
 3. The auction, operating rights and the lease register.
 4. Hazards and the card deck, including the ethical cards, designed with the owner.
 5. The Opportunities cleanup: the 11 purchases move into their panels.
+6. The economics rebalance and company failure (§12A.8), then one retune of every scenario target
+   and the D44 band.
 
 ## 13. Out of Scope & Deferred
 
@@ -1633,6 +1683,7 @@ The free web version stays available after Steam launches. Schools mostly use Ch
 | 3.1 | 2026-09-18 | Closed the real-world framing decision as D32: real geography, fictional companies, faceless and non-violent event wording, coastline-only map. Renamed nine companies whose names matched or crowded real companies. Removed the refiner's "Buy an oilfield" card: only producers can become integrated. |
 | 3.2 | 2026-09-18 | Made every chokepoint a live risk: an event profile for each of the seven, deck rules, route cards that react to delays as well as tension, a campaign featuring six of the seven, verification runs S13–S17, and a property test that no single closure strands a region. |
 | 3.5 | 2026-09-19 | Phase 7 calibration: price discovery (bids climb towards value as tanks empty; unsold asks decay; closing offers published), refiners count the voyage in stock targets and tank space, credit lines, recoverable insolvency, AI output cuts, personality mixes, the global portfolio's cash and storage, and the D35 decisions. Global S0: markers about 78 / 71 / 63 in grade order on ~90% of days, no insolvencies. |
+| 4.3 | 2026-09-22 | Measured why nothing can lose money, and agreed the economics rebalance, company failure with replacement, and its timing after the lease system (§12A.8, D57). |
 | 4.2 | 2026-09-22 | Phase 13 stage 2: wells decline by depletion and `DECLINE_RATE` is deleted; drilling sinks one well at a time with dry holes; wells share one reservoir, so infill drilling buys production now and a shorter life; a shut-in field no longer declines. |
 | 4.1 | 2026-09-22 | Stage 1 of Phase 13 built: producers hold leases and leases hold wells, with reserves engine-only and `extractionCapacity` derived. Lease bands set to 5–10 years. The tick stays a day (D56). |
 | 4.0 | 2026-09-22 | Phase 13 designed with the owner: producer leases and wells, finite hidden reserves, operating rights and a yearly lease auction; cards become events and purchases become standing actions; ethical dilemmas with accumulating exposure (§12A, D53–D55). |
