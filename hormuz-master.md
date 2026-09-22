@@ -1270,6 +1270,22 @@ cannot stay bad either: products mean-revert with a 14-day half-life, and the re
 everything at any price, so there is no demand side to collapse. And nobody enters, so supply never
 surges the way it does in a real bust.
 
+**Lease prices inherit the same fault** (measured 2026-09-22, after stage 3). A block's worth is
+derived from what it would cost to drill out, so it carries `DRILL_COST`'s distortion exactly:
+
+| Lot | Bonus + drilling | Makes | Payback | Lifetime margin |
+|---|---|---|---|---|
+| Low, 6 slots | $5.6M + $6.0M = $11.6M | 3,000 bbl/d | 2.9 months | $241M |
+| Medium, 9 slots | $11.7M + $9.0M = $20.7M | 4,500 bbl/d | 3.4 months | $506M |
+| High, 12 slots | $22.3M + $12.0M = $34.3M | 6,000 bbl/d | 4.3 months | $964M |
+
+Ground pays for itself in a quarter and returns twenty to thirty times over its life. Nothing can be
+done about this in isolation: priced at a realistic share of a Medium block's lifetime margin it
+would cost $40M, more than a producer holds at the first auction, so lots would sit unsold until
+companies grew rich. The price only makes sense once the margin does. Raising `DRILL_COST` lifts
+lease worth in lockstep, since worth is derived from it — one number fixes both. The owner's call,
+2026-09-22: leave it until stage 6 and retune once.
+
 **The package (owner's choice, 2026-09-22): A, B and C.**
 
 | | Change | Effect |
