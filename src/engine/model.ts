@@ -159,6 +159,12 @@ interface CompanyBase {
   creditLimit: number;
   creditDrawn: number;
   insolvent: boolean;
+  /**
+   * Engine-only (§12A.6). What a company has coming to it for corners cut: never shown, never
+   * decaying on its own. It buys a quiet drag every day it stands, and a reckoning that scales with
+   * everything accumulated. Paying a reckoning settles what it punished and nothing more.
+   */
+  exposure: number;
 }
 
 /** Wells and their storage (spec §4.8). */
@@ -298,6 +304,14 @@ export interface Lease {
   readonly originalReserves: number;
   /** Engine-only. Everything its wells have ever lifted. */
   produced: number;
+  /**
+   * Engine-only. Oil that will never be lifted, because a well was lost with ground still under it
+   * (§12A.3). Reserves plus produced plus lost is what the lease held, which keeps the barrels
+   * honest: a fire destroys oil, it does not make it vanish from the books.
+   */
+  lost: number;
+  /** Services on this lease are held off until this day, at the player's word (§12A.3). */
+  serviceHoldUntil: Tick;
   /** Wells sunk here, dry ones included: the next one is likelier to miss (§12A.3). */
   attempts: number;
   /** The published survey: LOW, MEDIUM or HIGH (§12A.2). */

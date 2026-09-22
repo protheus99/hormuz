@@ -313,6 +313,7 @@ function base(s: CompanySpec) {
     personality,
     settings: { ...presetSettings(personality), ...s.settings },
     cash: s.cash,
+    exposure: 0,
     cashReserved: 0,
     creditLimit: 0,
     creditDrawn: 0,

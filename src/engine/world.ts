@@ -25,6 +25,7 @@ import { nextFloat, rngFor, type Rng } from './rng';
 import { advanceWells, capacityOf } from './leases';
 import { nameGround } from '../data/leasenames';
 import { aiBid, award, placeBid, surveyLots, type Auction } from './auction';
+import { exposureDay } from './exposure';
 import { decideOrders, recordSales, rememberMarkers, updateOutput, updateThrottle, type MarketView } from './rules';
 import { placeOrder, releaseEscrow, settleFills } from './settlement';
 import { avoidFor, buildLaneGraph, edgeCapacity, LaneRouteProvider, setChokepoint, type LaneGraph } from './transport';
@@ -404,10 +405,11 @@ export function checkInvariants(w: World, deliveries: readonly DealDelivery[] = 
     if (field === undefined) continue;
     for (const lease of field.leases) {
       if (lease.reserves < -1e-6) fail(`${lease.leaseId} has been overdrawn to ${lease.reserves} bbl`);
-      if (Math.abs(lease.reserves + lease.produced - lease.originalReserves) > 1e-6) {
-        fail(`${lease.leaseId} holds ${lease.reserves} + lifted ${lease.produced} ≠ ${lease.originalReserves} bbl`);
+      if (Math.abs(lease.reserves + lease.produced + lease.lost - lease.originalReserves) > 1e-6) {
+        fail(`${lease.leaseId} holds ${lease.reserves} + lifted ${lease.produced} + lost ${lease.lost} ≠ ${lease.originalReserves} bbl`);
       }
       if (lease.wells.length > lease.maxWells) fail(`${lease.leaseId} has ${lease.wells.length} wells, over its ${lease.maxWells}`);
+      if (lease.lost < 0) fail(`${lease.leaseId} has lost ${lease.lost} bbl`);
     }
     if (Math.abs(field.extractionCapacity - capacityOf(field.leases)) > 1e-6) {
       fail(`${a.agentId} pumps ${field.extractionCapacity} but its wells make ${capacityOf(field.leases)} bbl/day`);
@@ -500,6 +502,8 @@ function chargeRunningCosts(w: World, tick: Tick): void {
       a.cash -= fixed;
       recordFee(w.ledger, { tick, agentId: a.agentId, kind: FeeKind.FIXED_COST, amount: fixed });
     }
+    // What a company has coming to it costs a little every day, and may come due on any of them.
+    exposureDay(a, w.ledger, tick, cfg, w.rng.events);
     if (a.kind === 'TRADER') {
       const offices = cfg.OFFICE_COST.PER_TICK * a.offices.length;
       a.cash -= offices;

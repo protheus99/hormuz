@@ -60,6 +60,13 @@ export interface Config {
   readonly EXTRACTION_SPREAD: number;       // day-to-day swing in what a field actually pumps, either way
   readonly FIXED_COST_RATE: { readonly PRODUCER: number; readonly REFINER: number };   // $ per bbl/day of capacity per tick
   readonly ABANDON_SHARE: number;          // a well is spent below this share of what it first made
+  readonly EXPOSURE: {                     // what a company has coming to it (§12A.6)
+    readonly DRAG: number;                 // share of exposure charged every day, quietly
+    readonly CHANCE_PER_DOLLAR: number;    // odds a day that it catches up, per dollar of exposure
+    readonly MAX_CHANCE: number;           // however much has piled up
+    readonly SETTLE: Range;                // share of the record one reckoning answers for
+    readonly PENALTY: number;              // what settling costs, as a multiple of what it settles
+  };
   readonly WELL: {                         // what goes wrong down a hole (§12A.3)
     readonly MAINT_INTERVAL: number;       // ticks between services
     readonly MAINT_TICKS: number;          // and how long one takes
@@ -67,6 +74,7 @@ export interface Config {
     readonly BASE_HAZARD: number;          // failure chance a day, freshly serviced
     readonly WORKOVER_TICKS: Range;        // how long a failed well waits for a crew
     readonly WORKOVER_COST: number;        // $ per bbl/day the well makes
+    readonly RUSH_COST: number;            // $ a day bought back by paying a crew overtime
   };
   readonly AUCTION: {                      // the yearly lease auction (§12A.4)
     readonly EVERY_TICKS: number;          // twice a year
@@ -201,9 +209,15 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
   ABANDON_SHARE: 0.05,
   // A well is a simpler thing than a refinery and there are a dozen of them, so each one fails
   // rarely; together they cost a producer a couple of per cent of its output a year.
+  // A year of carrying $1M of exposure costs about $37K in drag and runs a 30% chance of a
+  // reckoning, which would take between a fifth and two thirds of the record at twice its face.
+  EXPOSURE: {
+    DRAG: 0.0001, CHANCE_PER_DOLLAR: 1e-9, MAX_CHANCE: 0.01,
+    SETTLE: { min: 0.2, max: 0.65 }, PENALTY: 2.0,
+  },
   WELL: {
     MAINT_INTERVAL: 240, MAINT_TICKS: 3, MAINT_COST: 30,
-    BASE_HAZARD: 0.00015, WORKOVER_TICKS: { min: 5, max: 15 }, WORKOVER_COST: 150,
+    BASE_HAZARD: 0.00015, WORKOVER_TICKS: { min: 5, max: 15 }, WORKOVER_COST: 150, RUSH_COST: 45_000,
   },
   AUCTION: {
     // Twice a year. Yearly put the only award on the last day of every 365-day scenario, too late

@@ -323,6 +323,8 @@ export interface DayCosts {
 /** Which plain-language group each fee belongs to. */
 const COST_GROUP: Readonly<Record<FeeKind, keyof Omit<DayCosts, 'total'>>> = {
   EXTRACTION: 'pumping', RESTART: 'pumping', WELL_SERVICE: 'pumping', WORKOVER: 'pumping',
+  // What corners cut cost, under the same heading as the rest of keeping a company open (§12A.6).
+  EXPOSURE: 'running', SETTLEMENT: 'running',
   REFINING_OPEX: 'refining', MAINTENANCE: 'refining', REPAIR: 'refining',
   FREIGHT: 'shipping', DEMURRAGE: 'shipping', ORIGIN_TARIFF: 'shipping', DESTINATION_TARIFF: 'shipping',
   FIXED_COST: 'running', OFFICE: 'running', LEASE: 'running', CHARTER: 'running', RESERVATION: 'running',

@@ -55,6 +55,8 @@ export function newLease(spec: LeaseSpec): Lease {
     reserves,
     originalReserves: reserves,
     produced: 0,
+    lost: 0,
+    serviceHoldUntil: 0 as Tick,
     attempts: count,
     band: spec.band,
     maxWells,
@@ -214,6 +216,41 @@ export function wellHazard(well: Well, cfg: Config): number {
 }
 
 /**
+ * Pays a crew to come sooner for every well of this lease that is waiting on one, and returns what
+ * it cost. Overtime is priced by the days it buys, so bringing four wells back a week early costs
+ * four weeks of it (§12A.3).
+ */
+export function rushCrews(lease: Lease, owner: Agent, days: number, ledger: FeeLedger, tick: Tick, cfg: Config): number {
+  let bought = 0;
+  for (const well of lease.wells) {
+    if (well.status !== WellStatus.DOWN) continue;
+    const saved = Math.min(days, well.ticksRemaining);
+    well.ticksRemaining -= saved;
+    bought += saved;
+    if (well.ticksRemaining === 0) well.status = WellStatus.PUMPING;
+  }
+  const cost = bought * cfg.WELL.RUSH_COST;
+  charge(owner, ledger, tick, FeeKind.WORKOVER, cost);
+  return cost;
+}
+
+/**
+ * Loses a well for good (§12A.3): it stops, and the ground it would have drained stays where it is.
+ * Those barrels are neither lifted nor left to another well — they are written off, which is why a
+ * lease keeps a `lost` figure and the conservation invariant counts it alongside the rest.
+ */
+export function destroyWell(lease: Lease, well: Well): number {
+  if (well.status === WellStatus.SPENT) return 0;
+  const stranded = Math.max(0, Math.min(well.recoverable - well.cumulative, lease.reserves));
+  well.status = WellStatus.SPENT;
+  well.rate = 0;
+  well.ticksRemaining = 0;
+  lease.reserves -= stranded;
+  lease.lost += stranded;
+  return stranded;
+}
+
+/**
  * A day of upkeep for every well on a lease. Work in progress counts down; a well due a service
  * goes down for one; and a running well may fail and wait for a workover crew. Exactly one draw is
  * taken per well per day, whatever it is doing, so one well's luck never shifts another's.
@@ -235,7 +272,8 @@ export function advanceWells(lease: Lease, owner: Agent, rng: Rng, ledger: FeeLe
     if (well.status !== WellStatus.PUMPING) { well.status = WellStatus.PUMPING; continue; }
 
     well.daysSinceMaintenance += 1;
-    if (well.daysSinceMaintenance >= cfg.WELL.MAINT_INTERVAL) {
+    // A service can be held off at the player's word (§12A.3). The hazard keeps climbing while it is.
+    if (well.daysSinceMaintenance >= cfg.WELL.MAINT_INTERVAL && tick >= lease.serviceHoldUntil) {
       well.status = WellStatus.MAINTENANCE;
       well.ticksRemaining = cfg.WELL.MAINT_TICKS;
       charge(owner, ledger, tick, FeeKind.WELL_SERVICE, cfg.WELL.MAINT_COST * well.rate);
