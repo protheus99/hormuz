@@ -1253,6 +1253,10 @@ Cards where no answer is clean, and the meters must not answer the question.
   industry, and a game that never asks it teaches something false.
 - **Rare.** A small deck, never two in quick succession. Every third card a crisis of conscience is
   melodrama.
+- **The deck itself is drafted in `DILEMMAS.md`** — twenty-eight scenarios across safety, the ground
+  and the people on it, the books, and information and influence, with what each one states as fact
+  and what the engine decides in secret. Six of them plug into machinery that already exists (the
+  auction, the licence, the lease, the credit line, the wells) and are the ones to build first.
 
 ### 12A.8 Why nothing can lose money, and what to do about it
 
