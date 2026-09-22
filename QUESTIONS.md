@@ -10,6 +10,27 @@ Recommendations are marked **R**.
 
 ## Noted during playtesting, to do before release
 
+- **Stage 4's deck, to design together.** The engine half is built: wells are serviced every 240
+  days, fail on a rising hazard, wait 5–15 days for a crew, and cost money for both. What the player
+  has is a board and an alert — no lever. Before writing cards, three things worth deciding:
+  *what a policy card may change* (the engine has no well-level "defer the service" hold, unlike a
+  refinery's `maintenanceHoldUntil`, and no way to pay a crew to come sooner — both are small to
+  add, but only worth adding if a card uses them); *how the safety dilemma reads a well* (the
+  manager's hunch in §12A.6 wants a well that is overdue and a specific number of days of output to
+  lose, both of which the model can already say); and *what exposure is attached to* (a single
+  hidden number, or one for safety that regulators watch and one for legal exposure that lawyers
+  do). The owner wants the dilemmas in quantity, so the deck is worth laying out before any of it is
+  written.
+
+- **Stage 5 is bigger than it looks: the AI grows through those same cards.** Moving the eleven
+  purchases into panels was scoped as an interface change, but rivals buy their storage, units,
+  tiers and offices by answering the very Opportunity cards that would be removed (G4.6, and
+  `tests/game/growth.test.ts` holds it). Converting them to player-only panel actions would quietly
+  stop every rival growing and take the campaign with it. Either the definitions stay for the AI
+  while the player's route moves into panels, or the AI gets a growth rule of its own that calls the
+  same actions. Worth choosing deliberately rather than discovering halfway through. Found
+  2026-09-22.
+
 - **The finale's measure works against growth.** It ranks on profit per barrel of capacity, and
   capacity is now something you buy at auction. A company that takes new ground and drills it ranks
   *worse* for having grown — the meter-led bot fell from 1/3 to 0/3 on the finale the moment
