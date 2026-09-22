@@ -23,6 +23,7 @@ import { runLogistics, type LogisticsReport } from './logistics';
 import { makeOrderId, type Agent, type AgentId, type Cargo, type Charter, type ChokepointName, type Deal, type Fill, type NodeName, type Order, type Tick } from './model';
 import { nextFloat, rngFor, type Rng } from './rng';
 import { ageWells, capacityOf } from './leases';
+import { nameGround } from '../data/leasenames';
 import { aiBid, award, placeBid, surveyLots, type Auction } from './auction';
 import { decideOrders, recordSales, rememberMarkers, updateOutput, updateThrottle, type MarketView } from './rules';
 import { placeOrder, releaseEscrow, settleFills } from './settlement';
@@ -175,6 +176,7 @@ export function createWorld(s: WorldSettings): World {
     reservations: [],
     cardsActive: false,
   };
+  nameAllGround(world);
   return world;
 }
 
@@ -533,6 +535,22 @@ function runAuction(w: World, tick: Tick): void {
     w.auctionSeq += 1;
     w.auction = { tick: (tick + cfg.AUCTION.NOTICE_TICKS) as Tick, lots: surveyLots(w.auctionSeq, cfg, w.rng.wells, w.agents) };
   }
+}
+
+/**
+ * Names every company's ground once the whole cast exists (§12A.2). It has to happen here rather
+ * than when a company is built, because uniqueness is a property of the world, not of one company:
+ * two producers in the same region were both handed "Permian Basin field".
+ */
+function nameAllGround(w: World): void {
+  const used = new Set<string>();
+  w.agents.forEach((agent, index) => {
+    for (const lease of wellOf(agent)?.leases ?? []) {
+      const name = nameGround(used, index * 7);
+      used.add(name);
+      lease.name = name;
+    }
+  });
 }
 
 /** Every hired tanker costs its daily rate, carrying cargo or not (spec §7.4). */

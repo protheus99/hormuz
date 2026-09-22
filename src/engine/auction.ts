@@ -13,6 +13,7 @@ import { Grade } from './enums';
 import { BAND_YEARS, newLease } from './leases';
 import { LeaseBand, type Agent, type AgentId, type Lease, type Tick } from './model';
 import { nextFloat, type Rng } from './rng';
+import { nameGround } from '../data/leasenames';
 
 /** One lot in an auction: ground as the survey describes it, and the bids it has drawn. */
 export interface LeaseLot {
@@ -75,6 +76,8 @@ export function baseWorth(lot: LeaseLot, cfg: Config): number {
 
 /** The lots for one year's auction, surveyed from the ground that is open to be taken. */
 export function surveyLots(seq: number, cfg: Config, rng: Rng, agents: readonly Agent[]): LeaseLot[] {
+  // Ground already named — held or merely on offer — keeps its name to itself (§12A.2).
+  const used = new Set(agents.flatMap((a) => (wellOf(a)?.leases ?? []).map((l) => l.name)));
   // Ground comes up where the industry already is, so every lot has somebody who could work it.
   // The player's own region is always among them: a lease round it could never enter is no round.
   const drillers = agents.filter((a) => {
@@ -93,9 +96,11 @@ export function surveyLots(seq: number, cfg: Config, rng: Rng, agents: readonly 
     // worth a fight (§12A.4).
     const band = roll < 0.15 ? LeaseBand.HIGH : roll < 0.55 ? LeaseBand.MEDIUM : LeaseBand.LOW;
     const maxWells = cfg.AUCTION.WELLS.MIN + Math.floor(nextFloat(rng) * (cfg.AUCTION.WELLS.MAX - cfg.AUCTION.WELLS.MIN + 1));
+    const lotName = nameGround(used, Math.floor(nextFloat(rng) * 71) + seq * 3 + i);
+    used.add(lotName);
     const lot: LeaseLot = {
       lotId: `lot-${seq}-${i + 1}`,
-      name: `${REGIONS[region].displayName} Block ${seq}${String.fromCharCode(65 + i)}`,
+      name: lotName,
       region,
       grade,
       band,

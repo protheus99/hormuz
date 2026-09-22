@@ -364,9 +364,9 @@ export function leasesPanel(view: PlayerView): Html {
         </tr>`)}
       </table>
       <h3 style="margin-top:14px">The register</h3>`}
-    <p class="small">You hold ${held === 1 ? 'one block' : `${held} blocks`}. Ground changes hands
-      once a year: bids are sealed, everyone gets one, and the highest takes it. What a survey calls
-      it is all anyone is told — the barrels underneath are nobody's business but the owner's.</p>
+    <p class="small">You hold ${held === 1 ? 'one block' : `${held} blocks`}. Ground comes up twice
+      a year: bids are sealed, everyone gets one, and the highest takes it. What a survey calls it is
+      all anyone is told — the barrels underneath are nobody's business but the owner's.</p>
     <table class="register">
       <tr><th>Region</th><th>Ground</th><th>Blocks held</th></tr>
       ${view.register.map((r) => html`<tr class="${r.mayBid ? 'open' : ''}">

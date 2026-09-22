@@ -287,8 +287,8 @@ export interface Well {
  */
 export interface Lease {
   readonly leaseId: LeaseId;
-  /** Shown to the player, e.g. "Block 7, Midland County". */
-  readonly name: string;
+  /** Shown to the player. Named once, uniquely, when the world is built (§12A.2). */
+  name: string;
   readonly region: RegionName;
   readonly grade: Grade;
   /** Engine-only. Barrels still to be lifted. */

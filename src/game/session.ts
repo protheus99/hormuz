@@ -10,7 +10,7 @@ import { step, type World } from '../engine/world';
 import { rngFor, type Rng } from '../engine/rng';
 import { leaseShapeFor, newLease } from '../engine/leases';
 import { wellOf } from '../engine/companies';
-import { REGIONS } from '../data/regions';
+import { nameGround } from '../data/leasenames';
 import type { Lease } from '../engine/model';
 import type { Grade } from '../engine/enums';
 import { DEFAULT_CONFIG, type Config } from '../engine/config';
@@ -139,16 +139,21 @@ export class GameSession {
     if (world.rng.wells === undefined) world.rng.wells = rngFor(data.settings.seed, 'wells');
     // A save written before producers held leases has a field but no ground under it (§12A): give
     // it the lease that field would have been drilled on, at the size it is pumping today.
-    for (const agent of data.world.agents) {
+    const named = new Set<string>();
+    data.world.agents.forEach((agent, index) => {
       const field = wellOf(agent) as { leases?: Lease[]; extractionCapacity: number; grade: Grade; baseExtractionCost: number } | undefined;
-      if (field === undefined || field.leases !== undefined) continue;
+      if (field === undefined) return;
+      for (const l of field.leases ?? []) named.add(l.name);
+      if (field.leases !== undefined) return;
       const shape = leaseShapeFor(field.extractionCapacity);
+      const name = nameGround(named, index * 7);
+      named.add(name);
       field.leases = [newLease({
-        id: `${agent.agentId}-L1`, name: `${REGIONS[agent.region].displayName} field`, region: agent.region,
+        id: `${agent.agentId}-L1`, name, region: agent.region,
         grade: field.grade, capacity: field.extractionCapacity, band: shape.band,
         baseExtractionCost: field.baseExtractionCost, acquiredFor: 0, wells: shape.wells, maxWells: shape.maxWells,
       })];
-    }
+    });
     return new GameSession(data);
   }
 

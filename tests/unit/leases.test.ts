@@ -123,6 +123,19 @@ describe('the world every producer already lives in', () => {
   });
 });
 
+describe('naming ground (spec §12A.2)', () => {
+  it('gives every block in the world its own name, held or bought', () => {
+    const w = createWorld({ seed: 'names', portfolio: GLOBAL_PORTFOLIO, personalityMix: 'EVEN' });
+    // Past two auctions, so bought ground is in the count as well as the ground they started with.
+    for (let d = 0; d < 400; d++) step(w);
+    const names = w.agents.flatMap((a) => (wellOf(a)?.leases ?? []).map((l) => l.name));
+    expect(names.length).toBeGreaterThan(20);
+    expect(new Set(names).size).toBe(names.length);
+    // And none of them is a number, which is what started this.
+    for (const n of names) expect(n).not.toMatch(/Block \d/);
+  });
+});
+
 describe('what a player may know about their own ground (spec §12A.2)', () => {
   const producer: GameSettings = { seed: 'lease-view', playType: 'PRODUCER', region: 'US_Permian', companyName: 'Lone Star Crude' };
 
