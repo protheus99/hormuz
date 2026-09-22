@@ -1132,8 +1132,8 @@ A producer holds **leases**; a lease holds **wells**. Reserves are finite and dr
   so no campaign target measured on net worth moves, and no display can leak the hidden number.
 - **Attributes are capacity multipliers.** Fracking, horizontal drilling and water rights multiply a
   well's rate. `maxWells` caps the count. Nothing else.
-- **Sizing (to tune):** a starting lease holds roughly 6–10 years of its producer's output — Low ≈ 4
-  years, Medium ≈ 7, High ≈ 12. Nothing runs dry in a one-year tutorial; depletion bites across the
+- **Sizing:** a lease holds five to ten years of its own output — Low 5, Medium 7, High 10 (the
+  owner's range, 2026-09-22). Nothing runs dry in a one-year tutorial; depletion bites across the
   three-year finale.
 - **Invariant:** a lease's remaining reserves plus everything its wells have ever produced equals
   what it started with.

@@ -10,8 +10,11 @@
 import type { Grade } from './enums';
 import { asLeaseId, asWellId, LeaseBand, WellStatus, type Lease, type RegionName, type Well } from './model';
 
-/** Years of a lease's own output that each published band stands for (§12A.2). */
-export const BAND_YEARS: Readonly<Record<LeaseBand, number>> = { LOW: 4, MEDIUM: 7, HIGH: 12 };
+/**
+ * Years of a lease's own output that each published band stands for (§12A.2). Five to ten years:
+ * long enough that no tutorial ever runs dry, short enough that the three-year finale feels it.
+ */
+export const BAND_YEARS: Readonly<Record<LeaseBand, number>> = { LOW: 5, MEDIUM: 7, HIGH: 10 };
 
 /** Wells on a lease at the start. Few enough that one well is legible and losing two matters. */
 const STARTING_WELLS = { MIN: 6, MAX: 12 } as const;
