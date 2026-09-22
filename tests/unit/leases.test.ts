@@ -5,13 +5,15 @@
 import { describe, expect, it } from 'vitest';
 import { GLOBAL_PORTFOLIO } from '../../src/data/portfolios';
 import { wellOf } from '../../src/engine/companies';
-import { capacityOf, depleteWells, drillWell, liftFrom, newLease, reservesOf, BAND_YEARS } from '../../src/engine/leases';
+import { advanceWells, capacityOf, depleteWells, drillWell, liftFrom, newLease, reservesOf, BAND_YEARS } from '../../src/engine/leases';
 import type { Lease } from '../../src/engine/model';
 
 const leaseCapacityOf = (l: Lease) => capacityOf([l]);
 import { createWorld, step } from '../../src/engine/world';
 import { FIELD_NAMES } from '../../src/data/leasenames';
-import { DEFAULT_CONFIG } from '../../src/engine/config';
+import { DEFAULT_CONFIG, withOverrides } from '../../src/engine/config';
+import { createLedger } from '../../src/engine/economics';
+import { createProducer } from '../../src/engine/companies';
 import { rngFor } from '../../src/engine/rng';
 import { GameSession } from '../../src/game/session';
 import { PLAYER_ID, type GameSettings } from '../../src/game/newgame';
@@ -121,6 +123,55 @@ describe('the world every producer already lives in', () => {
     // A year of the world's pumping came out of the ground, not out of nowhere. Measured against
     // what the leases say they lifted, since ground bought at auction brings its own reserves in.
     expect(now.reduce((t, l) => t + l.produced, 0)).toBeCloseTo(w.totals.extracted, 4);
+  });
+});
+
+describe('what goes wrong down a hole (spec §12A.3)', () => {
+  it('services a well on its interval, takes it offline, and charges for the work', () => {
+    const l = lease(6_000, 6);
+    const owner = createProducer({ id: 'p', name: 'Test Oil', region: 'US_Permian', grade: 'LIGHT_SWEET', cash: 10_000_000, extractionCapacity: 6_000, baseExtractionCost: 30, storageCapacity: 60_000 });
+    const ledger = createLedger();
+    const rng = rngFor('quiet', 'wells');
+    const cfg = withOverrides(DEFAULT_CONFIG, { WELL: { BASE_HAZARD: 0 } });   // no failures, just upkeep
+    const cashBefore = owner.cash;
+    for (let d = 0; d < cfg.WELL.MAINT_INTERVAL; d++) advanceWells(l, owner, rng, ledger, 1 as never, cfg);
+    expect(l.wells.every((w) => w.status === 'MAINTENANCE')).toBe(true);
+    expect(owner.cash).toBeLessThan(cashBefore);
+    expect(ledger.total).toBeCloseTo(cashBefore - owner.cash, 6);
+
+    for (let d = 0; d < cfg.WELL.MAINT_TICKS; d++) advanceWells(l, owner, rng, ledger, 1 as never, cfg);
+    expect(l.wells.every((w) => w.status === 'PUMPING')).toBe(true);
+    expect(l.wells.every((w) => w.daysSinceMaintenance === 0)).toBe(true);
+  });
+
+  it('fails a neglected well eventually, and puts it back when the crew has been', () => {
+    const l = lease(6_000, 6);
+    const owner = createProducer({ id: 'p', name: 'Test Oil', region: 'US_Permian', grade: 'LIGHT_SWEET', cash: 10_000_000, extractionCapacity: 6_000, baseExtractionCost: 30, storageCapacity: 60_000 });
+    const ledger = createLedger();
+    const rng = rngFor('rough', 'wells');
+    // A hazard nothing could survive, so the test is about what a failure does, not how likely it is.
+    const cfg = withOverrides(DEFAULT_CONFIG, { WELL: { BASE_HAZARD: 0.5, MAINT_INTERVAL: 10_000 } });
+    advanceWells(l, owner, rng, ledger, 1 as never, cfg);
+    const down = l.wells.filter((w) => w.status === 'DOWN');
+    expect(down.length).toBeGreaterThan(0);
+    for (const w of down) {
+      expect(w.ticksRemaining).toBeGreaterThanOrEqual(cfg.WELL.WORKOVER_TICKS.min);
+      expect(w.ticksRemaining).toBeLessThanOrEqual(cfg.WELL.WORKOVER_TICKS.max);
+    }
+    // A well that is down makes nothing, so the field is smaller while the crew is on its way.
+    expect(capacityOf([l])).toBeLessThan(6_000);
+    for (let d = 0; d < cfg.WELL.WORKOVER_TICKS.max + 1; d++) advanceWells(l, owner, rngFor('calm', 'wells'), ledger, 1 as never, withOverrides(cfg, { WELL: { BASE_HAZARD: 0 } }));
+    expect(l.wells.every((w) => w.status === 'PUMPING')).toBe(true);
+  });
+
+  it('leaves a spent well alone: there is nothing left to service or break', () => {
+    const l = lease(6_000, 6);
+    const owner = createProducer({ id: 'p', name: 'Test Oil', region: 'US_Permian', grade: 'LIGHT_SWEET', cash: 10_000_000, extractionCapacity: 6_000, baseExtractionCost: 30, storageCapacity: 60_000 });
+    for (const w of l.wells) w.status = 'SPENT';
+    const cash = owner.cash;
+    for (let d = 0; d < 500; d++) advanceWells(l, owner, rngFor('spent', 'wells'), createLedger(), 1 as never, DEFAULT_CONFIG);
+    expect(l.wells.every((w) => w.status === 'SPENT')).toBe(true);
+    expect(owner.cash).toBe(cash);
   });
 });
 
