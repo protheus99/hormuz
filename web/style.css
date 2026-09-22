@@ -275,4 +275,5 @@ details { margin-top: 6px; font-size: 12px; color: var(--text-2); }
 .well.MAINTENANCE { background: var(--warn); border-color: var(--warn); }
 .well.DOWN { background: var(--bad); border-color: var(--bad); }
 .well.DRILLING { background: var(--accent-soft); border-color: var(--accent); }
+.well.SPENT { background: var(--line); border-color: var(--line); }
 .well.SLOT { background: transparent; border-style: dashed; }

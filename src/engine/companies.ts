@@ -177,7 +177,7 @@ function buildWell(owner: CompanySpec, region: RegionName, w: WellSpec): WellSta
   if (storage > w.storageCapacity) fail(owner, `storage ${storage} exceeds capacity ${w.storageCapacity}`);
   // The field it was written with becomes its first lease: the same barrels a day, shared between
   // the wells a field that size would have been drilled with (§12A.7 stage 1).
-  const shape = leaseShapeFor(w.extractionCapacity);
+  const shape = leaseShapeFor(w.extractionCapacity, REGIONS[region].declineClass === 'SHALE');
   const lease = newLease({
     id: `${owner.id}-L1`,
     name: `${REGIONS[region].displayName} Block 1`,

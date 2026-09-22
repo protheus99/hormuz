@@ -60,12 +60,27 @@ describe('extract (spec §5 phase 1)', () => {
   });
 });
 
-describe('field decline (spec §4.8)', () => {
-  it('loses about 3% a month on shale and 0.5% on conventional fields', () => {
-    for (let t = 0; t < 30; t++) { applyDecline(boreal, DEFAULT_CONFIG); applyDecline(qasr, DEFAULT_CONFIG); }
-    expect(boreal.extractionCapacity / 6000).toBeCloseTo(0.999 ** 30, 12);   // ≈ 0.970
-    expect(qasr.extractionCapacity / 9000).toBeCloseTo(0.99983 ** 30, 12);   // ≈ 0.995
+describe('field decline (spec §12A.3)', () => {
+  it('falls with what has been lifted, not with what has passed', () => {
+    // A month of pumping: shale, which holds less oil for the rate it makes, fades faster.
+    for (let t = 0; t < 30; t++) {
+      extract(boreal, ledger, (t + 1) as never, STEADY, wells());
+      extract(qasr, ledger, (t + 1) as never, STEADY, wells());
+      boreal.storage = 0;
+      qasr.storage = 0;
+      applyDecline(boreal, DEFAULT_CONFIG);
+      applyDecline(qasr, DEFAULT_CONFIG);
+    }
+    expect(boreal.extractionCapacity).toBeLessThan(6000);
+    expect(qasr.extractionCapacity).toBeLessThan(9000);
+    expect(boreal.extractionCapacity / 6000).toBeLessThan(qasr.extractionCapacity / 9000);
     expect(boreal.peakCapacity).toBe(6000);                                  // peak remembers the high
+  });
+
+  it('does not decline at all while the wells are shut in, since the oil stays where it is', () => {
+    const before = qasr.extractionCapacity;
+    for (let t = 0; t < 120; t++) applyDecline(qasr, DEFAULT_CONFIG);
+    expect(qasr.extractionCapacity).toBe(before);
   });
 });
 

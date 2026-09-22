@@ -47,8 +47,9 @@ const TEXT: Readonly<Record<string, CardText>> = {
   },
   WELLS_DECLINING: {
     title: 'Your wells are running dry',
-    situation: 'Your fields pump {now} barrels a day, down from {peak}. New wells take {ticks} days to drill.',
-    yes: 'Drill new wells.', maybe: 'Drill half as many.', no: 'Leave the fields as they are.',
+    situation: 'Your fields pump {now} barrels a day, down from {peak}. {lease} has room for {slots} more '
+      + 'wells; each takes {ticks} days to drill, and not every one finds oil.',
+    yes: 'Drill {steps} new wells.', maybe: 'Drill half as many.', no: 'Leave the fields as they are.',
   },
   EXPORT_ROUTE_TROUBLE: {
     title: 'Trouble on your export route',

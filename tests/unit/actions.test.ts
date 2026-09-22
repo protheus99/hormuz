@@ -21,7 +21,7 @@ const act = (w: World, id: string, action: Action) => applyAction(w, id as Agent
 const fees = (w: World, kind: string) => w.ledger.entries.filter((e) => e.kind === kind).reduce((s, e) => s + e.amount, 0);
 
 describe('capital projects (spec G4.4)', () => {
-  it('drills in daily instalments and adds DRILL_STEP of capacity when done', () => {
+  it('drills in daily instalments, and buys an attempt rather than a certainty', () => {
     const w = fresh();
     const control = fresh();   // the same world without the drilling, for comparison
     run(w, 5);
@@ -34,8 +34,13 @@ describe('capital projects (spec G4.4)', () => {
     let paid = 0;
     for (let d = 0; d < cfg.DRILL_TICKS; d++) { step(w); step(control); paid += fees(w, 'CAPITAL'); }
     expect(paid).toBeCloseTo(cost, 4);
+    // A well may find nothing (§12A.3), so a programme buys an attempt, not a guaranteed barrel.
     const gained = (wellOf(get(w, 'Qasr_Petroleum'))?.extractionCapacity ?? 0) - (wellOf(get(control, 'Qasr_Petroleum'))?.extractionCapacity ?? 0);
-    expect(gained).toBeCloseTo(cfg.DRILL_STEP, 0);   // less one day of decline on the new wells
+    const lease = wellOf(get(w, 'Qasr_Petroleum'))?.leases[0];
+    const drilled = (lease?.wells.length ?? 0) > (wellOf(get(control, 'Qasr_Petroleum'))?.leases[0]?.wells.length ?? 0);
+    if (drilled) expect(gained).toBeGreaterThan(0.9 * cfg.DRILL_STEP);
+    else expect(gained).toBeLessThanOrEqual(0);      // a dry hole: the money went, the ground did not change
+    expect(lease?.attempts).toBe((wellOf(get(control, 'Qasr_Petroleum'))?.leases[0]?.attempts ?? 0) + 1);
     expect(w.projects).toHaveLength(0);
   });
 

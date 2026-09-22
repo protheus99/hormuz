@@ -317,11 +317,23 @@ export const CATALOG: readonly CardDef[] = [
     detect: ({ w, me }) => {
       const well = wellOf(me);
       if (!well || well.extractionCapacity >= 0.9 * well.peakCapacity || w.projects.some((p) => p.agentId === me.agentId && p.kind === 'DRILL')) return null;
-      return { key: 'decline', data: { now: bbl(well.extractionCapacity), peak: bbl(well.peakCapacity), ticks: w.config.DRILL_TICKS } };
+      // Nothing to offer when the ground is drilled out: buying more is stage 3's auction (§12A.4).
+      const lease = well.leases[0];
+      const slots = lease === undefined ? 0 : lease.maxWells - lease.wells.length;
+      if (lease === undefined || slots <= 0 || lease.reserves <= 0) return null;
+      return {
+        key: 'decline',
+        data: {
+          now: bbl(well.extractionCapacity), peak: bbl(well.peakCapacity), ticks: w.config.DRILL_TICKS,
+          lease: lease.name, slots, steps: Math.min(slots, Math.max(1, Math.ceil((well.peakCapacity - well.extractionCapacity) / w.config.DRILL_STEP))),
+        },
+      };
     },
     options: ({ w, me }) => {
       const well = wellOf(me) as NonNullable<ReturnType<typeof wellOf>>;
-      const steps = Math.max(1, Math.ceil((well.peakCapacity - well.extractionCapacity) / w.config.DRILL_STEP));
+      const lease = well.leases[0];
+      const slots = lease === undefined ? 0 : lease.maxWells - lease.wells.length;
+      const steps = Math.min(slots, Math.max(1, Math.ceil((well.peakCapacity - well.extractionCapacity) / w.config.DRILL_STEP)));
       return {
         yes: { actions: [{ kind: 'START_PROJECT', project: 'DRILL', steps }] },
         maybe: steps > 1 ? { actions: [{ kind: 'START_PROJECT', project: 'DRILL', steps: Math.floor(steps / 2) }] } : null,

@@ -1141,9 +1141,18 @@ A producer holds **leases**; a lease holds **wells**. Reserves are finite and dr
 
 ### 12A.3 Wells
 
-- Wells are drilled **one at a time**, and some miss. Hit rate starts near 85% on fresh acreage and
-  falls a few points per well drilled — the best prospects go first — with a floor near 45%.
-- A well's rate falls as it depletes its share, which replaces the flat `DECLINE_RATE`.
+- Wells are drilled **one at a time**, and some miss. `DRY_HOLE`: 85% on fresh acreage, falling 4
+  points per hole already sunk there — the best prospects go first — with a floor of 45%. A dry hole
+  costs what it cost and leaves the ground as it was.
+- **A well's rate falls because it is emptying**, which replaces the flat `DECLINE_RATE` (now gone).
+  Exponential decline in time is the same thing as a straight line in what a well has already
+  lifted, so the curve is `rate = initialRate × (1 − cumulative ÷ recoverable)`. Below
+  `ABANDON_SHARE` (a twentieth of what it first made) a well is **spent** and stops.
+- **Wells share one reservoir.** Sinking another well does not find more oil: what is left is shared
+  out again between every live well, so each one's share — and its rate — gets smaller. Infill
+  drilling buys production now and a shorter life, which is the bargain it really offers.
+- **A field that is shut in does not decline**, since the oil stays where it is. Under the old
+  constant it faded whether it was pumped or not.
 - Wells have states — pumping, down, maintenance, drilling — **run by the engine**, as refinery
   outages are. The player sees the board and answers cards about policy. Per-well switches and a
   crew system stay out of scope (§13).
@@ -1214,11 +1223,21 @@ Cards where no answer is clean, and the meters must not answer the question.
 
 ### 12A.7 Build order
 
-1. Leases and wells under the hood: model, generation for all 19 producers from present capacity,
+1. ✅ Leases and wells under the hood: model, generation for all 19 producers from present capacity,
    extraction summing wells, `extractionCapacity` derived, the conservation invariant, a plain well
    board. Day-one output unchanged; golden re-recorded.
-2. Depletion and drilling: the depletion curve replaces `DECLINE_RATE`, drilling one well at a time
-   with dry holes, `maxWells` and water limits, the "wells running dry" card rewritten. Retune.
+2. ✅ Depletion and drilling: the depletion curve replaced `DECLINE_RATE`, which is deleted; drilling
+   sinks one well at a time with dry holes against `maxWells`; the "wells running dry" card names
+   the lease and its free slots, and stays silent when the ground is drilled out, since buying more
+   is stage 3's business. Two consequences worth keeping in mind: a shale lease cannot fade as fast
+   as the old constant made it, because the owner's floor is five years of reserves, so light crude
+   stays plentiful for longer; and Western Canada's producers were given fifteen days of tankage
+   rather than ten (§10.1), being landlocked with rationed takeaway, which is what their $1.80
+   tariff says from the other side. Scenario targets are **not** retuned yet: the auction moves them
+   again in stage 3, and tuning twice is waste. Measured after stage 2, meter-led, three seeds —
+   tutorials 3/3, Medium 7/9, Hard 6/9, finale 1/3, against the D44 band of almost always / ~3 in 4
+   / ~1 in 2 / ~1 in 4. P2 is harder than it was (1/3) and R3 easier (3/3); both are on the list for
+   the stage 3 retune.
 3. The auction, operating rights and the lease register.
 4. Hazards and the card deck, including the ethical cards, designed with the owner.
 5. The Opportunities cleanup: the 11 purchases move into their panels.
@@ -1614,6 +1633,7 @@ The free web version stays available after Steam launches. Schools mostly use Ch
 | 3.1 | 2026-09-18 | Closed the real-world framing decision as D32: real geography, fictional companies, faceless and non-violent event wording, coastline-only map. Renamed nine companies whose names matched or crowded real companies. Removed the refiner's "Buy an oilfield" card: only producers can become integrated. |
 | 3.2 | 2026-09-18 | Made every chokepoint a live risk: an event profile for each of the seven, deck rules, route cards that react to delays as well as tension, a campaign featuring six of the seven, verification runs S13–S17, and a property test that no single closure strands a region. |
 | 3.5 | 2026-09-19 | Phase 7 calibration: price discovery (bids climb towards value as tanks empty; unsold asks decay; closing offers published), refiners count the voyage in stock targets and tank space, credit lines, recoverable insolvency, AI output cuts, personality mixes, the global portfolio's cash and storage, and the D35 decisions. Global S0: markers about 78 / 71 / 63 in grade order on ~90% of days, no insolvencies. |
+| 4.2 | 2026-09-22 | Phase 13 stage 2: wells decline by depletion and `DECLINE_RATE` is deleted; drilling sinks one well at a time with dry holes; wells share one reservoir, so infill drilling buys production now and a shorter life; a shut-in field no longer declines. |
 | 4.1 | 2026-09-22 | Stage 1 of Phase 13 built: producers hold leases and leases hold wells, with reserves engine-only and `extractionCapacity` derived. Lease bands set to 5–10 years. The tick stays a day (D56). |
 | 4.0 | 2026-09-22 | Phase 13 designed with the owner: producer leases and wells, finite hidden reserves, operating rights and a yearly lease auction; cards become events and purchases become standing actions; ethical dilemmas with accumulating exposure (§12A, D53–D55). |
 | 3.17 | 2026-09-21 | The campaign picks a company first and lists that company's scenarios, with the finale at the end of each (D52). |

@@ -93,13 +93,22 @@ export const CORE_PORTFOLIO: readonly PortfolioEntry[] = [
  */
 export const PRODUCER_STORAGE_DAYS = 10;
 
+/**
+ * Regions whose producers hold more than the usual ten days. Western Canada is landlocked and its
+ * pipeline takeaway is rationed — the same fact its $1.80 tariff already encodes from the other
+ * side — so operators there sit on deeper tankage and sell in lumps. With ten days its heavy barrel
+ * tops out inside seven weeks; with fifteen it runs tight but keeps clear of the §10.3 floor.
+ */
+const STORAGE_DAYS: Partial<Record<RegionName, number>> = { Western_Canada: 15 };
+const storageDaysFor = (region: RegionName): number => STORAGE_DAYS[region] ?? PRODUCER_STORAGE_DAYS;
+
 /** Starting cash for producers and traders in the game world, generous so rivals survive a bad start. */
 export const PRODUCER_CASH = 5_000_000;
 export const TRADER_CASH = 5_000_000;
 
 const producer = (id: string, region: RegionName, grade: Grade, capacity: number, cost: number): PortfolioEntry => ({
   kind: 'PRODUCER', id, name: id.replace(/_/g, ' '), region, cash: PRODUCER_CASH,
-  well: { grade, extractionCapacity: capacity, baseExtractionCost: cost, storageCapacity: PRODUCER_STORAGE_DAYS * capacity },
+  well: { grade, extractionCapacity: capacity, baseExtractionCost: cost, storageCapacity: storageDaysFor(region) * capacity },
 });
 
 /**
@@ -137,7 +146,7 @@ export const GLOBAL_PORTFOLIO: readonly PortfolioEntry[] = [
     }
     const cash = p.kind === 'PRODUCER' ? Math.max(p.cash, PRODUCER_CASH) : p.cash;
     if ((p.kind === 'PRODUCER' || p.kind === 'INTEGRATED') && p.region !== 'Middle_East') {
-      return { ...p, cash, well: { ...p.well, storageCapacity: PRODUCER_STORAGE_DAYS * p.well.extractionCapacity } };
+      return { ...p, cash, well: { ...p.well, storageCapacity: storageDaysFor(p.region) * p.well.extractionCapacity } };
     }
     return { ...p, cash };
   }),

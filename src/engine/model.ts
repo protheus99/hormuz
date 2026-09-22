@@ -256,7 +256,7 @@ export const LeaseBand = { LOW: 'LOW', MEDIUM: 'MEDIUM', HIGH: 'HIGH' } as const
 export type LeaseBand = (typeof LeaseBand)[keyof typeof LeaseBand];
 
 /** A well's state. The engine runs these; the player sees them and answers cards (§12A.3). */
-export const WellStatus = { PUMPING: 'PUMPING', DOWN: 'DOWN', MAINTENANCE: 'MAINTENANCE', DRILLING: 'DRILLING' } as const;
+export const WellStatus = { PUMPING: 'PUMPING', DOWN: 'DOWN', MAINTENANCE: 'MAINTENANCE', DRILLING: 'DRILLING', SPENT: 'SPENT' } as const;
 export type WellStatus = (typeof WellStatus)[keyof typeof WellStatus];
 
 export interface Well {
@@ -267,6 +267,12 @@ export interface Well {
   rate: number;
   /** Barrels this well has lifted in its life. */
   cumulative: number;
+  /**
+   * Engine-only. The share of the lease this well can reach. Its rate falls in step with what it
+   * has taken, so a well that has lifted its share is spent (§12A.3). Drilling another well on the
+   * lease shares the same oil out again, which is why this is not fixed for life.
+   */
+  recoverable: number;
   status: WellStatus;
   /** Days left of whatever it is doing, for every status but PUMPING. */
   ticksRemaining: number;
@@ -289,6 +295,8 @@ export interface Lease {
   readonly originalReserves: number;
   /** Engine-only. Everything its wells have ever lifted. */
   produced: number;
+  /** Wells sunk here, dry ones included: the next one is likelier to miss (§12A.3). */
+  attempts: number;
   /** The published survey: LOW, MEDIUM or HIGH (§12A.2). */
   readonly band: LeaseBand;
   maxWells: number;

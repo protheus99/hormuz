@@ -4,7 +4,7 @@
 // each action does to the world and what it costs.
 
 import { internalTransfer, refreshCapacity, startMaintenance } from './agents';
-import { addWells } from './leases';
+import { drillWell } from './leases';
 import { charterCost, newCharter } from './charters';
 import {
   acceptedGrades, averageCost, CLOSED_TO_NEW_REFINING, integrate, integrationPlant, plantAt, plantCost, plantOf, plantsOf, secondPlant, secondPlantSpec, total, wellOf,
@@ -460,13 +460,15 @@ function complete(w: World, a: Agent, p: CapitalProject, cfg: Config): void {
   const plant = plantAt(a, p.region) ?? plantOf(a);
   switch (p.kind) {
     case 'DRILL': {
-      // The barrels a day a drilling programme used to add straight to a field now arrive as wells
-      // on a lease (§12A.3). The field's own ceiling still applies until stage 2 replaces it with
-      // the lease's.
+      // A programme sinks its wells one at a time, and some find nothing (§12A.3). What a well makes
+      // follows the oil it can reach: on fresh ground that is a full DRILL_STEP, on ground the other
+      // wells have already claimed it is less, which is the lease telling you it is finished.
       const lease = well?.leases[0];
       if (well && lease) {
-        const room = Math.max(0, well.fieldMaxCapacity - well.extractionCapacity);
-        addWells(lease, p.steps, Math.min(cfg.DRILL_STEP * p.steps, room));
+        // A well still starts at the rate a programme buys. What changes on tired ground is how
+        // long it lasts: it can only reach what no other well has claimed, so on a lease that is
+        // nearly drilled out a new well is spent in months rather than years.
+        for (let i = 0; i < p.steps; i++) drillWell(lease, cfg.DRILL_STEP, cfg, w.rng.wells);
         refreshCapacity(well);
       }
       return;

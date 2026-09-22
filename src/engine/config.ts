@@ -4,7 +4,7 @@
 // Rates and shares are fractions, so 25% is written 0.25.
 // All values are placeholders to be tuned in Phases 7 and 12.
 
-import type { AppetiteSetting, ChokepointStatus, DeclineClass, Product, SellingSetting, StockpileSetting } from './enums';
+import type { AppetiteSetting, ChokepointStatus, Product, SellingSetting, StockpileSetting } from './enums';
 import type { CompanySettings } from './model';
 
 export interface Range {
@@ -59,7 +59,12 @@ export interface Config {
   readonly RAMP_TICKS: number;
   readonly EXTRACTION_SPREAD: number;       // day-to-day swing in what a field actually pumps, either way
   readonly FIXED_COST_RATE: { readonly PRODUCER: number; readonly REFINER: number };   // $ per bbl/day of capacity per tick
-  readonly DECLINE_RATE: Readonly<Record<DeclineClass, number>>;                      // capacity lost per tick
+  readonly ABANDON_SHARE: number;          // a well is spent below this share of what it first made
+  readonly DRY_HOLE: {                     // a well may find nothing (§12A.3)
+    readonly FIRST: number;                // chance the first well on fresh ground hits
+    readonly PER_ATTEMPT: number;          // chance lost with every well already sunk there
+    readonly FLOOR: number;                // and never worse than this
+  };
   readonly DRILL_STEP: number;             // bbl/day added per drilling project
   readonly DRILL_COST: number;             // $ per bbl/day, times labor index
   readonly DRILL_TICKS: number;
@@ -173,7 +178,9 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
   // year's output is unchanged — but a day's is never quite the plan, and the Activity tab shows it.
   EXTRACTION_SPREAD: 0.06,
   FIXED_COST_RATE: { PRODUCER: 2.00, REFINER: 4.00 },
-  DECLINE_RATE: { SHALE: 0.001, CONVENTIONAL: 0.00017 },
+  ABANDON_SHARE: 0.05,
+  // The best prospects are drilled first, so the last slots on a lease are a gamble (§12A.3).
+  DRY_HOLE: { FIRST: 0.85, PER_ATTEMPT: 0.04, FLOOR: 0.45 },
   DRILL_STEP: 500,
   DRILL_COST: 2_000,
   DRILL_TICKS: 45,

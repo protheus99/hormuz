@@ -8,7 +8,7 @@ import { FeeKind, GRADES, type Grade } from './enums';
 import { productValue, recordFee, sellToSink, YIELDS, type FeeLedger, type RetailSink } from './economics';
 import type { IntegratedMajor, PlantState, Producer, Refiner, Tick, WellState } from './model';
 import { nextFloat, type Rng } from './rng';
-import { capacityOf, declineWells, leaseCapacity, liftFrom } from './leases';
+import { capacityOf, depleteWells, leaseCapacity, liftFrom } from './leases';
 
 /**
  * The share of capacity a refinery can run at today (spec §4.9): zero when offline or broken down,
@@ -137,10 +137,10 @@ export function extract(company: Producer | IntegratedMajor, ledger: FeeLedger, 
   return { barrels, cost };
 }
 
-/** Field decline (spec §4.8, §6.5): capacity falls by the region's DECLINE_RATE each tick. */
+/** Field decline (spec §12A.3): a well makes less because it holds less, not because time passed. */
 export function applyDecline(company: Producer | IntegratedMajor, config: Config): void {
   const well = wellOf(company) as WellState;
-  for (const lease of well.leases) declineWells(lease, config.DECLINE_RATE[REGIONS[company.region].declineClass]);
+  for (const lease of well.leases) depleteWells(lease, config);
   refreshCapacity(well);
 }
 

@@ -5,8 +5,13 @@
 import { describe, expect, it } from 'vitest';
 import { GLOBAL_PORTFOLIO } from '../../src/data/portfolios';
 import { wellOf } from '../../src/engine/companies';
-import { addWells, capacityOf, liftFrom, newLease, reservesOf, BAND_YEARS } from '../../src/engine/leases';
+import { capacityOf, depleteWells, drillWell, liftFrom, newLease, reservesOf, BAND_YEARS } from '../../src/engine/leases';
+import type { Lease } from '../../src/engine/model';
+
+const leaseCapacityOf = (l: Lease) => capacityOf([l]);
 import { createWorld, step } from '../../src/engine/world';
+import { DEFAULT_CONFIG } from '../../src/engine/config';
+import { rngFor } from '../../src/engine/rng';
 import { GameSession } from '../../src/game/session';
 import { PLAYER_ID, type GameSettings } from '../../src/game/newgame';
 
@@ -43,11 +48,53 @@ describe('a lease and its wells', () => {
     expect(liftFrom(l, 5_000)).toBe(0);
   });
 
-  it('takes new wells, and they pump alongside the rest', () => {
+  it('shares the same oil out again when another well is sunk, rather than finding more', () => {
     const l = lease(6_000, 8);
-    addWells(l, 2, 1_000);
-    expect(l.wells).toHaveLength(10);
-    expect(capacityOf([l])).toBeCloseTo(7_000, 6);
+    const rng = rngFor('hit', 'wells');
+    let drilled = null;
+    while (drilled === null && l.wells.length < l.maxWells) drilled = drillWell(l, 500, DEFAULT_CONFIG, rng);
+    expect(drilled).not.toBeNull();
+    expect(capacityOf([l])).toBeCloseTo(6_500, 6);
+    // Nine wells now draw on the oil eight used to, so each holds a ninth of what is left.
+    expect(l.reserves).toBe(l.originalReserves);
+    for (const w of l.wells) expect(w.recoverable).toBeCloseTo(l.reserves / l.wells.length, 6);
+    expect(l.wells.reduce((t, w) => t + w.recoverable - w.cumulative, 0)).toBeCloseTo(l.reserves, 6);
+  });
+
+  it('misses sometimes, and misses more often the more holes have been sunk', () => {
+    const rng = rngFor('dry', 'wells');
+    let hits = 0;
+    let attempts = 0;
+    for (let run = 0; run < 200; run++) {
+      const l = lease(6_000, 8);
+      // Four slots left on every lease: drill them all and count what was found.
+      for (let i = 0; i < 4; i++) { attempts += 1; if (drillWell(l, 500, DEFAULT_CONFIG, rng) !== null) hits += 1; }
+    }
+    const rate = hits / attempts;
+    // Eight wells already sunk, so the chance starts near 0.53 and falls 4 points a hole.
+    expect(rate).toBeGreaterThan(0.35);
+    expect(rate).toBeLessThan(0.60);
+  });
+
+  it('finds nothing at all once every slot is drilled', () => {
+    const l = lease(6_000, 8);
+    const rng = rngFor('full', 'wells');
+    for (let i = 0; i < 40; i++) drillWell(l, 500, DEFAULT_CONFIG, rng);
+    expect(l.wells.length).toBeLessThanOrEqual(l.maxWells);
+    expect(drillWell(l, 500, DEFAULT_CONFIG, rng)).toBeNull();
+  });
+
+  it('empties a well as it lifts its share, and gives up on it when it is spent', () => {
+    const l = lease(3_650, 10);
+    const well = l.wells[0];
+    expect(well).toBeDefined();
+    // Lift everything its share holds, a day at a time, and watch the rate follow it down.
+    let guard = 0;
+    while (well!.status === 'PUMPING' && guard < 100_000) { liftFrom(l, leaseCapacityOf(l)); depleteWells(l, DEFAULT_CONFIG); guard += 1; }
+    expect(well!.status).toBe('SPENT');
+    expect(well!.rate).toBe(0);
+    expect(well!.cumulative).toBeGreaterThan(0.9 * well!.recoverable);
+    expect(l.reserves + l.produced).toBeCloseTo(l.originalReserves, 4);
   });
 });
 

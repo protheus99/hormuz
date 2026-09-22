@@ -47,10 +47,15 @@ describe('DEFAULT_CONFIG (spec §7.4)', () => {
     }
   });
 
-  it('declines shale about 3% a month and conventional fields about 0.5% (spec G4.7)', () => {
-    const monthly = (perTick: number) => 1 - (1 - perTick) ** 30;
-    expect(monthly(c.DECLINE_RATE.SHALE)).toBeCloseTo(0.03, 2);
-    expect(monthly(c.DECLINE_RATE.CONVENTIONAL)).toBeCloseTo(0.005, 3);
+  it('gives up on a well at a twentieth of what it first made, and misses more the more holes are sunk', () => {
+    // Decline is no longer a constant: a well fades because it is emptying (§12A.3), so what the
+    // config still has to say about wells is when one is not worth pumping and how often one misses.
+    expect(c.ABANDON_SHARE).toBeGreaterThan(0);
+    expect(c.ABANDON_SHARE).toBeLessThan(0.2);
+    expect(c.DRY_HOLE.FIRST).toBeGreaterThan(c.DRY_HOLE.FLOOR);
+    expect(c.DRY_HOLE.PER_ATTEMPT).toBeGreaterThan(0);
+    // Ten holes on one lease and the odds are still better than a coin toss.
+    expect(c.DRY_HOLE.FIRST - 9 * c.DRY_HOLE.PER_ATTEMPT).toBeGreaterThan(c.DRY_HOLE.FLOOR);
   });
 
   it('refuses to be changed at runtime', () => {
