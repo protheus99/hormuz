@@ -1,6 +1,6 @@
 // The game screen's panels: the map, the company, markets, deals and cargo, and news.
 
-import { mapLayout, regionName, type Counterparty, type DailyPrices, type DayLog, type PlayerView, type Point } from '../src/game';
+import { mapLayout, regionName, type Counterparty, type DailyPrices, type DayLog, type LeaseView, type PlayerView, type Point } from '../src/game';
 import { bbl, bblShort, dateOf, html, money, pct, raw, signed, words, type Html } from './dom';
 
 const pts = (s: readonly Point[]) => s.map((p) => p.join(',')).join(' ');
@@ -101,12 +101,34 @@ export function companyPanel(view: PlayerView): Html {
         return fact(`${regionName(h.region)} office`, html`${bbl(held)} of ${bbl(h.capacity)} bbl <span class="muted">(${pct(held / Math.max(1, h.capacity))} full)</span>${bar(held / Math.max(1, h.capacity))}`);
       })}
     </div>
+    ${w ? w.leases.map((l) => leaseBlock(l)) : ''}
     ${c.projects.length > 0 ? html`
       <h3 style="margin-top:14px">Building</h3>
       <table><tr><th>Project</th><th class="num">Days left</th><th class="num">Cost a day</th></tr>
       ${c.projects.map((pr) => html`<tr><td>${PROJECT_NAMES[pr.kind] ?? words(pr.kind)}${pr.paused ? ' (paused)' : ''}</td><td class="num">${pr.daysLeft}</td><td class="num">${money(pr.dailyCost)}</td></tr>`)}
       </table>` : ''}
     <div class="settings">${settings}</div>`;
+}
+
+const BAND_WORDS: Readonly<Record<string, string>> = { LOW: 'Low', MEDIUM: 'Medium', HIGH: 'High' };
+const WELL_WORDS: Readonly<Record<string, string>> = {
+  PUMPING: 'pumping', DOWN: 'down', MAINTENANCE: 'in maintenance', DRILLING: 'being drilled',
+};
+
+/**
+ * One lease and its wells (spec §12A.3). How much oil is left is the engine's business: the player
+ * is told the survey's band and nothing more, so the board shows what each well is doing and what
+ * the lease makes between them.
+ */
+function leaseBlock(l: LeaseView): Html {
+  const pumping = l.wells.filter((x) => x.status === 'PUMPING').length;
+  return html`
+    <h3 style="margin-top:14px">${l.name} <span class="small muted">estimated size ${BAND_WORDS[l.band] ?? l.band}</span></h3>
+    <div class="wells">
+      ${l.wells.map((x) => html`<span class="well ${x.status}" title="${bbl(x.rate)} bbl/day, ${WELL_WORDS[x.status] ?? x.status}${x.daysLeft > 0 ? `, ${x.daysLeft} days to go` : ''}"></span>`)}
+      ${Array.from({ length: Math.max(0, l.maxWells - l.wells.length) }, () => html`<span class="well SLOT" title="room for another well"></span>`)}
+    </div>
+    <div class="small muted">${pumping} of ${l.wells.length} wells pumping, ${bbl(l.capacity)} bbl/day${l.maxWells > l.wells.length ? ` · room for ${l.maxWells - l.wells.length} more` : ' · no room for more'}</div>`;
 }
 
 const PROJECT_NAMES: Readonly<Record<string, string>> = {

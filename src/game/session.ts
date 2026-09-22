@@ -8,6 +8,11 @@
 import type { AgentId } from '../engine/model';
 import { step, type World } from '../engine/world';
 import { rngFor, type Rng } from '../engine/rng';
+import { leaseShapeFor, newLease } from '../engine/leases';
+import { wellOf } from '../engine/companies';
+import { REGIONS } from '../data/regions';
+import type { Lease } from '../engine/model';
+import type { Grade } from '../engine/enums';
 import { DEFAULT_CONFIG, type Config } from '../engine/config';
 import {
   advise, availableOpportunities, closeOpportunity, createAdvisor, openOpportunity, refreshOpportunities, type AdvisorState,
@@ -132,6 +137,18 @@ export class GameSession {
     // The daily swing in what fields pump draws from its own stream, seeded from the game's seed,
     // so a save written before it existed carries on the same way every time it is loaded.
     if (world.rng.wells === undefined) world.rng.wells = rngFor(data.settings.seed, 'wells');
+    // A save written before producers held leases has a field but no ground under it (§12A): give
+    // it the lease that field would have been drilled on, at the size it is pumping today.
+    for (const agent of data.world.agents) {
+      const field = wellOf(agent) as { leases?: Lease[]; extractionCapacity: number; grade: Grade; baseExtractionCost: number } | undefined;
+      if (field === undefined || field.leases !== undefined) continue;
+      const shape = leaseShapeFor(field.extractionCapacity);
+      field.leases = [newLease({
+        id: `${agent.agentId}-L1`, name: `${REGIONS[agent.region].displayName} Block 1`, region: agent.region,
+        grade: field.grade, capacity: field.extractionCapacity, band: shape.band,
+        baseExtractionCost: field.baseExtractionCost, acquiredFor: 0, wells: shape.wells, maxWells: shape.maxWells,
+      })];
+    }
     return new GameSession(data);
   }
 

@@ -7,6 +7,7 @@
 
 import { AgentKind, Controller, Grade, Personality, RegionRole } from './enums';
 import type { Config } from './config';
+import { leaseShapeFor, newLease } from './leases';
 import { REGIONS } from '../data/regions';
 import {
   asAgentId, emptyStock,
@@ -118,14 +119,14 @@ export function integrate(p: Producer, plant: PlantSpec): IntegratedMajor {
   if (CLOSED_TO_NEW_REFINING.includes(p.region)) fail(spec, `no new refineries may be built in ${p.region} (spec §10.3)`);
   if (p.storageEscrow !== 0 || p.cashReserved !== 0) fail(spec, 'integration must happen between ticks, with no escrow held');
   const {
-    kind, grade, extractionCapacity, fieldMaxCapacity, baseExtractionCost, storageCapacity, storage, storageEscrow,
+    kind, grade, extractionCapacity, leases, fieldMaxCapacity, baseExtractionCost, storageCapacity, storage, storageEscrow,
     peakCapacity, extractionRate, shutIn, rampTicksRemaining, daysUnsold, breakevenStreak, ...company
   } = p;
   return {
     ...company,
     kind: AgentKind.INTEGRATED,
     well: {
-      grade, extractionCapacity, fieldMaxCapacity, baseExtractionCost, storageCapacity, storage, storageEscrow,
+      grade, extractionCapacity, leases, fieldMaxCapacity, baseExtractionCost, storageCapacity, storage, storageEscrow,
       peakCapacity, extractionRate, shutIn, rampTicksRemaining, daysUnsold, breakevenStreak,
     },
     plant: buildPlant(spec, p.region, plant),
@@ -174,9 +175,26 @@ function buildWell(owner: CompanySpec, region: RegionName, w: WellSpec): WellSta
   const storage = w.storage ?? 0.25 * w.storageCapacity;
   requireNonNegative(owner, { extractionCapacity: w.extractionCapacity, baseExtractionCost: w.baseExtractionCost, storage });
   if (storage > w.storageCapacity) fail(owner, `storage ${storage} exceeds capacity ${w.storageCapacity}`);
+  // The field it was written with becomes its first lease: the same barrels a day, shared between
+  // the wells a field that size would have been drilled with (§12A.7 stage 1).
+  const shape = leaseShapeFor(w.extractionCapacity);
+  const lease = newLease({
+    id: `${owner.id}-L1`,
+    name: `${REGIONS[region].displayName} Block 1`,
+    region,
+    grade: w.grade,
+    capacity: w.extractionCapacity,
+    band: shape.band,
+    baseExtractionCost: w.baseExtractionCost,
+    // What a company started with cost it nothing; only bought leases carry a price (§12A.2).
+    acquiredFor: 0,
+    wells: shape.wells,
+    maxWells: shape.maxWells,
+  });
   return {
     grade: w.grade,
     extractionCapacity: w.extractionCapacity,
+    leases: [lease],
     fieldMaxCapacity: 2 * w.extractionCapacity,
     baseExtractionCost: w.baseExtractionCost,
     storageCapacity: w.storageCapacity,

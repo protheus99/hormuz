@@ -22,6 +22,7 @@ import { FeeKind, type ChokepointStatus, type Grade, type Personality, type Prod
 import { runLogistics, type LogisticsReport } from './logistics';
 import { makeOrderId, type Agent, type AgentId, type Cargo, type Charter, type ChokepointName, type Deal, type Fill, type NodeName, type Order, type Tick } from './model';
 import { nextFloat, rngFor, type Rng } from './rng';
+import { ageWells, capacityOf } from './leases';
 import { decideOrders, recordSales, rememberMarkers, updateOutput, updateThrottle, type MarketView } from './rules';
 import { placeOrder, releaseEscrow, settleFills } from './settlement';
 import { avoidFor, buildLaneGraph, edgeCapacity, LaneRouteProvider, setChokepoint, type LaneGraph } from './transport';
@@ -188,7 +189,7 @@ export function step(w: World): TickReport {
   updatePrices(w.sink, baselineOutput(w), cfg);
   for (const a of w.agents) {
     if (a.kind === 'REFINER' || a.kind === 'INTEGRATED') for (const p of plantsOf(a)) advancePlant(a, p, w.rng.events, w.ledger, tick, cfg, !w.cardsActive);
-    if (a.kind === 'PRODUCER' || a.kind === 'INTEGRATED') applyDecline(a, cfg);
+    if (a.kind === 'PRODUCER' || a.kind === 'INTEGRATED') { applyDecline(a, cfg); for (const lease of wellOf(a)?.leases ?? []) ageWells(lease); }
   }
   const routes = new LaneRouteProvider(w.graph);
   routes.resetTick();
@@ -381,6 +382,23 @@ export function checkInvariants(w: World, deliveries: readonly DealDelivery[] = 
   for (const d of deliveries) {
     const deal = w.deals.find((x) => x.dealId === d.dealId);
     if (deal && Math.abs(d.delivered + d.shortfall - deal.qtyPerDay) > 1e-9) fail(`${deal.dealId} delivered ${d.delivered} + short ${d.shortfall} ≠ ${deal.qtyPerDay}`);
+  }
+
+  // 11. Leases (§12A.2): oil left in the ground plus everything lifted from it is what it held, and
+  // a company's field is exactly what its pumping wells make. A leak here would mint barrels.
+  for (const a of w.agents) {
+    const field = wellOf(a);
+    if (field === undefined) continue;
+    for (const lease of field.leases) {
+      if (lease.reserves < -1e-6) fail(`${lease.leaseId} has been overdrawn to ${lease.reserves} bbl`);
+      if (Math.abs(lease.reserves + lease.produced - lease.originalReserves) > 1e-6) {
+        fail(`${lease.leaseId} holds ${lease.reserves} + lifted ${lease.produced} ≠ ${lease.originalReserves} bbl`);
+      }
+      if (lease.wells.length > lease.maxWells) fail(`${lease.leaseId} has ${lease.wells.length} wells, over its ${lease.maxWells}`);
+    }
+    if (Math.abs(field.extractionCapacity - capacityOf(field.leases)) > 1e-6) {
+      fail(`${a.agentId} pumps ${field.extractionCapacity} but its wells make ${capacityOf(field.leases)} bbl/day`);
+    }
   }
 }
 

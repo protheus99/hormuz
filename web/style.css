@@ -267,3 +267,12 @@ details { margin-top: 6px; font-size: 12px; color: var(--text-2); }
 
 /* Answering is the end of the interruption: the clock is offered straight back. */
 .continue { display: block; width: 100%; margin-top: 10px; padding: 10px; font-size: 15px; font-weight: 600; }
+
+/* ── The well board: one square a well, colour-coded by what it is doing (spec 12A.3) ── */
+.wells { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
+.well { width: 16px; height: 22px; border-radius: 3px; border: 1px solid var(--line); background: var(--panel-2); }
+.well.PUMPING { background: var(--good); border-color: var(--good); }
+.well.MAINTENANCE { background: var(--warn); border-color: var(--warn); }
+.well.DOWN { background: var(--bad); border-color: var(--bad); }
+.well.DRILLING { background: var(--accent-soft); border-color: var(--accent); }
+.well.SLOT { background: transparent; border-style: dashed; }

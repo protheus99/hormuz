@@ -8,6 +8,7 @@ import { FeeKind, GRADES, type Grade } from './enums';
 import { productValue, recordFee, sellToSink, YIELDS, type FeeLedger, type RetailSink } from './economics';
 import type { IntegratedMajor, PlantState, Producer, Refiner, Tick, WellState } from './model';
 import { nextFloat, type Rng } from './rng';
+import { capacityOf, declineWells, leaseCapacity, liftFrom } from './leases';
 
 /**
  * The share of capacity a refinery can run at today (spec §4.9): zero when offline or broken down,
@@ -115,8 +116,20 @@ export function extract(company: Producer | IntegratedMajor, ledger: FeeLedger, 
     well.rampTicksRemaining -= 1;
   }
   const free = Math.max(0, well.storageCapacity - well.storage - well.storageEscrow);
+  // One draw for the company, not one a well: averaging a dozen wells would quietly cancel the
+  // day-to-day swing the field is supposed to have (D48).
   const swing = 1 + config.EXTRACTION_SPREAD * (2 * nextFloat(rng) - 1);
-  const barrels = Math.min(well.extractionCapacity * well.extractionRate * ramp * swing, free);
+  const wanted = Math.min(well.extractionCapacity * well.extractionRate * ramp * swing, free);
+  // Oil comes out of the ground a lease at a time, and a lease can run out (§12A.2).
+  let barrels = 0;
+  let left = wanted;
+  for (const lease of well.leases) {
+    if (left <= 0) break;
+    const share = capacityOf(well.leases) > 0 ? (leaseCapacity(lease) / capacityOf(well.leases)) * wanted : 0;
+    const lifted = liftFrom(lease, Math.min(share, left));
+    barrels += lifted;
+    left -= lifted;
+  }
   const cost = barrels * actualCost(company);
   well.storage += barrels;
   company.cash -= cost;
@@ -127,7 +140,17 @@ export function extract(company: Producer | IntegratedMajor, ledger: FeeLedger, 
 /** Field decline (spec §4.8, §6.5): capacity falls by the region's DECLINE_RATE each tick. */
 export function applyDecline(company: Producer | IntegratedMajor, config: Config): void {
   const well = wellOf(company) as WellState;
-  well.extractionCapacity *= 1 - config.DECLINE_RATE[REGIONS[company.region].declineClass];
+  for (const lease of well.leases) declineWells(lease, config.DECLINE_RATE[REGIONS[company.region].declineClass]);
+  refreshCapacity(well);
+}
+
+/**
+ * `extractionCapacity` is what every rule above the engine reads as the size of a field, and it is
+ * now the sum of what the pumping wells make. Recomputing it here keeps those rules untouched.
+ */
+export function refreshCapacity(well: WellState): void {
+  well.extractionCapacity = capacityOf(well.leases);
+  if (well.extractionCapacity > well.peakCapacity) well.peakCapacity = well.extractionCapacity;
 }
 
 /**

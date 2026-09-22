@@ -10,6 +10,7 @@ import type { PlantState } from '../engine/model';
 import { ChokepointStatus, type Grade, type Product } from '../engine/enums';
 import type { AgentId, CompanySettings, DealId } from '../engine/model';
 import { barrelsHeld, netWorth, type TickReport, type World } from '../engine/world';
+import { leaseCapacity } from '../engine/leases';
 import type { FeeKind } from '../engine/enums';
 import type { Alert } from './alerts';
 import type { Card, CardType } from './cards/types';
@@ -67,11 +68,31 @@ export interface OwnCompanyView {
     readonly outputRate: number; readonly shutIn: boolean;
     /** The best this field ever managed. Fields decline, and the "running dry" card compares to it. */
     readonly peakCapacity: number;
+    /** The ground this company drills (spec §12A). Reserves are never among what is sent. */
+    readonly leases: readonly LeaseView[];
   };
   readonly plant: null | PlantView;
   /** Every refinery the company runs: one, or two once it builds a second site (D34). */
   readonly sites: readonly PlantView[];
   readonly hubs: readonly { readonly region: RegionName; readonly capacity: number; readonly stock: Readonly<Record<Grade, number>> }[];
+}
+
+/**
+ * A lease as a player may see it (spec §12A.2): its published band, its wells and their states. The
+ * barrels left in the ground are engine-only and are deliberately absent from this shape, so no
+ * screen can show them and no save of a view can leak them.
+ */
+export interface LeaseView {
+  readonly id: string;
+  readonly name: string;
+  readonly region: RegionName;
+  readonly grade: Grade;
+  readonly band: 'LOW' | 'MEDIUM' | 'HIGH';
+  readonly maxWells: number;
+  /** Each well, in the order they were drilled, as what it makes and what it is doing. */
+  readonly wells: readonly { readonly id: string; readonly rate: number; readonly status: string; readonly daysLeft: number }[];
+  /** What those wells make a day between them, right now. */
+  readonly capacity: number;
 }
 
 export interface PlantView {
@@ -144,6 +165,11 @@ export function buildPlayerView(
     well: well ? {
       grade: well.grade, capacity: well.extractionCapacity, storage: well.storage, storageCapacity: well.storageCapacity,
       outputRate: well.extractionRate, shutIn: well.shutIn, peakCapacity: well.peakCapacity,
+      leases: well.leases.map((l) => ({
+        id: String(l.leaseId), name: l.name, region: l.region, grade: l.grade, band: l.band, maxWells: l.maxWells,
+        wells: l.wells.map((x) => ({ id: String(x.wellId), rate: x.rate, status: x.status, daysLeft: x.ticksRemaining })),
+        capacity: leaseCapacity(l),
+      })),
     } : null,
     plant: plant ? siteView(plant) : null,
     sites: plantsOf(me).map(siteView),

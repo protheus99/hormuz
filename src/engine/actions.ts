@@ -3,7 +3,8 @@
 // engine keeps no card logic — detectors, text and projections live in the game layer — only what
 // each action does to the world and what it costs.
 
-import { internalTransfer, startMaintenance } from './agents';
+import { internalTransfer, refreshCapacity, startMaintenance } from './agents';
+import { addWells } from './leases';
 import { charterCost, newCharter } from './charters';
 import {
   acceptedGrades, averageCost, CLOSED_TO_NEW_REFINING, integrate, integrationPlant, plantAt, plantCost, plantOf, plantsOf, secondPlant, secondPlantSpec, total, wellOf,
@@ -458,12 +459,18 @@ function complete(w: World, a: Agent, p: CapitalProject, cfg: Config): void {
   // Works finish at the site they were started for: a refiner's second refinery grows too (D34).
   const plant = plantAt(a, p.region) ?? plantOf(a);
   switch (p.kind) {
-    case 'DRILL':
-      if (well) {
-        well.extractionCapacity = Math.min(well.fieldMaxCapacity, well.extractionCapacity + cfg.DRILL_STEP * p.steps);
-        well.peakCapacity = Math.max(well.peakCapacity, well.extractionCapacity);
+    case 'DRILL': {
+      // The barrels a day a drilling programme used to add straight to a field now arrive as wells
+      // on a lease (§12A.3). The field's own ceiling still applies until stage 2 replaces it with
+      // the lease's.
+      const lease = well?.leases[0];
+      if (well && lease) {
+        const room = Math.max(0, well.fieldMaxCapacity - well.extractionCapacity);
+        addWells(lease, p.steps, Math.min(cfg.DRILL_STEP * p.steps, room));
+        refreshCapacity(well);
       }
       return;
+    }
     case 'STORAGE':
       if (well) well.storageCapacity += cfg.STORAGE_STEP * p.steps;
       else if (plant) plant.crudeStorageCapacity += cfg.STORAGE_STEP * p.steps;

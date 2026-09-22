@@ -21,12 +21,16 @@ export type OrderId = Brand<string, 'OrderId'>;
 export type DealId = Brand<string, 'DealId'>;
 export type CargoId = Brand<string, 'CargoId'>;
 export type CharterId = Brand<string, 'CharterId'>;
+export type LeaseId = Brand<string, 'LeaseId'>;
+export type WellId = Brand<string, 'WellId'>;
 export type EdgeId = Brand<string, 'EdgeId'>;
 
 export const asAgentId = (id: string): AgentId => id as AgentId;
 export const asDealId = (id: string): DealId => id as DealId;
 export const asCargoId = (id: string): CargoId => id as CargoId;
 export const asCharterId = (id: string): CharterId => id as CharterId;
+export const asLeaseId = (id: string): LeaseId => id as LeaseId;
+export const asWellId = (id: string): WellId => id as WellId;
 export const asEdgeId = (id: string): EdgeId => id as EdgeId;
 
 /**
@@ -160,8 +164,13 @@ interface CompanyBase {
 /** Wells and their storage (spec §4.8). */
 export interface WellState {
   readonly grade: Grade;
-  /** bbl/day. */
+  /**
+   * bbl/day. Derived: the sum of what this company's pumping wells make today (§12A.2). Every rule
+   * that reads a field's size still reads this, so leases changed nothing above the engine.
+   */
   extractionCapacity: number;
+  /** The ground this company may drill. One lease until it buys another (§12A.4). */
+  leases: Lease[];
   fieldMaxCapacity: number;
   /** $/bbl before the region's labor index. */
   readonly baseExtractionCost: number;
@@ -234,6 +243,64 @@ export interface Refiner extends CompanyBase, PlantState {
   readonly kind: typeof AgentKind.REFINER;
   /** A second refinery in another refining region, sharing this company's wallet (D34). */
   second: PlantState | null;
+}
+
+
+// ─── Leases and wells (spec §12A) ────────────────────────────────────────────────────────────────
+
+/**
+ * What the player is told about a lease's size. The barrels themselves are engine-only: the band is
+ * set when the lease is surveyed and never revised, so nothing on screen can leak the true figure.
+ */
+export const LeaseBand = { LOW: 'LOW', MEDIUM: 'MEDIUM', HIGH: 'HIGH' } as const;
+export type LeaseBand = (typeof LeaseBand)[keyof typeof LeaseBand];
+
+/** A well's state. The engine runs these; the player sees them and answers cards (§12A.3). */
+export const WellStatus = { PUMPING: 'PUMPING', DOWN: 'DOWN', MAINTENANCE: 'MAINTENANCE', DRILLING: 'DRILLING' } as const;
+export type WellStatus = (typeof WellStatus)[keyof typeof WellStatus];
+
+export interface Well {
+  readonly wellId: WellId;
+  /** What it made a day when it was new, before decline. */
+  readonly initialRate: number;
+  /** What it makes a day now. */
+  rate: number;
+  /** Barrels this well has lifted in its life. */
+  cumulative: number;
+  status: WellStatus;
+  /** Days left of whatever it is doing, for every status but PUMPING. */
+  ticksRemaining: number;
+  daysSinceMaintenance: number;
+}
+
+/**
+ * Ground a producer has the right to drill (spec §12A.2). Reserves are finite and drawn down by
+ * pumping; `band` is all the player is ever shown. The attributes are capacity multipliers only.
+ */
+export interface Lease {
+  readonly leaseId: LeaseId;
+  /** Shown to the player, e.g. "Block 7, Midland County". */
+  readonly name: string;
+  readonly region: RegionName;
+  readonly grade: Grade;
+  /** Engine-only. Barrels still to be lifted. */
+  reserves: number;
+  /** Engine-only. What it held when it was first drilled, for the conservation invariant. */
+  readonly originalReserves: number;
+  /** Engine-only. Everything its wells have ever lifted. */
+  produced: number;
+  /** The published survey: LOW, MEDIUM or HIGH (§12A.2). */
+  readonly band: LeaseBand;
+  maxWells: number;
+  /** Capacity multipliers (§12A.2): each is 1 when the lease does not allow the technique. */
+  readonly frackingFactor: number;
+  readonly horizontalFactor: number;
+  readonly waterFactor: number;
+  /** $/bbl before the region's labour index, as `baseExtractionCost` was. */
+  readonly baseExtractionCost: number;
+  /** What the company paid for it; this is all a lease is worth on the books (§12A.2). */
+  readonly acquiredFor: number;
+  wells: Well[];
 }
 
 /** A producer that also owns a refinery in the same region, with one shared wallet (spec §4.10). */
