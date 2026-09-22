@@ -30,6 +30,12 @@ its regulators, not to any programme about it.
 - **The payoff is Enron-shaped.** Cutting the corner usually pays, sometimes for years. What builds
   is hidden **exposure**, which never washes off, costs a little every day, and buys a reckoning that
   scales with everything taken.
+- **The reckoning takes what the corner was protecting**, not money. A fine is a line item at any
+  size — measured, $1M of exposure carried three years cost 1.3% of what a producer earns, and a
+  third of the time nothing at all. So each entry on the record carries what it was for, and the
+  reckoning reads it: the lease you kept pumping is shut, the block you cheated for is forfeited
+  with its oil, the credit line you lied to is withdrawn. Each scenario below therefore names **what
+  it puts at risk**, which is the part that has to be right for the card to work.
 - **Told plainly.** No dramatisation, no lecture. Consequences are reported as facts.
 - **Rare.** Never two in quick succession. A deck this size is a career's worth, not a year's.
 

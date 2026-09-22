@@ -1245,8 +1245,35 @@ Cards where no answer is clean, and the meters must not answer the question.
   Exposure applies a constant quiet drag — insurance, inspections, partners slower to deal — so
   there is always a cost. It also raises the odds and the size of a reckoning that scales with
   everything accumulated. Cheat once and pay a little, late; build a career on it and be far ahead
-  for years, then face something that ends you. A scenario that ends before the reckoning tells the
-  player in its epilogue what happened afterwards.
+  for years, then face something that ends you.
+
+- **Money cannot be the punishment** (measured 2026-09-22, and the owner's question that forced it).
+  Carrying $1M of exposure for three years cost $792K on average, and in 132 runs of 400 it was never
+  caught at all — against a player producer's $60M over the same three years, that is 1.3% and often
+  nothing. A fine is a line item however large it is made, because a rich company absorbs it and
+  scaling it to wealth only turns it into a tax. What hurts is losing what money cannot quickly
+  replace.
+
+- **A reckoning takes the thing you were protecting** (the owner's choice). Consequences in kind:
+  skip a service to keep pumping through a price spike and *that lease* is shut; buy the survey to
+  win a block and *that block* is forfeited with the oil still under it; overstate reserves to the
+  bank and *the credit line* goes. Every entry on the record therefore carries what it was for, and
+  the reckoning reads it. A punishment tied to its own corner is remembered; a fine is filed.
+
+- **It follows trouble.** The daily chance rises when cash is low, when prices have fallen and as a
+  scenario's deadline nears. The same expected cost, far more painful, and true to life —
+  investigations follow trouble because that is when people talk.
+
+- **But the pressure is hinted at** (the owner's amendment): a reckoning that arrives out of a clear
+  sky reads as arbitrary. As the record grows, and as trouble raises the odds, the world says so —
+  an insurer asking for maintenance records, a regulator wanting three years of flaring returns, a
+  journalist ringing people who used to work for you, word that a file has been opened. Hints are
+  alerts and news, never numbers: no meter, no gauge, nothing that can be read off. A player should
+  come to feel the weather change without ever being told the forecast.
+
+- **It can lose you the scenario, and the epilogue says so.** A reckoning in the closing weeks can
+  take a campaign target out of reach, and a scenario that ends before one arrives tells the player
+  what happened afterwards. That is the only stake a company sitting on cash genuinely respects.
 - **Tone:** plain and sober. A wellhead fire that kills two of the crew is told as that, without
   dramatisation. This deliberately extends the game past D32, whose faceless, non-violent wording
   governs the geopolitical events: safety against profit is the central ethical question of this
@@ -1767,6 +1794,7 @@ The free web version stays available after Steam launches. Schools mostly use Ch
 | 3.1 | 2026-09-18 | Closed the real-world framing decision as D32: real geography, fictional companies, faceless and non-violent event wording, coastline-only map. Renamed nine companies whose names matched or crowded real companies. Removed the refiner's "Buy an oilfield" card: only producers can become integrated. |
 | 3.2 | 2026-09-18 | Made every chokepoint a live risk: an event profile for each of the seven, deck rules, route cards that react to delays as well as tension, a campaign featuring six of the seven, verification runs S13–S17, and a property test that no single closure strands a region. |
 | 3.5 | 2026-09-19 | Phase 7 calibration: price discovery (bids climb towards value as tanks empty; unsold asks decay; closing offers published), refiners count the voyage in stock targets and tank space, credit lines, recoverable insolvency, AI output cuts, personality mixes, the global portfolio's cash and storage, and the D35 decisions. Global S0: markers about 78 / 71 / 63 in grade order on ~90% of days, no insolvencies. |
+| 4.6 | 2026-09-22 | Measured that a fine can never be the punishment (1.3% of three years' earnings, and a third of the time nothing), and settled the answer: consequences in kind, timed to follow trouble, hinted at as they build, and able to lose a scenario. |
 | 4.5 | 2026-09-22 | Ground is named for its region, and wells are serviced, fail and wait for a crew (stage 4's engine half). The cards that respond to it wait for the owner. |
 | 4.4 | 2026-09-22 | Phase 13 stage 3: the yearly sealed lease auction with bid levels rather than typed prices, operating rights per region, and the lease register. Operating in a second region is deferred to stage 3b. |
 | 4.3 | 2026-09-22 | Measured why nothing can lose money, and agreed the economics rebalance, company failure with replacement, and its timing after the lease system (§12A.8, D57). |
