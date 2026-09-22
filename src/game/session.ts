@@ -114,6 +114,9 @@ export class GameSession {
     const world = newGameWorld(settings);
     // In a game, operating decisions (maintenance, output cuts) are cards for every company (G4.6).
     world.cardsActive = true;
+    // A scenario's end is the engine's horizon: a reckoning falls harder on a company running out
+    // of time (§12A.6), and that is all the engine needs to know about campaigns.
+    world.horizon = (settings.lengthDays ?? null) as typeof world.horizon;
     const me = world.agents.find((a) => a.agentId === PLAYER_ID);
     if (sc && me) applySetup(world, sc, me);
     const regions = me?.kind === 'TRADER' ? me.offices : me ? [me.region] : [];

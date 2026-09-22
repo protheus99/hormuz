@@ -64,8 +64,14 @@ export interface Config {
     readonly DRAG: number;                 // share of exposure charged every day, quietly
     readonly CHANCE_PER_DOLLAR: number;    // odds a day that it catches up, per dollar of exposure
     readonly MAX_CHANCE: number;           // however much has piled up
-    readonly SETTLE: Range;                // share of the record one reckoning answers for
-    readonly PENALTY: number;              // what settling costs, as a multiple of what it settles
+    readonly PENALTY: number;              // what settling costs, as a multiple of the entry
+    readonly FORFEIT_ABOVE: number;        // an entry this large costs the ground, not a shutdown
+    readonly SHUT_TICKS: number;           // and a smaller one costs this many days of it
+    readonly TROUBLE: {                    // a reckoning follows trouble (§12A.6)
+      readonly CASH: number;               // how much worse the odds get with no cash to spare
+      readonly CLOSING: number;            // and as a scenario runs out
+      readonly CLOSING_DAYS: number;
+    };
   };
   readonly WELL: {                         // what goes wrong down a hole (§12A.3)
     readonly MAINT_INTERVAL: number;       // ticks between services
@@ -212,8 +218,9 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
   // A year of carrying $1M of exposure costs about $37K in drag and runs a 30% chance of a
   // reckoning, which would take between a fifth and two thirds of the record at twice its face.
   EXPOSURE: {
-    DRAG: 0.0001, CHANCE_PER_DOLLAR: 1e-9, MAX_CHANCE: 0.01,
-    SETTLE: { min: 0.2, max: 0.65 }, PENALTY: 2.0,
+    DRAG: 0.0001, CHANCE_PER_DOLLAR: 1e-9, MAX_CHANCE: 0.01, PENALTY: 2.0,
+    FORFEIT_ABOVE: 3_000_000, SHUT_TICKS: 40,
+    TROUBLE: { CASH: 3, CLOSING: 2, CLOSING_DAYS: 120 },
   },
   WELL: {
     MAINT_INTERVAL: 240, MAINT_TICKS: 3, MAINT_COST: 30,

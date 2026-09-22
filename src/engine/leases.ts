@@ -57,6 +57,7 @@ export function newLease(spec: LeaseSpec): Lease {
     produced: 0,
     lost: 0,
     serviceHoldUntil: 0 as Tick,
+    shutUntil: 0 as Tick,
     attempts: count,
     band: spec.band,
     maxWells,
@@ -258,9 +259,14 @@ export function destroyWell(lease: Lease, well: Well): number {
  * The player does not switch any of this: they see the board and answer cards about policy (§12A.3).
  */
 export function advanceWells(lease: Lease, owner: Agent, rng: Rng, ledger: FeeLedger, tick: Tick, cfg: Config): void {
+  // Ground shut by order pumps nothing, whatever state its wells are in (§12A.6). The wells keep
+  // their places; they are simply not allowed to work, and they do not deplete while they wait.
+  const shut = tick < lease.shutUntil;
   for (const well of lease.wells) {
     const roll = nextFloat(rng);
     if (well.status === WellStatus.SPENT) continue;
+    if (shut) { well.status = WellStatus.SHUT; continue; }
+    if (well.status === WellStatus.SHUT) { well.status = WellStatus.PUMPING; continue; }
     if (well.ticksRemaining > 0) {
       well.ticksRemaining -= 1;
       if (well.ticksRemaining === 0) {

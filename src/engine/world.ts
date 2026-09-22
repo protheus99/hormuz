@@ -106,6 +106,11 @@ export interface World {
   /** The lots on offer, from the day they are published to the day they are awarded (§12A.4). */
   auction: Auction | null;
   auctionSeq: number;
+  /**
+   * The day this world stops, if it stops. The engine knows nothing of scenarios or campaigns; it
+   * knows only that a reckoning falls harder on a company running out of time (§12A.6).
+   */
+  horizon: Tick | null;
   standingOrders: StandingOrder[];
   reservations: ReservationRecord[];
   /**
@@ -173,6 +178,7 @@ export function createWorld(s: WorldSettings): World {
     charterSeq: 0,
     auction: null,
     auctionSeq: 0,
+    horizon: null,
     standingOrders: [],
     reservations: [],
     cardsActive: false,
@@ -503,7 +509,7 @@ function chargeRunningCosts(w: World, tick: Tick): void {
       recordFee(w.ledger, { tick, agentId: a.agentId, kind: FeeKind.FIXED_COST, amount: fixed });
     }
     // What a company has coming to it costs a little every day, and may come due on any of them.
-    exposureDay(a, w.ledger, tick, cfg, w.rng.events);
+    exposureDay(a, w.ledger, tick, cfg, w.rng.events, w.horizon === null ? null : w.horizon - tick);
     if (a.kind === 'TRADER') {
       const offices = cfg.OFFICE_COST.PER_TICK * a.offices.length;
       a.cash -= offices;

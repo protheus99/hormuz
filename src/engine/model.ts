@@ -7,6 +7,7 @@ import type {
 import type { ChokepointName } from '../data/chokepoints';
 import type { NodeName } from '../data/nodes';
 import type { RegionName } from '../data/regions';
+import type { ExposureItem } from './exposure';
 
 export type { ChokepointName, NodeName, RegionName };
 
@@ -161,10 +162,10 @@ interface CompanyBase {
   insolvent: boolean;
   /**
    * Engine-only (§12A.6). What a company has coming to it for corners cut: never shown, never
-   * decaying on its own. It buys a quiet drag every day it stands, and a reckoning that scales with
-   * everything accumulated. Paying a reckoning settles what it punished and nothing more.
+   * decaying on its own. Each entry carries what it was protecting, so a reckoning can take that
+   * rather than merely charge for it — a fine is a line item at any size.
    */
-  exposure: number;
+  record: ExposureItem[];
 }
 
 /** Wells and their storage (spec §4.8). */
@@ -265,7 +266,11 @@ export const LeaseBand = { LOW: 'LOW', MEDIUM: 'MEDIUM', HIGH: 'HIGH' } as const
 export type LeaseBand = (typeof LeaseBand)[keyof typeof LeaseBand];
 
 /** A well's state. The engine runs these; the player sees them and answers cards (§12A.3). */
-export const WellStatus = { PUMPING: 'PUMPING', DOWN: 'DOWN', MAINTENANCE: 'MAINTENANCE', DRILLING: 'DRILLING', SPENT: 'SPENT' } as const;
+export const WellStatus = {
+  PUMPING: 'PUMPING', DOWN: 'DOWN', MAINTENANCE: 'MAINTENANCE', DRILLING: 'DRILLING', SPENT: 'SPENT',
+  /** Shut by order, not by anything wrong with the well (§12A.6). */
+  SHUT: 'SHUT',
+} as const;
 export type WellStatus = (typeof WellStatus)[keyof typeof WellStatus];
 
 export interface Well {
@@ -312,6 +317,8 @@ export interface Lease {
   lost: number;
   /** Services on this lease are held off until this day, at the player's word (§12A.3). */
   serviceHoldUntil: Tick;
+  /** Nothing is pumped here until this day: a regulator's doing, not the company's (§12A.6). */
+  shutUntil: Tick;
   /** Wells sunk here, dry ones included: the next one is likelier to miss (§12A.3). */
   attempts: number;
   /** The published survey: LOW, MEDIUM or HIGH (§12A.2). */
