@@ -1274,7 +1274,10 @@ Cards where no answer is clean, and the meters must not answer the question.
 - **There is a way out, at a price** (the owner's addition, 2026-09-22). A player can get out from
   under it before it lands: put the thing right, tell the regulator first, settle with whoever was
   wronged, run a compliance programme, insure, retain counsel. Three rules keep an escape from being
-  a free pass — it costs more than the corner saved, so cleaning up never beats doing it properly;
+  a free pass — it costs a *multiple* of what the corner saved rather than a margin over it, since
+  someone cutting corners in order to clean up later keeps the saving every time and pays only when
+  a hint reaches them (which needs `E > saving ÷ hint rate`, so more than 1.7× at the rate this deck
+  aims for: 1.2× before any hint, 2.5× at the first, 5× and counsel only once a file is opened);
   it gets dearer the longer it is left, which is the whole decision; and something always remains,
   because an escape turns a reckoning in kind into a cost in money and a residue on the record. This
   is also what makes the hints worth reading: a hint is the window, and the window closes. The six

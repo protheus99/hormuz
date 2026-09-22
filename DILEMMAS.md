@@ -232,13 +232,24 @@ merely ominous: a hint is the window, and the window closes.
 
 **Three rules that keep an escape from being a free pass:**
 
-1. **It costs more than the corner saved.** Cutting a corner and cleaning it up afterwards must never
-   beat doing it properly — an escape is a recovery, not a strategy. Close enough to be tempting,
-   dearer enough to be a mistake.
+1. **It costs a multiple of what the corner saved, not a margin over it.** A player who cuts corners
+   *planning* to clean up keeps the saving every time and pays only when a hint reaches them, so the
+   escape has to cost more than `saving ÷ hint rate` before that plan even breaks even — at a 60–70%
+   hint rate, more than 1.7×. The prices below are set well above that:
+
+   | Taken | Costs | Why |
+   |---|---|---|
+   | Before any hint | 1.2× the saving | Nobody does this, and it should be cheap if they do |
+   | At the first hint | 2.5× | The real decision, and already a bad bargain |
+   | At the last hint, file opened | 5×, and counsel only | Softens what is taken; nothing more is on offer |
+
+   At a 65% hint rate the wait-and-clean plan therefore costs about 2.3× what it saved, against 1×
+   for simply doing the job properly. It loses, and it loses obviously.
 2. **It gets dearer the longer it is left.** Early and cheap, late and ruinous. That is the whole
    decision.
 3. **Something always remains.** An escape converts a reckoning in kind into a cost in money and a
-   residue on the record. It never returns you to clean — "there should always be a cost".
+   residue of about a fifth on the record. It never returns you to clean — "there should always be a
+   cost".
 
 **E1. Put it right** · removes the entry it addresses
 Plug the wells you left, service the field you held back, clean the creek properly. Costs money and
@@ -284,6 +295,13 @@ the first cards, and add E3–E6 once the shape is proven.
 - **Whether refusing should ever cost.** Every dilemma above is safe to refuse. A deck where virtue
   is always free teaches its own lesson; **11**, **12**, **20** and **24** are the candidates for an
   honest answer that genuinely hurts.
-- **What an escape does to the temptation.** If escapes are reliable, a player may cut corners
-  *planning* to clean up — which is a real strategy in the world, and may be a fine thing to allow so
-  long as rule 1 holds and it loses money on average.
+- **What an escape does to the temptation** — settled 2026-09-22. A player may cut corners *planning*
+  to clean up. That is a real way of thinking and the game should not pretend otherwise; the answer
+  is to price it honestly rather than forbid it.
+
+  The arithmetic says what "honestly" has to mean. Someone playing that way keeps the saving every
+  time and pays an escape only when a hint reaches them in time — so if hints arrive in time `h` of
+  the time and the corner saved `S`, the plan only loses when `h × E > S`, which needs
+  `E > S ÷ h`. At the 60–70% hint rate this deck is aiming for, **an escape has to cost more than
+  1.7 times what the corner saved just to break even**, and rather more than that to be a plainly bad
+  idea.
