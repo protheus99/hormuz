@@ -1253,10 +1253,19 @@ Cards where no answer is clean, and the meters must not answer the question.
   industry, and a game that never asks it teaches something false.
 - **Rare.** A small deck, never two in quick succession. Every third card a crisis of conscience is
   melodrama.
-- **The deck itself is drafted in `DILEMMAS.md`** — twenty-eight scenarios across safety, the ground
-  and the people on it, the books, and information and influence, with what each one states as fact
-  and what the engine decides in secret. Six of them plug into machinery that already exists (the
-  auction, the licence, the lease, the credit line, the wells) and are the ones to build first.
+- **No dilemma may be a storyline from a television programme, or close to one** (the owner, 2026-09-22).
+  Thematic debt to a drama about the industry is fine; borrowed plot is not. The rule is kept by
+  construction: **every dilemma arises from a system this game already has** — leases and their
+  reserves, the sealed auction, operating licences, chokepoints and war-risk cover, charters, cargo
+  at sea, fixed-price deals, the credit line, the maintenance and workover machinery. A situation
+  that can only exist in a game with a Strait of Hormuz and a sealed lease round cannot be anybody
+  else's plot, and it has the better property of being playable rather than merely dramatic. Generic
+  hazards of the industry — a flare over its permit, a spill nobody wants to report — stay, because
+  they belong to the industry and its regulators rather than to any programme about it.
+- **The deck is drafted in `DILEMMAS.md`** — twenty-eight scenarios across the wells and their crews,
+  the ground and water, cargo and straits, and the books and the auction, with what each states as
+  fact and what the engine decides in secret. Six plug into machinery that already exists and are
+  the ones to build first.
 
 ### 12A.8 Why nothing can lose money, and what to do about it
 
