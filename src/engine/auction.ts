@@ -96,7 +96,7 @@ export function surveyLots(seq: number, cfg: Config, rng: Rng, agents: readonly 
     // worth a fight (§12A.4).
     const band = roll < 0.15 ? LeaseBand.HIGH : roll < 0.55 ? LeaseBand.MEDIUM : LeaseBand.LOW;
     const maxWells = cfg.AUCTION.WELLS.MIN + Math.floor(nextFloat(rng) * (cfg.AUCTION.WELLS.MAX - cfg.AUCTION.WELLS.MIN + 1));
-    const lotName = nameGround(used, Math.floor(nextFloat(rng) * 71) + seq * 3 + i);
+    const lotName = nameGround(used, Math.floor(nextFloat(rng) * 19) + seq * 3 + i, region);
     used.add(lotName);
     const lot: LeaseLot = {
       lotId: `lot-${seq}-${i + 1}`,

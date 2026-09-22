@@ -146,7 +146,7 @@ export class GameSession {
       for (const l of field.leases ?? []) named.add(l.name);
       if (field.leases !== undefined) return;
       const shape = leaseShapeFor(field.extractionCapacity);
-      const name = nameGround(named, index * 7);
+      const name = nameGround(named, index * 7, agent.region);
       named.add(name);
       field.leases = [newLease({
         id: `${agent.agentId}-L1`, name, region: agent.region,

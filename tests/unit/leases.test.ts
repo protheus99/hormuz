@@ -10,6 +10,7 @@ import type { Lease } from '../../src/engine/model';
 
 const leaseCapacityOf = (l: Lease) => capacityOf([l]);
 import { createWorld, step } from '../../src/engine/world';
+import { FIELD_NAMES } from '../../src/data/leasenames';
 import { DEFAULT_CONFIG } from '../../src/engine/config';
 import { rngFor } from '../../src/engine/rng';
 import { GameSession } from '../../src/game/session';
@@ -128,11 +129,27 @@ describe('naming ground (spec §12A.2)', () => {
     const w = createWorld({ seed: 'names', portfolio: GLOBAL_PORTFOLIO, personalityMix: 'EVEN' });
     // Past two auctions, so bought ground is in the count as well as the ground they started with.
     for (let d = 0; d < 400; d++) step(w);
-    const names = w.agents.flatMap((a) => (wellOf(a)?.leases ?? []).map((l) => l.name));
-    expect(names.length).toBeGreaterThan(20);
-    expect(new Set(names).size).toBe(names.length);
+    const blocks = w.agents.flatMap((a) => (wellOf(a)?.leases ?? []).map((l) => ({ name: l.name, region: l.region })));
+    expect(blocks.length).toBeGreaterThan(20);
+    expect(new Set(blocks.map((b) => b.name)).size).toBe(blocks.length);
     // And none of them is a number, which is what started this.
-    for (const n of names) expect(n).not.toMatch(/Block \d/);
+    for (const b of blocks) expect(b.name).not.toMatch(/Block \d/);
+    // Ground is named for where it is: a North Sea block does not sound like one off Campeche.
+    for (const b of blocks) expect(FIELD_NAMES[b.region] ?? []).toContain(b.name);
+  });
+
+  it('never hands two regions the same name, however many blocks a game sells', () => {
+    const seen = new Set<string>();
+    for (const [region, pool] of Object.entries(FIELD_NAMES)) {
+      expect(pool).toHaveLength(20);
+      for (const name of pool ?? []) {
+        expect(seen.has(name)).toBe(false);          // one name, one place
+        seen.add(name);
+        expect(name.trim()).toBe(name);
+      }
+      expect(region.length).toBeGreaterThan(0);
+    }
+    expect(seen.size).toBe(20 * Object.keys(FIELD_NAMES).length);
   });
 });
 

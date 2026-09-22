@@ -546,7 +546,7 @@ function nameAllGround(w: World): void {
   const used = new Set<string>();
   w.agents.forEach((agent, index) => {
     for (const lease of wellOf(agent)?.leases ?? []) {
-      const name = nameGround(used, index * 7);
+      const name = nameGround(used, index * 7, lease.region);
       used.add(name);
       lease.name = name;
     }
