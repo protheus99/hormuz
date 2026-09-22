@@ -19,7 +19,12 @@ Recommendations are marked **R**.
   manager's hunch in §12A.6 wants a well that is overdue and a specific number of days of output to
   lose, both of which the model can already say); and *what exposure is attached to* (a single
   hidden number, or one for safety that regulators watch and one for legal exposure that lawyers
-  do). The owner wants the dilemmas in quantity, so the deck is worth laying out before any of it is
+  do). A fourth, measured 2026-09-22: **an outage costs less than it looks**. A well that is not
+  pumping does not deplete, so the lease still holds exactly as much oil — the barrels are deferred,
+  not lost — and on any day the tank is the binding constraint, losing a well costs nothing at all.
+  If the safety dilemma is to bite, the cost has to come from the workover bill and the catastrophe
+  rather than from the production missed. The owner's call, to be taken during stage 4.
+  The owner wants the dilemmas in quantity, so the deck is worth laying out before any of it is
   written.
 
 - **Stage 5 is bigger than it looks: the AI grows through those same cards.** Moving the eleven
