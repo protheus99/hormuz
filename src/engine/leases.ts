@@ -238,7 +238,7 @@ export function advanceWells(lease: Lease, owner: Agent, rng: Rng, ledger: FeeLe
     if (well.daysSinceMaintenance >= cfg.WELL.MAINT_INTERVAL) {
       well.status = WellStatus.MAINTENANCE;
       well.ticksRemaining = cfg.WELL.MAINT_TICKS;
-      charge(owner, ledger, tick, FeeKind.MAINTENANCE, cfg.WELL.MAINT_COST * well.rate);
+      charge(owner, ledger, tick, FeeKind.WELL_SERVICE, cfg.WELL.MAINT_COST * well.rate);
       continue;
     }
     const hazard = wellHazard(well, cfg);
@@ -247,7 +247,7 @@ export function advanceWells(lease: Lease, owner: Agent, rng: Rng, ledger: FeeLe
       const { min, max } = cfg.WELL.WORKOVER_TICKS;
       well.status = WellStatus.DOWN;
       well.ticksRemaining = min + Math.min(max - min, Math.floor((roll / hazard) * (max - min + 1)));
-      charge(owner, ledger, tick, FeeKind.REPAIR, cfg.WELL.WORKOVER_COST * well.rate);
+      charge(owner, ledger, tick, FeeKind.WORKOVER, cfg.WELL.WORKOVER_COST * well.rate);
     }
   }
 }
