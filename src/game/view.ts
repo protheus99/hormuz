@@ -11,7 +11,7 @@ import { ChokepointStatus, type Grade, type Product } from '../engine/enums';
 import type { AgentId, CompanySettings, DealId } from '../engine/model';
 import { barrelsHeld, netWorth, type TickReport, type World } from '../engine/world';
 import { leaseCapacity } from '../engine/leases';
-import { leasableRegions, mayBid } from '../engine/auction';
+import { bidAmount, leasableRegions, mayBid, mayWork } from '../engine/auction';
 import { REGIONS } from '../data/regions';
 import type { FeeKind } from '../engine/enums';
 import type { Alert } from './alerts';
@@ -114,6 +114,26 @@ export interface RegionLeases {
   }[];
 }
 
+/** A lot at auction, as a bidder may see it: the survey, the levels, and your own sealed bid. */
+export interface LotView {
+  readonly id: string;
+  readonly name: string;
+  readonly region: RegionName;
+  readonly displayName: string;
+  readonly grade: Grade;
+  readonly band: 'LOW' | 'MEDIUM' | 'HIGH';
+  readonly slots: number;
+  /** Whether this company could work the ground at all, and why not when it could not. */
+  readonly canWork: boolean;
+  readonly why: string;
+  readonly strong: number;
+  readonly steady: number;
+  readonly reserve: number;
+  /** What this company has offered, or null. Nobody else's bid is ever shown.  */
+  readonly myBid: number | null;
+  readonly daysLeft: number;
+}
+
 export interface PlantView {
   readonly region: RegionName;
   readonly techTier: number;
@@ -139,6 +159,8 @@ export interface PlayerView {
   readonly days: readonly DayLog[];
   /** Who holds which ground, region by region (spec §12A.4). Empty for companies that do not drill. */
   readonly register: readonly RegionLeases[];
+  /** Ground up for auction right now, with what a bid would cost. Empty between auctions. */
+  readonly lots: readonly LotView[];
   readonly chokepoints: readonly {
     readonly name: ChokepointName; readonly displayName: string; readonly status: ChokepointStatus;
     /** War-risk cover charged on every barrel crossing today, and days added to the crossing. */
@@ -216,6 +238,7 @@ export function buildPlayerView(
     history,
     days,
     register: leaseRegister(w, playerId),
+    lots: lotsFor(w, playerId),
     chokepoints: (Object.keys(CHOKEPOINTS) as ChokepointName[]).map((c) => {
       const cp = w.graph.chokepoints[c];
       const tense = cp.status === ChokepointStatus.TENSION || cp.status === ChokepointStatus.DELAYED;
@@ -354,6 +377,36 @@ export function dayLog(w: World, playerId: AgentId, report: TickReport): DayLog 
     stock: me === undefined ? 0 : barrelsHeld([me], w.cargo.filter((c) => c.ownerId === playerId)),
     cash: me?.cash ?? 0,
   };
+}
+
+/** The lots on offer, with this company's own bid. Rival bids are sealed and never sent. */
+function lotsFor(w: World, playerId: AgentId): LotView[] {
+  const me = w.agents.find((a) => a.agentId === playerId);
+  const field = me === undefined ? undefined : wellOf(me);
+  const auction = w.auction;
+  if (auction === null || me === undefined || field === undefined) return [];
+  return auction.lots.map((lot) => {
+    const canWork = mayWork(me, lot);
+    const wrongGrade = lot.grade !== field.grade;
+    return {
+      id: lot.lotId,
+      name: lot.name,
+      region: lot.region,
+      displayName: REGIONS[lot.region].displayName,
+      grade: lot.grade,
+      band: lot.band,
+      slots: lot.maxWells,
+      canWork,
+      why: canWork ? ''
+        : wrongGrade ? `Your wells produce ${String(field.grade).toLowerCase().replace('_', ' ')}, not ${String(lot.grade).toLowerCase().replace('_', ' ')}`
+        : `You ship from ${REGIONS[me.region].displayName}, and crude cannot be sold from anywhere else`,
+      strong: bidAmount(lot, me, w.config, 'STRONG'),
+      steady: bidAmount(lot, me, w.config, 'STEADY'),
+      reserve: lot.reserve,
+      myBid: lot.bids.find((b) => b.agentId === playerId)?.amount ?? null,
+      daysLeft: Math.max(0, auction.tick - w.tick),
+    };
+  });
 }
 
 /** The register, built from every company's ground. Reserves and well counts are left out. */

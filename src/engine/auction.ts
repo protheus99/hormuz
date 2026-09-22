@@ -110,6 +110,15 @@ export function surveyLots(seq: number, cfg: Config, rng: Rng, agents: readonly 
   return lots;
 }
 
+/** What a company would offer at each level. The player picks a level, never a number (G4.3). */
+export type BidLevel = 'STRONG' | 'STEADY' | 'NONE';
+
+export function bidAmount(lot: LeaseLot, agent: Agent, cfg: Config, level: BidLevel): number {
+  if (level === 'NONE') return 0;
+  const share = level === 'STRONG' ? cfg.AUCTION.STRONG_SHARE : cfg.AUCTION.STEADY_SHARE;
+  return Math.min(share * baseWorth(lot, cfg), Math.max(0, agent.cash - agent.cashReserved));
+}
+
 /** Records a bid, replacing anything that company had already offered for the lot. */
 export function placeBid(lot: LeaseLot, agentId: AgentId, amount: number): void {
   lot.bids = lot.bids.filter((b) => b.agentId !== agentId);

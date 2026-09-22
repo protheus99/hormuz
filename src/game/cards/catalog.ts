@@ -9,13 +9,13 @@ import { REGIONS, type RegionName } from '../../data/regions';
 import { leaseRate, leaseRegions, OFFICE_HUB_CAPACITY, projectCost, type Action } from '../../engine/actions';
 import { actualCost, effectiveUtilization, fillRatio } from '../../engine/agents';
 import { previousClose, referencePrice } from '../../engine/clearing';
-import { acceptedGrades, availableCash, averageCost, CLOSED_TO_NEW_REFINING, integrationPlant, plantOf, plantsOf, total, wellOf } from '../../engine/companies';
+import { acceptedGrades, averageCost, CLOSED_TO_NEW_REFINING, integrationPlant, plantOf, plantsOf, total, wellOf } from '../../engine/companies';
 import { configFor } from '../../engine/config';
 import { priceDeal, signDeal, type DealTerms } from '../../engine/deals';
 import type { Grade } from '../../engine/enums';
 import type { Agent, AgentId, Deal, PlantState, Producer, Tick } from '../../engine/model';
 import { refinerQuote, type MarketView } from '../../engine/rules';
-import { baseWorth, mayWork } from '../../engine/auction';
+import { bidAmount, mayWork } from '../../engine/auction';
 import { bestLeaseToDrill } from '../../engine/leases';
 import { avoidFor, findRoute, LaneRouteProvider } from '../../engine/transport';
 import { netWorth, type World } from '../../engine/world';
@@ -326,25 +326,25 @@ export const CATALOG: readonly CardDef[] = [
       if (auction === null) return null;
       const lot = auction.lots.find((l) => mayWork(me, l) && !l.bids.some((b) => b.agentId === me.agentId));
       if (lot === undefined) return null;
-      const worth = baseWorth(lot, w.config);
       return {
         key: `auction-${lot.lotId}`,
         deadline: (auction.tick - 1) as Tick,
         data: {
           lot: lot.name, band: BAND_WORDS[lot.band] ?? 'unsurveyed', slots: lot.maxWells, lotId: lot.lotId,
-          strong: money(w.config.AUCTION.STRONG_SHARE * worth), steady: money(w.config.AUCTION.STEADY_SHARE * worth),
+          strong: money(bidAmount(lot, me, w.config, 'STRONG')), steady: money(bidAmount(lot, me, w.config, 'STEADY')),
           reserve: money(lot.reserve),
         },
       };
     },
     options: ({ w, me }, s) => {
+      // The same figures the register's buttons offer, from the same function, so a card and a
+      // button can never quote different prices for the same ground.
       const lotId = String(s.data.lotId);
       const lot = w.auction?.lots.find((l) => l.lotId === lotId);
-      const worth = lot === undefined ? 0 : baseWorth(lot, w.config);
-      const afford = (amount: number) => Math.min(amount, availableCash(me));
+      const at = (level: 'STRONG' | 'STEADY') => (lot === undefined ? 0 : bidAmount(lot, me, w.config, level));
       return {
-        yes: { actions: [{ kind: 'BID_LEASE', lotId, amount: afford(w.config.AUCTION.STRONG_SHARE * worth) }] },
-        maybe: { actions: [{ kind: 'BID_LEASE', lotId, amount: afford(w.config.AUCTION.STEADY_SHARE * worth) }] },
+        yes: { actions: [{ kind: 'BID_LEASE', lotId, amount: at('STRONG') }] },
+        maybe: { actions: [{ kind: 'BID_LEASE', lotId, amount: at('STEADY') }] },
       };
     },
   },

@@ -347,6 +347,23 @@ const LEASING_WORDS: Readonly<Record<string, string>> = {
 export function leasesPanel(view: PlayerView): Html {
   const held = view.register.flatMap((r) => r.blocks.filter((b) => b.mine)).length;
   return html`
+    ${view.lots.length === 0 ? '' : html`<h3>Up for auction</h3>
+      <p class="small muted">Bids are sealed: nobody sees anyone else's, and you may change or
+        withdraw yours until the day of the sale. Bidding strong beats the keenest rival and pays
+        for the privilege; bidding steady wins only if the others are shy.</p>
+      <table class="lots">
+        ${view.lots.map((l) => html`<tr>
+          <td><strong>${l.name}</strong>
+            <div class="small muted">${l.displayName} · ${BAND_WORDS[l.band] ?? l.band} · ${l.slots} slots · ${words(l.grade)} · ${l.daysLeft === 0 ? 'sold today' : `${l.daysLeft} days to decide`}</div>
+            ${l.canWork ? '' : html`<div class="small muted">${l.why}</div>`}
+            ${l.myBid === null ? '' : html`<div class="small good">Your bid: ${money(l.myBid)}</div>`}</td>
+          <td class="num">${l.canWork ? html`
+            <button class="btn ${l.myBid !== null && l.myBid >= l.strong ? 'active' : ''}" data-bid="${l.id}" data-level="STRONG">Bid strong ${money(l.strong)}</button>
+            <button class="btn ${l.myBid !== null && l.myBid < l.strong ? 'active' : ''}" data-bid="${l.id}" data-level="STEADY">Bid steady ${money(l.steady)}</button>
+            ${l.myBid === null ? '' : html`<button class="btn" data-bid="${l.id}" data-level="NONE">Withdraw</button>`}` : html`<span class="small muted">not for you</span>`}</td>
+        </tr>`)}
+      </table>
+      <h3 style="margin-top:14px">The register</h3>`}
     <p class="small">You hold ${held === 1 ? 'one block' : `${held} blocks`}. Ground changes hands
       once a year: bids are sealed, everyone gets one, and the highest takes it. What a survey calls
       it is all anyone is told — the barrels underneath are nobody's business but the owner's.</p>

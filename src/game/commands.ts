@@ -7,12 +7,15 @@ import {
 } from '../engine/enums';
 import type { AgentId, CompanySettings } from '../engine/model';
 import type { World } from '../engine/world';
+import { bidAmount, mayWork, placeBid, type BidLevel } from '../engine/auction';
 import { answer, answerProblem, openOpportunity, type AdvisorState } from './cards/advisor';
 import type { Choice } from './cards/types';
 
 export type Command =
   | { readonly kind: 'SET_SETTING'; readonly setting: keyof CompanySettings; readonly value: string }
-  | { readonly kind: 'ANSWER_CARD'; readonly cardId: string; readonly choice: Choice };
+  | { readonly kind: 'ANSWER_CARD'; readonly cardId: string; readonly choice: Choice }
+  /** A sealed bid on a lot at auction, placed from the lease register (§12A.4). */
+  | { readonly kind: 'BID_LEASE'; readonly lotId: string; readonly level: BidLevel };
 
 /** A command as the replay log stores it: who, what, and the tick it applies at. */
 export interface LoggedCommand {
@@ -57,6 +60,15 @@ export function rejectReason(w: World, playerId: AgentId, command: Command, advi
     }
     case 'ANSWER_CARD':
       return answerProblem(advisor, playerId, command.cardId, command.choice);
+    case 'BID_LEASE': {
+      const lot = w.auction?.lots.find((l) => l.lotId === command.lotId);
+      if (lot === undefined) return 'That ground is no longer up for auction';
+      if (!mayWork(company, lot)) return `${company.name} could not work ${lot.name}`;
+      if (command.level !== 'NONE' && bidAmount(lot, company, w.config, command.level) < lot.reserve) {
+        return `A ${command.level.toLowerCase()} bid would not meet the reserve on ${lot.name}`;
+      }
+      return null;
+    }
   }
 }
 
@@ -64,16 +76,27 @@ export function rejectReason(w: World, playerId: AgentId, command: Command, advi
 export function applyCommand(w: World, entry: LoggedCommand, advisor: AdvisorState): string[] {
   const company = w.agents.find((a) => a.agentId === entry.playerId);
   if (company === undefined) return [];
-  switch (entry.command.kind) {
+  // A local binding, so the compiler narrows the union inside each case.
+  const command = entry.command;
+  switch (command.kind) {
     case 'SET_SETTING':
-      company.settings = { ...company.settings, [entry.command.setting]: entry.command.value };
+      company.settings = { ...company.settings, [command.setting]: command.value };
       return [];
+    case 'BID_LEASE': {
+      // Sealed: it is recorded and nothing else happens until the lot is awarded (§12A.4). Bidding
+      // again replaces the earlier offer, and NONE withdraws it.
+      const lot = w.auction?.lots.find((l) => l.lotId === command.lotId);
+      if (lot !== undefined && mayWork(company, lot)) {
+        placeBid(lot, company.agentId, bidAmount(lot, company, w.config, command.level));
+      }
+      return [];
+    }
     case 'ANSWER_CARD': {
       // An Opportunity is rebuilt from the world as it stands, so a replay (which never opened it)
       // answers exactly the card the player saw.
-      const opp = /^opp:[^:]+:(\w+)$/.exec(entry.command.cardId);
+      const opp = /^opp:[^:]+:(\w+)$/.exec(command.cardId);
       if (opp) openOpportunity(w, advisor, company, opp[1] as Parameters<typeof openOpportunity>[3]);
-      return answer(w, advisor, entry.playerId, entry.command.cardId, entry.command.choice);
+      return answer(w, advisor, entry.playerId, command.cardId, command.choice);
     }
   }
 }

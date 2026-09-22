@@ -1177,7 +1177,7 @@ Middle East is National, so nobody can bid there, and §11's constraint that Gul
 above local refining holds by rule. It also gives P3 "Gulf Giant" its shape — you are the state
 company, nobody can bid against you, and you cannot buy more at home either.
 
-**The auction** runs yearly. Three lots come up with their band and slots published, drawn where the
+**The auction** runs twice a year. Three lots come up with their band and slots published, drawn where the
 industry already is so that every one has somebody who could work it — and the player's own region is
 always among them, since a round it could never enter is no round. Every producer that could work a
 lot bids sealed and once; the highest takes it, subject to a reserve of 35% of worth and to nobody
@@ -1188,8 +1188,25 @@ the privilege, or **bid steady** at 0.75×, which wins only when the field is sh
 decision.
 
 A company cannot afford a block's reserve on its first day and can afford a whole one by the first
-auction a year later, which is the intended shape: the auction is a decision about money you have
-made, not money you started with.
+auction, which is the intended shape: the auction is a decision about money you have made, not money
+you started with.
+
+**Bidding does not need a card.** The register lists what is on offer with a button for each level,
+and a bid can be changed or withdrawn until the day of the sale. `BID_LEASE` is a command in its own
+right, so the card that announces a round is a notice and a shortcut, not the only door — which is
+what D54 asks for, and what lets a player bid on more than the one lot a card happens to raise.
+Both routes price a bid through the same function, so they can never disagree.
+
+**Why twice a year.** At a yearly round the only award in a 365-day scenario fell on its last day,
+too late to drill what had just been bought: the auction existed and no campaign could reach it.
+Twice a year gives P2 and P3 one usable round each and the finale five. Calibration holds — first
+halt 62, 82 and 82 across the three seeds, utilisation 76–79%, nobody insolvent.
+
+**The finale's measure now works against growth.** It ranks on profit per barrel of capacity, and
+capacity is something you buy. A company that takes new ground and drills it ranks *worse* for
+having grown: the meter-led bot fell from 1/3 to 0/3 on the finale as soon as auctions were within
+reach, while the producer scenarios rose. The measure wants replacing in the stage 6 retune — by
+absolute profit, or by what net worth did over the run.
 
 **Public in the lease register:** the region, its class, each lease's owner and its published band.
 Drilling results and remaining reserves stay private, as rivals' orders and deals already do.
@@ -1307,6 +1324,9 @@ it is that good and bad decisions both make money. Losses must stay avoidable by
    a drilling programme goes to whichever block has room and the most oil left. Regions carry their
    leasing class, so no lot is ever drawn on state-held ground. The bonus leaves the economy the way
    a tariff does, recorded as a `LEASE_BONUS` fee. Ground stands in net worth at what was paid.
+
+   Bidding is available from the register as well as from the card (D54), and a bid can be changed
+   or withdrawn until the sale.
 
    **Not yet, and deliberately: operating in a second region (stage 3b).** A producer sells one
    grade from one region — `sellableStock` throws for anything else — so a lot is only offered to a

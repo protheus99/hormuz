@@ -10,6 +10,12 @@ Recommendations are marked **R**.
 
 ## Noted during playtesting, to do before release
 
+- **The finale's measure works against growth.** It ranks on profit per barrel of capacity, and
+  capacity is now something you buy at auction. A company that takes new ground and drills it ranks
+  *worse* for having grown — the meter-led bot fell from 1/3 to 0/3 on the finale the moment
+  auctions came within reach, while every producer scenario got easier. Replace the measure in the
+  stage 6 retune: absolute profit, or what net worth did over the run. Found 2026-09-22.
+
 - **Daily reporting.** The engine keeps the day and will (D56), so the Activity tab is a list of
   days and nothing rolls those days up. Wanted: a reporting layer over the daily record — a day's
   own line, and the same figures gathered into months and years — so a player can read the business

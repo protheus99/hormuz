@@ -61,7 +61,7 @@ export interface Config {
   readonly FIXED_COST_RATE: { readonly PRODUCER: number; readonly REFINER: number };   // $ per bbl/day of capacity per tick
   readonly ABANDON_SHARE: number;          // a well is spent below this share of what it first made
   readonly AUCTION: {                      // the yearly lease auction (§12A.4)
-    readonly EVERY_TICKS: number;          // one a year
+    readonly EVERY_TICKS: number;          // twice a year
     readonly NOTICE_TICKS: number;         // lots are published this long before they are awarded
     readonly LOTS: number;                 // blocks on offer each time
     readonly WELLS: { readonly MIN: number; readonly MAX: number };   // slots on a lot
@@ -192,7 +192,9 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
   FIXED_COST_RATE: { PRODUCER: 2.00, REFINER: 4.00 },
   ABANDON_SHARE: 0.05,
   AUCTION: {
-    EVERY_TICKS: 365, NOTICE_TICKS: 30, LOTS: 3, WELLS: { MIN: 6, MAX: 12 },
+    // Twice a year. Yearly put the only award on the last day of every 365-day scenario, too late
+    // to drill what you had just bought, so the auction existed and no campaign could use it.
+    EVERY_TICKS: 180, NOTICE_TICKS: 30, LOTS: 3, WELLS: { MIN: 6, MAX: 12 },
     RESERVE_SHARE: 0.35, MAX_CASH_SHARE: 0.5, AI_BID: { MIN: 0.5, MAX: 1.2 },
     // Bidding strong clears the keenest rival, so it wins — and pays a third over the odds for the
     // privilege. Bidding steady wins only against a shy field. That is the decision (§12A.4).

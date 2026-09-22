@@ -283,3 +283,7 @@ details { margin-top: 6px; font-size: 12px; color: var(--text-2); }
 .register td, .register th { padding: 4px 8px; vertical-align: top; border-bottom: 1px solid var(--line); }
 .register tr.open td:first-child { font-weight: 600; }
 .register .mine { color: var(--accent); font-weight: 600; }
+
+.lots { width: 100%; }
+.lots td { padding: 6px 8px; vertical-align: top; border-bottom: 1px solid var(--line); }
+.lots .btn { margin: 0 0 4px 6px; }

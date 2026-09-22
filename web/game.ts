@@ -192,6 +192,12 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
         renderInbox();
         renderTop();
       });
+    } else if (d.bid !== undefined && d.level !== undefined) {
+      const level = d.level as 'STRONG' | 'STEADY' | 'NONE';
+      void session.submit(PLAYER_ID, { kind: 'BID_LEASE', lotId: d.bid, level }).then(async (r) => {
+        toast(r.ok ? (level === 'NONE' ? 'Bid withdrawn.' : 'Bid placed — sealed until the sale.') : r.reason);
+        await refresh();
+      });
     } else if (d.opp !== undefined) {
       // The card lands in the decisions column, so the sheet gets out of the way.
       sheet = null;
