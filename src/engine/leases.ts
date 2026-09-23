@@ -341,6 +341,11 @@ export function tanksFor(well: WellState, region: RegionName | null, grade: Grad
   return well.leases.filter((l) => (region === null || l.region === region) && (grade === null || l.grade === grade));
 }
 
+/** What it costs to lift a barrel here: this ground's own cost, at this region's wages (stage 3b). */
+export function costAt(lease: Lease, laborIndex: (region: RegionName) => number): number {
+  return lease.baseExtractionCost * laborIndex(lease.region);
+}
+
 /** What stands in those tanks, free to sell. */
 export function heldIn(leases: readonly Lease[]): number {
   return leases.reduce((sum, l) => sum + l.storage, 0);

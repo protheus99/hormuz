@@ -6,9 +6,9 @@ import type { Config } from './config';
 import { REGIONS } from '../data/regions';
 import { FeeKind, GRADES, type Grade } from './enums';
 import { productValue, recordFee, sellToSink, YIELDS, type FeeLedger, type RetailSink } from './economics';
-import type { IntegratedMajor, PlantState, Producer, Refiner, Tick, WellState } from './model';
+import type { IntegratedMajor, PlantState, Producer, Refiner, RegionName, Tick, WellState } from './model';
 import { nextFloat, type Rng } from './rng';
-import { capacityOf, depleteWells, drawFrom, heldIn, leaseCapacity, liftFrom, refreshStorage, roomAt, tanksFor } from './leases';
+import { capacityOf, costAt, depleteWells, drawFrom, heldIn, leaseCapacity, liftFrom, refreshStorage, roomAt, tanksFor } from './leases';
 
 /**
  * The share of capacity a refinery can run at today (spec §4.9): zero when offline or broken down,
@@ -93,9 +93,29 @@ export interface ExtractResult {
   readonly cost: number;
 }
 
-/** A producer's cash cost per barrel: base cost × the region's labor index (spec §4.8). */
+/** The region's wage level, as every cost that touches labour reads it. */
+export const labor = (region: RegionName): number => REGIONS[region].laborCostIndex;
+
+/** A producer's cash cost per barrel at home (spec §4.8); ground elsewhere costs what it costs there. */
 export function actualCost(company: Producer | IntegratedMajor): number {
-  return (wellOf(company) as WellState).baseExtractionCost * REGIONS[company.region].laborCostIndex;
+  return (wellOf(company) as WellState).baseExtractionCost * labor(company.region);
+}
+
+/**
+ * What it costs this company to lift a barrel that would load at this quay — the average across the
+ * ground it holds there, weighted by what each lease makes. Crude from a costlier region carries its
+ * own floor to market, which is the point of being able to work two of them (stage 3b).
+ */
+export function costFrom(well: WellState, region: RegionName, grade: Grade, fallback: number): number {
+  const here = tanksFor(well, region, grade);
+  let size = 0;
+  let cost = 0;
+  for (const lease of here) {
+    const weight = Math.max(leaseCapacity(lease), 1);
+    size += weight;
+    cost += weight * costAt(lease, labor);
+  }
+  return size > 0 ? cost / size : fallback;
 }
 
 /** Storage fill including barrels locked by today's asks (spec §4.8). */
@@ -127,14 +147,16 @@ export function extract(company: Producer | IntegratedMajor, ledger: FeeLedger, 
   // because there is nowhere else within reach to put the barrels (stage 3b).
   const all = capacityOf(well.leases);
   let barrels = 0;
+  let cost = 0;
   for (const lease of well.leases) {
     const share = all > 0 ? (leaseCapacity(lease) / all) * wanted : 0;
     const lifted = liftFrom(lease, Math.min(share, roomAt(well, lease)));
     lease.storage += lifted;
     barrels += lifted;
+    // Ground elsewhere costs what it costs there: its own base cost, at its own region's wages.
+    cost += lifted * costAt(lease, labor);
   }
   refreshStorage(well);
-  const cost = barrels * actualCost(company);
   company.cash -= cost;
   recordFee(ledger, { tick, agentId: company.agentId, kind: FeeKind.EXTRACTION, amount: cost });
   return { barrels, cost };

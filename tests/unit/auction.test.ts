@@ -37,15 +37,17 @@ describe('who may take ground where', () => {
     expect(mayBid(boreal!, 'Middle_East')).toBe(false);
   });
 
-  it('will not sell a company ground it could never ship from', () => {
+  it('sells a company ground in any region it may take ground in, of the crude it works', () => {
     const w = world();
     const boreal = w.agents.find((a) => a.name === 'Boreal Shale');
     const lot = surveyLots(1, DEFAULT_CONFIG, rngFor('lots', 'wells'), w.agents)[0];
     expect(lot).toBeDefined();
-    // A producer sells one grade from one region, so anything else is unworkable however open it is.
-    const elsewhere: LeaseLot = { ...lot!, region: 'Guyana_Suriname' };
+    // Since stage 3b a lease holds its own oil and sells from its own quay, so a second region is
+    // ground a producer can actually use — which is what a licence was always for.
+    const elsewhere: LeaseLot = { ...lot!, region: 'Guyana_Suriname', grade: 'LIGHT_SWEET' };
     expect(mayBid(boreal!, 'Guyana_Suriname')).toBe(true);
-    expect(mayWork(boreal!, elsewhere)).toBe(false);
+    expect(mayWork(boreal!, elsewhere)).toBe(true);
+    // A crude it is not set up for is still no use to it, wherever it lies.
     const wrongGrade: LeaseLot = { ...lot!, region: 'US_Permian', grade: 'HEAVY_SOUR' };
     expect(mayWork(boreal!, wrongGrade)).toBe(false);
   });

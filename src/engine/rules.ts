@@ -6,14 +6,16 @@
 // cleared yet. Every order is a whole number of lots; asks round up to the cent and bids round
 // down, so rounding never breaks a floor or a ceiling.
 
-import { actualCost, effectiveUtilization, fillRatio, setExtractionRate } from './agents';
+import { actualCost, costFrom, effectiveUtilization, fillRatio, setExtractionRate } from './agents';
+import { heldIn, tankOf, tanksFor } from './leases';
 import { previousClose, referencePrice, type ClearContext, type ExchangeNode, type Quote } from './clearing';
 import { acceptedGrades, availableCash, averageCost, plantsOf, total } from './companies';
 import type { Config } from './config';
+import type { Grade } from './enums';
 import { productValue, YIELDS, type FeeLedger, type ProductPrices } from './economics';
 import {
   makeOrderId, type Agent, type Ask, type Bid, type ChokepointName, type Fill, type IntegratedMajor, type NodeName, type Order,
-  type PlantState, type Producer, type Refiner, type Tick, type Trader, type WellState,
+  type PlantState, type Producer, type Refiner, type RegionName, type Tick, type Trader, type WellState,
 } from './model';
 import type { RouteProvider } from './routes';
 import { NODE_FOR_GRADE, NODE_NAMES } from '../data/nodes';
@@ -30,7 +32,8 @@ export interface MarketView {
   /** Chokepoints this company's Risk setting avoids today (avoidFor). */
   readonly avoid: readonly ChokepointName[];
   /** Barrels this company must deliver tomorrow under its deals (spec §6.1 rule 4). */
-  readonly dealCommitments: number;
+  /** Barrels a seller owes tomorrow, by the quay they load at; `total` is all of them (stage 3b). */
+  readonly dealCommitments: { readonly total: number } & Partial<Record<RegionName, number>>;
 }
 
 /**
@@ -72,32 +75,51 @@ export function rememberMarkers(trader: Trader, nodes: Readonly<Partial<Record<N
 
 // ─── Producers (spec §6.1) ───────────────────────────────────────────────────────────────────
 
+/**
+ * A producer offers each place it holds oil separately (stage 3b). Crude is loaded where it stands,
+ * so ground in two regions is two lots on two quays at two prices — the same rules applied twice,
+ * not one company-wide offer with a region written on it.
+ */
 function producerAsks(
   company: Producer | IntegratedMajor, well: WellState, view: MarketView, cfg: Config, margin: number, ids: () => ReturnType<typeof makeOrderId>,
 ): Ask[] {
-  const nodeName = NODE_FOR_GRADE[well.grade];
+  const places = new Map<string, { region: RegionName; grade: Grade }>();
+  for (const lease of well.leases) {
+    if (lease.storage > 0) places.set(`${String(lease.region)}:${lease.grade}`, { region: lease.region, grade: lease.grade });
+  }
+  return [...places.values()].flatMap((at) => asksFrom(company, well, at.region, at.grade, view, cfg, margin, ids));
+}
+
+function asksFrom(
+  company: Producer | IntegratedMajor, well: WellState, origin: RegionName, grade: Grade,
+  view: MarketView, cfg: Config, margin: number, ids: () => ReturnType<typeof makeOrderId>,
+): Ask[] {
+  const nodeName = NODE_FOR_GRADE[grade];
   const node = view.nodes[nodeName];
   if (node === undefined) return [];
-  const origin = company.region;
-  const cost = actualCost(company);
+  const tanks = tanksFor(well, origin, grade);
+  const held = heldIn(tanks);
+  const room = tanks.reduce((sum, l) => sum + tankOf(well, l), 0);
+  const cost = costFrom(well, origin, grade, actualCost(company));
   const lot = cfg.LOT_SIZE;
 
   // Rule 1: yesterday's FOB here, or else the marker brought back to this origin.
   const ref = referenceFob(node, origin, view);
   // Rule 2: never below cash cost, the export tariff and the margin.
   const floor = cost + REGIONS[origin].infrastructureTariff + margin;
-  // Rule 3: fuller storage, lower ask; and lower again for every day in a row nothing sold.
-  const fill = fillRatio(well);
+  // Rule 3: fuller storage, lower ask; and lower again for every day in a row nothing sold. The
+  // fill that sets the price is the fill of the tanks this crude would load from, not the company's.
+  const fill = room === 0 ? 1 : (held + tanks.reduce((sum, l) => sum + l.storageEscrow, 0)) / room;
   const unsold = (1 - cfg.ASK_DECAY) ** well.daysUnsold;
   const price = roundUp(Math.max(floor, ref * (1 - cfg.SKEW * (fill - 0.5)) * unsold));
 
   // Rule 5: when nearly full, the excess above 70% fill goes at a discount — DUMP_DISCOUNT below the
   // reference, never below cash cost. Dumping at cash cost printed trades so low they swung the marker.
   const dumpQty = fill >= cfg.DUMP_THRESHOLD
-    ? lots(Math.min(well.storage, well.storage + well.storageEscrow - 0.7 * well.storageCapacity), lot)
+    ? lots(Math.min(held, held + tanks.reduce((sum, l) => sum + l.storageEscrow, 0) - 0.7 * room), lot)
     : 0;
   // Rule 4: everything else not already promised to tomorrow's deals.
-  const mainQty = lots(well.storage - view.dealCommitments - dumpQty, lot);
+  const mainQty = lots(held - (view.dealCommitments[origin] ?? 0) - dumpQty, lot);
 
   const asks: Ask[] = [];
   const ask = (limitPrice: number, qty: number): Ask => ({

@@ -23,7 +23,7 @@ describe('unsold asks come down (spec §6.1 rule 3)', () => {
   it('lowers the ask ASK_DECAY for each day in a row nothing sold, never below the floor', () => {
     const nodes = { DME: createNode('DME') };
     nodes.DME.lastFobByOrigin.Middle_East = 60;
-    const view = { tick: 1, nodes, routes: routes(), expectedPrices: DEFAULT_CONFIG.PRODUCT_PRICES.BASE, avoid: [], dealCommitments: 0 };
+    const view = { tick: 1, nodes, routes: routes(), expectedPrices: DEFAULT_CONFIG.PRODUCT_PRICES.BASE, avoid: [], dealCommitments: { total: 0 } };
     const q = qasr();
     const price = () => decideOrders(q, 0, view, DEFAULT_CONFIG)[0]?.limitPrice;
     expect(price()).toBe(60);

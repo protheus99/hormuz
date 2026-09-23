@@ -100,9 +100,10 @@ export function signDeal(
 }
 
 /** Barrels a company must deliver under its deals on a given day (spec §6.1 rule 4). */
-export function dealCommitments(deals: readonly Deal[], sellerId: AgentId, day: Tick): number {
+export function dealCommitments(deals: readonly Deal[], sellerId: AgentId, day: Tick, origin: RegionName | null = null): number {
   return deals
     .filter((d) => d.status === 'ACTIVE' && d.sellerId === sellerId && d.startTick <= day && day < d.endTick)
+    .filter((d) => origin === null || d.originRegion === origin)
     .reduce((s, d) => s + d.qtyPerDay, 0);
 }
 

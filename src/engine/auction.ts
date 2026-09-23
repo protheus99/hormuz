@@ -61,14 +61,15 @@ export function leasableRegions(): RegionName[] {
 }
 
 /**
- * Whether a company could actually work this lot. Rights are only half of it: a producer sells one
- * grade from one region today, so ground it cannot ship from is ground it cannot use. Operating
- * across regions wants a lease to hold its own oil and post its own asks, which is stage 3b.
+ * Whether a company could actually work this lot. Now that a lease holds its own oil and posts its
+ * own asks (stage 3b), that is the same question as whether it has the right to take ground there:
+ * a producer can work a second region, and sell what it lifts there from that region's quay.
  */
 export function mayWork(agent: Agent, lot: LeaseLot): boolean {
   const field = wellOf(agent);
-  if (field === undefined || lot.region !== agent.region || lot.grade !== field.grade) return false;
-  return mayBid(agent, lot.region);
+  // A producer is set up for one crude — its wells, its buyers and its price are all that grade —
+  // but since stage 3b it can work that crude in any region it has the right to take ground in.
+  return field !== undefined && lot.grade === field.grade && mayBid(agent, lot.region);
 }
 
 /** Whether a company may bid for ground here: open to all, or licensed and it holds one. */

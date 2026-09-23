@@ -16,7 +16,7 @@ import { runGoldenReplay } from './replay';
 const GOLDEN = {
   day1: '9f4ed805c6a7bc1e6031e4b38dce84c8',
   day30: '9705835ea707c5906e626da18b5853ab',
-  final: 'edddecf71f612f82eabd30b66ea8cd53',
+  final: '9a5d241f9b5a5a8f70ee2748207d482f',
 };
 
 describe('golden replay', () => {

@@ -142,7 +142,7 @@ function dailyFixed(w: World, a: Agent): number {
 function viewFor(w: World, a: Agent): MarketView {
   return {
     tick: w.tick, nodes: w.nodes, routes: new LaneRouteProvider(w.graph), expectedPrices: w.sink.expectedPrices,
-    avoid: avoidFor(a.settings.risk, w.graph), dealCommitments: 0,
+    avoid: avoidFor(a.settings.risk, w.graph), dealCommitments: { total: 0 },
   };
 }
 

@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { GLOBAL_PORTFOLIO } from '../../src/data/portfolios';
 import { wellOf } from '../../src/engine/companies';
-import { advanceWells, capacityOf, depleteWells, drillWell, liftFrom, newLease, refreshStorage, reservesOf, roomAt, tankOf, BAND_YEARS } from '../../src/engine/leases';
+import { emptyTanks, fillTanks, advanceWells, capacityOf, depleteWells, drillWell, liftFrom, newLease, refreshStorage, reservesOf, roomAt, tankOf, BAND_YEARS } from '../../src/engine/leases';
 import type { Lease } from '../../src/engine/model';
 
 const leaseCapacityOf = (l: Lease) => capacityOf([l]);
@@ -14,6 +14,11 @@ import { FIELD_NAMES } from '../../src/data/leasenames';
 import { DEFAULT_CONFIG, withOverrides } from '../../src/engine/config';
 import { createLedger } from '../../src/engine/economics';
 import { createProducer } from '../../src/engine/companies';
+import { decideOrders } from '../../src/engine/rules';
+import { extract } from '../../src/engine/agents';
+import { LaneRouteProvider } from '../../src/engine/transport';
+import { REGIONS } from '../../src/data/regions';
+
 import { rngFor } from '../../src/engine/rng';
 import { GameSession } from '../../src/game/session';
 import { PLAYER_ID, type GameSettings } from '../../src/game/newgame';
@@ -279,5 +284,56 @@ describe('oil stands where it came out of the ground (stage 3b)', () => {
     lease.storage = tankOf(field, lease);
     refreshStorage(field);
     expect(roomAt(field, lease)).toBe(0);
+  });
+});
+
+describe('working a second region (stage 3b)', () => {
+  const world2 = () => createWorld({ seed: 'twoplaces', portfolio: GLOBAL_PORTFOLIO, personalityMix: 'EVEN' });
+
+  /** Gives a producer ground of its own grade somewhere else, with oil already in its tanks. */
+  function secondGround(w: ReturnType<typeof world2>, region: 'Guyana_Suriname' | 'North_Sea') {
+    const me = w.agents.find((a) => a.kind === 'PRODUCER' && wellOf(a)?.grade === 'LIGHT_SWEET')!;
+    const field = wellOf(me)!;
+    field.licences.push(region);
+    const lease = newLease({
+      id: `${me.agentId}-away`, name: 'Far Ground', region, grade: field.grade, capacity: 4_000,
+      band: 'MEDIUM', baseExtractionCost: 40, acquiredFor: 1_000_000, wells: 4, maxWells: 8,
+    });
+    field.leases.push(lease);
+    field.storageCapacity += 40_000;
+    return { me, field, lease };
+  }
+
+  it('offers each place separately, because crude loads where it stands', () => {
+    const w = world2();
+    const { me, field, lease } = secondGround(w, 'Guyana_Suriname');
+    fillTanks(field, 20_000, [lease]);
+    fillTanks(field, 20_000, [field.leases[0]!]);
+    const orders = decideOrders(me, 0, {
+      tick: 1 as never, nodes: w.nodes, routes: new LaneRouteProvider(w.graph),
+      expectedPrices: w.sink.expectedPrices, avoid: [], dealCommitments: { total: 0 },
+    }, w.config);
+    const origins = new Set(orders.filter((o) => o.side === 'ASK').map((o) => o.originRegion));
+    expect(origins.has('Guyana_Suriname')).toBe(true);
+    expect(origins.has(me.region)).toBe(true);
+  });
+
+  it('charges each barrel what it cost to lift where it came from', () => {
+    const w = world2();
+    const { me, field, lease } = secondGround(w, 'North_Sea');
+    emptyTanks(field);
+    const ledger = createLedger();
+    const before = me.cash;
+    extract(me as never, ledger, 1 as never, w.config, rngFor('cost', 'wells'));
+    // Both grounds lifted something, and the bill is neither ground's rate applied to all of it.
+    expect(lease.storage).toBeGreaterThan(0);
+    expect(field.leases[0]!.storage).toBeGreaterThan(0);
+    const paid = before - me.cash;
+    const atHome = field.storage * field.baseExtractionCost * REGIONS[me.region].laborCostIndex;
+    const atAway = field.storage * lease.baseExtractionCost * REGIONS[lease.region].laborCostIndex;
+    expect(paid).not.toBeCloseTo(atHome, 2);
+    expect(paid).not.toBeCloseTo(atAway, 2);
+    expect(paid).toBeGreaterThan(Math.min(atHome, atAway));
+    expect(paid).toBeLessThan(Math.max(atHome, atAway));
   });
 });

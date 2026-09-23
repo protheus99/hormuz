@@ -20,7 +20,7 @@ beforeEach(() => {
   nodes.DME.lastFobByOrigin.Middle_East = 58.6;
   view = {
     tick: 10, nodes, routes: new LaneRouteProvider(buildLaneGraph(DEFAULT_CONFIG)),
-    expectedPrices: DEFAULT_CONFIG.PRODUCT_PRICES.BASE, avoid: [], dealCommitments: 0,
+    expectedPrices: DEFAULT_CONFIG.PRODUCT_PRICES.BASE, avoid: [], dealCommitments: { total: 0 },
   };
 });
 
@@ -71,7 +71,7 @@ describe('producer asks (spec §6.1)', () => {
   });
 
   it('holds back what tomorrow’s deals need', () => {
-    expect(brief(decideOrders(qasr(15_000), 0, { ...view, dealCommitments: 5_500 }, DEFAULT_CONFIG))).toEqual([['ASK', 'DME', 58.6, 9_000]]);
+    expect(brief(decideOrders(qasr(15_000), 0, { ...view, dealCommitments: { total: 5_500, Middle_East: 5_500 } }, DEFAULT_CONFIG))).toEqual([['ASK', 'DME', 58.6, 9_000]]);
   });
 
   it('Hold for price asks more than Sell fast when storage is full (settings are monotonic)', () => {

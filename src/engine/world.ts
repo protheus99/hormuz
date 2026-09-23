@@ -20,7 +20,7 @@ import {
 } from './economics';
 import { FeeKind, type ChokepointStatus, type Grade, type Personality, type Product } from './enums';
 import { runLogistics, type LogisticsReport } from './logistics';
-import { makeOrderId, type Agent, type AgentId, type Cargo, type Charter, type ChokepointName, type Deal, type Fill, type NodeName, type Order, type Tick } from './model';
+import { makeOrderId, type Agent, type AgentId, type Cargo, type Charter, type ChokepointName, type Deal, type Fill, type NodeName, type Order, type RegionName, type Tick } from './model';
 import { nextFloat, rngFor, type Rng } from './rng';
 import { advanceWells, capacityOf } from './leases';
 import { nameGround } from '../data/leasenames';
@@ -269,7 +269,7 @@ export function step(w: World): TickReport {
     const own = configFor(a.settings, cfg);
     const view: MarketView = {
       tick, nodes: w.nodes, routes, expectedPrices: w.sink.expectedPrices,
-      avoid: avoidFor(a.settings.risk, w.graph), dealCommitments: dealCommitments(w.deals, a.agentId, tick + 1),
+      avoid: avoidFor(a.settings.risk, w.graph), dealCommitments: commitmentsByOrigin(w, a.agentId, (tick + 1) as Tick),
     };
     if (a.kind === 'REFINER' || a.kind === 'INTEGRATED') for (const p of plantsOf(a)) updateThrottle(a, p, view, own);
     for (const order of decideOrders(a, index, view, own)) {
@@ -510,6 +510,20 @@ function baselineOutput(w: World): number {
 
 function markerFor(w: World, grade: Grade): number {
   return NODE_NAMES.map((n) => w.nodes[n]).find((n) => n.grade === grade)?.markerPrice ?? 0;
+}
+
+/**
+ * What a seller owes tomorrow, quay by quay (stage 3b). A producer with ground in two regions loads
+ * each deal where that deal's crude comes from, so holding back the whole company's commitments at
+ * both would leave half its barrels unoffered.
+ */
+function commitmentsByOrigin(w: World, agentId: AgentId, day: Tick): { total: number } & Partial<Record<RegionName, number>> {
+  const by: { total: number } & Partial<Record<RegionName, number>> = { total: dealCommitments(w.deals, agentId, day) };
+  for (const deal of w.deals) {
+    if (deal.sellerId !== agentId) continue;
+    by[deal.originRegion] = dealCommitments(w.deals, agentId, day, deal.originRegion);
+  }
+  return by;
 }
 
 /** Phase 7 running costs (spec §7.1, D10): fixed operating costs on capacity, and trading offices. */

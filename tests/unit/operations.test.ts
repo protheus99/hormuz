@@ -23,7 +23,7 @@ beforeEach(() => {
   dme = createNode('DME');
   view = {
     tick: 1, nodes: { DME: dme }, routes: new LaneRouteProvider(buildLaneGraph(DEFAULT_CONFIG)),
-    expectedPrices: DEFAULT_CONFIG.PRODUCT_PRICES.BASE, avoid: [], dealCommitments: 0,
+    expectedPrices: DEFAULT_CONFIG.PRODUCT_PRICES.BASE, avoid: [], dealCommitments: { total: 0 },
   };
   ledger = createLedger();
 });
