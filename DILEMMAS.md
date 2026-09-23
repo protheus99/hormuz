@@ -282,8 +282,8 @@ suspension. Expensive, and it does not make the file go away.
 
 **Six cards:** **1** the service you can postpone · **2** the manager's hunch · **9** the wells that
 came with the block · **21** the reserves report · **22** the survey that was not shot for you ·
-**23** the number you were not meant to hear. **24** the ministry waits for stage 3b, since a licence
-in a region a producer cannot work is worth nothing to buy.
+**23** the number you were not meant to hear · **24** a friend at the ministry, which landed with
+stage 3b once a licence had ground behind it worth buying.
 
 **All three escapes** — E1 put it right, E2 tell them first, E6 retain counsel — at the prices in the
 table above. E3, E4 and E5 are still to come.

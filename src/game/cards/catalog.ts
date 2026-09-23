@@ -15,7 +15,7 @@ import { priceDeal, signDeal, type DealTerms } from '../../engine/deals';
 import type { Grade } from '../../engine/enums';
 import type { Agent, AgentId, Deal, Lease, LeaseId, PlantState, Producer, Tick } from '../../engine/model';
 import { refinerQuote, type MarketView } from '../../engine/rules';
-import { bandFor, bidAmount, mayWork, topRivalBid, worthTo } from '../../engine/auction';
+import { bandFor, bidAmount, leasableRegions, mayWork, topRivalBid, worthTo } from '../../engine/auction';
 import { describe as describeEntry, escapeCost, escapeOffered, nextEntry, rungOf, type EscapeKind, type ExposureTarget } from '../../engine/exposure';
 import { bestLeaseToDrill } from '../../engine/leases';
 import { avoidFor, findRoute, LaneRouteProvider } from '../../engine/transport';
@@ -264,6 +264,10 @@ const DUE_WINDOW = 20;
 const HUNCH_ODDS = 1 / 550;
 /** And a reserves report about as often; both are a career's worth, not a year's (§12A.6). */
 const REPORT_ODDS = 1 / 550;
+/** How often a friendly firm gets in touch, and what its fee comes to. */
+const MINISTRY_ODDS = 1 / 550;
+const MINISTRY_SHARE = 0.02;
+const MINISTRY_MIN = 500_000;
 /** How near the sale a number gets overheard, how often, and how far over it you have to go. */
 const OVERHEARD_WINDOW = 7;
 const OVERHEARD_ODDS = 1 / 3;
@@ -1160,6 +1164,38 @@ export const CATALOG: readonly CardDef[] = [
       },
       maybe: null,
     }),
+  },
+
+  {
+    // Worth answering only now that a producer can work a second region (stage 3b): before that a
+    // licence bought nothing, which is why this card waited (DILEMMAS.md, 24).
+    type: 'MINISTRY_FEE', kinds: PRODUCERS, raised: true, opportunity: false, operating: false,
+    detect: ({ w, me, roll }) => {
+      const field = wellOf(me);
+      if (field === undefined || roll() >= MINISTRY_ODDS) return null;
+      const region = leasableRegions().find((r) => REGIONS[r].leasing === 'LICENSED' && !field.licences.includes(r));
+      if (region === undefined) return null;
+      const cost = Math.max(MINISTRY_MIN, MINISTRY_SHARE * netWorth(w, me));
+      if (cost > me.cash - me.cashReserved) return null;
+      return {
+        key: `ministry-${String(region)}`,
+        data: { region: REGIONS[region].displayName, regionId: region, cost: money(cost), costNum: cost },
+      };
+    },
+    options: ({ w }, s) => {
+      const cost = Number(s.data.costNum);
+      const region = s.data.regionId as RegionName;
+      return {
+        yes: {
+          actions: [
+            { kind: 'PAY', amount: cost, what: 'FAVOUR' },
+            { kind: 'GRANT_LICENCE', region },
+            corner(w, cost, { kind: 'LICENCE', region }),
+          ],
+        },
+        maybe: null,
+      };
+    },
   },
 
   // ── The escapes (§12A.6) ──

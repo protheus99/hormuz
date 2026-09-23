@@ -1465,27 +1465,36 @@ it is that good and bad decisions both make money. Losses must stay avoidable by
    band — refining margin contested 3–4% against 5–40%, one producer cutting output against three —
    and both belong to the stage 6 rebalance.
 
-   **A friend at the ministry** (dilemma 24) waits for stage 3b, because a licence in a region a
-   producer cannot work is worth nothing to buy.
+   **A friend at the ministry** (dilemma 24) landed with stage 3b, since a licence is worth buying
+   only once there is ground behind it a producer could actually work.
 5. The Opportunities cleanup: the 11 purchases move into their panels.
 6. The economics rebalance and company failure (§12A.8), then one retune of every scenario target
    and the D44 band.
 
-**Stage 3b, out of that line: operating in a second region.** What blocks it is one sentence in
-`sellableStock` — a producer sells one grade from one region — and everything else follows from it.
-The way through is the same derived-aggregate pattern that let leases land without touching a card
-or a panel:
+**Stage 3b ✅ (2026-09-23): operating in a second region.** Built in two steps, on the same
+derived-aggregate pattern that let leases land without touching a card or a panel.
 
 - **A lease holds its own oil.** `Lease.storage` and `Lease.storageEscrow`, with `WellState.storage`
-  becoming their sum, so every rule that reads a field's tank still reads one number. Extraction puts
-  barrels in the lease that lifted them.
-- **A lease posts its own ask.** `decideOrders` offers once per region-and-grade a company holds oil
-  in, rather than once per company, and `sellableStock` locks and ships across the leases that match.
-- **Storage capacity follows the ground**, apportioned by each lease's share of capacity, so a lease
-  that fills halts its own wells rather than the company's.
-- **`mayWork` becomes `mayBid`.** A licence then unlocks exactly what the LICENSED class always said
-  it would, the leaderboard's *Multiple* starts marking producers, and dilemma 24 becomes a card
-  worth answering.
+  as their sum, so every rule that reads a field's tank still reads one number. Extraction fills the
+  tank at the lease that lifted it; selling, deals and an integrated major's internal transfer draw
+  only from tanks that could actually load the crude. An invariant holds the field to the sum of its
+  ground, and saves from before carry their barrels down to the lease they came from.
+- **Tankage is shared by what each lease's wells were drilled to make** — not by what they made
+  today, or a service would cost a lease its tank farm for the morning, and not by slots, or ground
+  bought empty at auction would take half the tanks off the field pumping into them. That second one
+  was found by measurement: sharing by slots cost 3% of the world's refining.
+- **A lease posts its own ask**, at its quay's reference price, with its own tank farm's fill setting
+  the discount and its own ground's lifting cost setting the floor. Deals are held back from the quay
+  they load at, not from the company at large. Extraction charges each lease's base cost at its own
+  region's wages.
+- **`mayWork` became `mayBid`** (plus the grade a producer is set up for). A licence now unlocks what
+  the LICENSED class always marked, the leaderboard's *Multiple* can mark a producer, and dilemma 24
+  became a card worth answering.
+
+Measured: day 1 and day 30 of the golden replay are untouched by the whole stage, and its totals are
+identical to the last decimal — the property the first step was designed to have while every
+producer still worked one region, and still true after the second, because the lots that now change
+hands across a border are bought empty. Calibration unchanged.
 
 ## 13. Out of Scope & Deferred
 
@@ -1878,6 +1887,7 @@ The free web version stays available after Steam launches. Schools mostly use Ch
 | 3.1 | 2026-09-18 | Closed the real-world framing decision as D32: real geography, fictional companies, faceless and non-violent event wording, coastline-only map. Renamed nine companies whose names matched or crowded real companies. Removed the refiner's "Buy an oilfield" card: only producers can become integrated. |
 | 3.2 | 2026-09-18 | Made every chokepoint a live risk: an event profile for each of the seven, deck rules, route cards that react to delays as well as tension, a campaign featuring six of the seven, verification runs S13–S17, and a property test that no single closure strands a region. |
 | 3.5 | 2026-09-19 | Phase 7 calibration: price discovery (bids climb towards value as tanks empty; unsold asks decay; closing offers published), refiners count the voyage in stock targets and tank space, credit lines, recoverable insolvency, AI output cuts, personality mixes, the global portfolio's cash and storage, and the D35 decisions. Global S0: markers about 78 / 71 / 63 in grade order on ~90% of days, no insolvencies. |
+| 4.8 | 2026-09-23 | Stage 3b: a lease holds its own oil and posts its own ask, ground elsewhere costs what it costs there, and a producer may take ground in any region it has the right to. Dilemma 24 landed with it. |
 | 4.7 | 2026-09-23 | Stage 4 built: the hint ladder, the three escapes and their pricing, the epilogue, and six producer dilemmas. Cards may now give No actions of their own; a published survey may be a band out; sealed bids are lodged when the round opens. Stage 3b's route written down. |
 | 4.6 | 2026-09-22 | Measured that a fine can never be the punishment (1.3% of three years' earnings, and a third of the time nothing), and settled the answer: consequences in kind, timed to follow trouble, hinted at as they build, and able to lose a scenario. |
 | 4.5 | 2026-09-22 | Ground is named for its region, and wells are serviced, fail and wait for a crew (stage 4's engine half). The cards that respond to it wait for the owner. |

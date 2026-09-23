@@ -14,7 +14,7 @@ import { CARD_DEFS } from '../../src/game/cards/catalog';
 import { cardText } from '../../src/content/cards';
 import type { CardType } from '../../src/game/cards/types';
 
-const DILEMMAS: CardType[] = ['SERVICE_HOLD', 'MANAGER_HUNCH', 'ORPHAN_WELLS', 'RESERVES_REPORT'];
+const DILEMMAS: CardType[] = ['SERVICE_HOLD', 'MANAGER_HUNCH', 'ORPHAN_WELLS', 'RESERVES_REPORT', 'MINISTRY_FEE'];
 
 const world = (): World => createWorld({ seed: 'dilemmas', portfolio: GLOBAL_PORTFOLIO, personalityMix: 'EVEN' });
 const producer = (w: World): Agent => w.agents.find((a) => a.kind === 'PRODUCER') as Agent;
@@ -25,7 +25,7 @@ const producer = (w: World): Agent => w.agents.find((a) => a.kind === 'PRODUCER'
  * you touch it or not, so on that card refusing is the corner (DILEMMAS.md, 9).
  */
 const CORNER_ON: Readonly<Record<string, 'YES' | 'NO'>> = {
-  SERVICE_HOLD: 'YES', MANAGER_HUNCH: 'YES', RESERVES_REPORT: 'YES', ORPHAN_WELLS: 'NO',
+  SERVICE_HOLD: 'YES', MANAGER_HUNCH: 'YES', RESERVES_REPORT: 'YES', MINISTRY_FEE: 'YES', ORPHAN_WELLS: 'NO',
 };
 
 describe('the shape of the deck', () => {
