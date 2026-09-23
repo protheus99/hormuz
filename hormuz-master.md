@@ -1433,13 +1433,59 @@ it is that good and bad decisions both make money. Losses must stay avoidable by
    asks, a licence unlocks nothing, and the LICENSED class only marks where a licence *would* be
    wanted. What the auction does today is let a producer replace the reserves under its own feet,
    which is the depletion problem stage 2 created.
-4. Hazards and the card deck. **Done:** wells are serviced, fail, wait for a crew and are paid for
-   (§12A.3), and the board shows each state. **Still to design with the owner:** the deck itself —
-   the policy cards that let a player do something about it, and the ethical dilemmas of §12A.6,
-   which the owner wants in quantity.
+4. ✅ Hazards, the hint ladder, the escapes and the first of the deck. Wells are serviced, fail,
+   wait for a crew and are paid for (§12A.3), and the board shows each state.
+
+   **The weather.** As a company's record grows, and as trouble raises the odds of it coming due,
+   the world says so — four rungs of letters, visits and questions, told as alerts and news with no
+   number anywhere in them (`content/hints.ts`, `game/hints.ts`). Nothing is said in the fortnight
+   after a corner is cut, and nothing at all is ever said to a company with a clean record. A file
+   being opened is loud enough to stop the clock. The reckoning itself now reaches the player too,
+   naming the lease, the licence or the credit line it took, and a game that ends before one arrives
+   closes with what the years afterwards brought.
+
+   **The escapes.** Put it right, tell them first, or — once a file is open and nothing else is on
+   offer — retain counsel. Priced as multiples of what the corner saved (1.2× before anybody has
+   asked, 2.5× once the questions start, 5× with a file open), so cutting corners *planning* to clean
+   up loses and loses obviously. Something always remains: an escape turns a reckoning in kind into a
+   cost in money and leaves a fifth of it on the record.
+
+   **Six of the deck**, all producer cards: the service you can postpone, the manager's hunch, the
+   wells that came with the block, the reserves report, the survey that was not shot for you, and the
+   number you were not meant to hear. Three things had to change to carry them. A card may now give
+   No actions of its own, and an unanswered card applies them, because not deciding is the answer
+   where the work quietly does not get done. A published survey became a reading rather than the
+   ground — about three lots in ten are a band out, either way — which is the only thing that makes
+   buying a rival's copy worth anything. And sealed bids are lodged when the lots are published
+   rather than opened on the day, so there is a real number for somebody to tell you.
+
+   Measured over three two-year producer runs: two or three dilemmas a career, and a player who takes
+   every one of them climbs all four rungs and loses a credit line and a lease to it. Calibration
+   after all of it: first halt 70–72, utilisation 76–78%, no insolvencies. Two measures stay below
+   band — refining margin contested 3–4% against 5–40%, one producer cutting output against three —
+   and both belong to the stage 6 rebalance.
+
+   **A friend at the ministry** (dilemma 24) waits for stage 3b, because a licence in a region a
+   producer cannot work is worth nothing to buy.
 5. The Opportunities cleanup: the 11 purchases move into their panels.
 6. The economics rebalance and company failure (§12A.8), then one retune of every scenario target
    and the D44 band.
+
+**Stage 3b, out of that line: operating in a second region.** What blocks it is one sentence in
+`sellableStock` — a producer sells one grade from one region — and everything else follows from it.
+The way through is the same derived-aggregate pattern that let leases land without touching a card
+or a panel:
+
+- **A lease holds its own oil.** `Lease.storage` and `Lease.storageEscrow`, with `WellState.storage`
+  becoming their sum, so every rule that reads a field's tank still reads one number. Extraction puts
+  barrels in the lease that lifted them.
+- **A lease posts its own ask.** `decideOrders` offers once per region-and-grade a company holds oil
+  in, rather than once per company, and `sellableStock` locks and ships across the leases that match.
+- **Storage capacity follows the ground**, apportioned by each lease's share of capacity, so a lease
+  that fills halts its own wells rather than the company's.
+- **`mayWork` becomes `mayBid`.** A licence then unlocks exactly what the LICENSED class always said
+  it would, the leaderboard's *Multiple* starts marking producers, and dilemma 24 becomes a card
+  worth answering.
 
 ## 13. Out of Scope & Deferred
 
@@ -1832,6 +1878,7 @@ The free web version stays available after Steam launches. Schools mostly use Ch
 | 3.1 | 2026-09-18 | Closed the real-world framing decision as D32: real geography, fictional companies, faceless and non-violent event wording, coastline-only map. Renamed nine companies whose names matched or crowded real companies. Removed the refiner's "Buy an oilfield" card: only producers can become integrated. |
 | 3.2 | 2026-09-18 | Made every chokepoint a live risk: an event profile for each of the seven, deck rules, route cards that react to delays as well as tension, a campaign featuring six of the seven, verification runs S13–S17, and a property test that no single closure strands a region. |
 | 3.5 | 2026-09-19 | Phase 7 calibration: price discovery (bids climb towards value as tanks empty; unsold asks decay; closing offers published), refiners count the voyage in stock targets and tank space, credit lines, recoverable insolvency, AI output cuts, personality mixes, the global portfolio's cash and storage, and the D35 decisions. Global S0: markers about 78 / 71 / 63 in grade order on ~90% of days, no insolvencies. |
+| 4.7 | 2026-09-23 | Stage 4 built: the hint ladder, the three escapes and their pricing, the epilogue, and six producer dilemmas. Cards may now give No actions of their own; a published survey may be a band out; sealed bids are lodged when the round opens. Stage 3b's route written down. |
 | 4.6 | 2026-09-22 | Measured that a fine can never be the punishment (1.3% of three years' earnings, and a third of the time nothing), and settled the answer: consequences in kind, timed to follow trouble, hinted at as they build, and able to lose a scenario. |
 | 4.5 | 2026-09-22 | Ground is named for its region, and wells are serviced, fail and wait for a crew (stage 4's engine half). The cards that respond to it wait for the owner. |
 | 4.4 | 2026-09-22 | Phase 13 stage 3: the yearly sealed lease auction with bid levels rather than typed prices, operating rights per region, and the lease register. Operating in a second region is deferred to stage 3b. |

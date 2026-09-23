@@ -278,6 +278,23 @@ suspension. Expensive, and it does not make the file go away.
 
 ---
 
+## What is built (2026-09-23)
+
+**Six cards:** **1** the service you can postpone · **2** the manager's hunch · **9** the wells that
+came with the block · **21** the reserves report · **22** the survey that was not shot for you ·
+**23** the number you were not meant to hear. **24** the ministry waits for stage 3b, since a licence
+in a region a producer cannot work is worth nothing to buy.
+
+**All three escapes** — E1 put it right, E2 tell them first, E6 retain counsel — at the prices in the
+table above. E3, E4 and E5 are still to come.
+
+**One thing the deck taught us while building it.** The rule "the corner is always the Yes, so
+refusing is always free" holds for every temptation, and does not hold for **9**: what was on the
+ground when you bought it is yours whether you touch it or not, so there refusing *is* the corner.
+That is a second shape, not a mistake, and it is the honest answer to the open question below about
+whether refusing should ever cost — it should, when the liability came with the asset. Cards can now
+give No actions of their own, and an unanswered card applies them.
+
 ## What to build first
 
 Six dilemmas need no new systems beyond the reckoning itself: **22** the survey and **23** the

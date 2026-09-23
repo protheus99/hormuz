@@ -264,3 +264,19 @@ system.
 - **C** Build chartering now — it unlocks two card types and gives traders a real lever. The largest
   of the three, and it changes how cargo works.
 - **D** All of it, before any playtest.
+
+## The lease auction card has a deadline it does not use (2026-09-23)
+
+`LEASE_AUCTION`'s detector returns a `deadline` field that `Situation` does not declare and
+`buildCard` never reads, so the card expires on the ordinary `CARD_DEADLINE` rather than on the day
+the lots are awarded. Harmless today because the two are close, and it is a latent bug: if the
+notice period or the card deadline ever moves, a player could answer a card for a sale that has
+already happened. Either honour a per-card deadline in `Situation`, or delete the field.
+
+## Two calibration measures below band, deferred to stage 6 (2026-09-23)
+
+Measured after stage 4: refining margin contested 3–4% against a 5–40% band, and one producer
+cutting output against a band of at least three across S0–S17. Both are the same underlying thing —
+nothing in this economy is near enough to its cost — and both belong to the stage 6 rebalance the
+owner already asked for ("there seems to be little chance of losing money at current high prices").
+Halts (70–72), utilisation (76–78%) and insolvencies (none) are all where they should be.
