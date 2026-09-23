@@ -384,32 +384,44 @@ const KIND_WORDS: Readonly<Record<string, string>> = {
 };
 const TREND_MARKS: Readonly<Record<string, string>> = { UP: '▲', DOWN: '▼', LEVEL: '·' };
 
+export type BoardKind = 'PRODUCER' | 'REFINER' | 'TRADER';
+const BOARDS: readonly [BoardKind, string][] = [['PRODUCER', 'Producers'], ['REFINER', 'Refiners'], ['TRADER', 'Traders']];
+
+/** A company that runs a field and a plant is judged with the producers, as the finale judges it. */
+const belongs = (kind: string, board: BoardKind) =>
+  board === 'PRODUCER' ? kind === 'PRODUCER' || kind === 'INTEGRATED' : kind === board;
+
 /**
  * The leaderboard (spec G5), ranked by what each company is worth — the one figure about a rival
  * that is published rather than guessed at. What a competitor could act on, which is today's
  * orders, stock and deals, stays where it belongs.
+ *
+ * One table a trade, because a company is only really ranked against the companies it competes
+ * with, and because that is how the finale decides.
  */
-export function leaderboardPanel(view: PlayerView): Html {
-  const mine = view.standings.findIndex((r) => r.mine);
+export function leaderboardPanel(view: PlayerView, board: BoardKind): Html {
+  const rows = view.standings.filter((r) => belongs(r.kind, board));
+  const mine = rows.findIndex((r) => r.mine);
   return html`
-    <p class="small muted">Every company, by what it is worth, with which way that has moved this
-      month.${mine >= 0 ? html` You are <strong>${mine + 1} of ${view.standings.length}</strong>.` : ''}
+    <div class="seg boards">${BOARDS.map(([kind, label]) => html`<button data-board="${kind}" class="${kind === board ? 'active' : ''}">${label}</button>`)}</div>
+    <p class="small muted">By what each company is worth, and which way that has moved this
+      month.${mine >= 0 ? html` You are <strong>${mine + 1} of ${rows.length}</strong>.` : ''}
       A set of accounts is published; what anyone is holding, buying or has signed is not.
       <strong>Size</strong> is barrels a day — pumped, refined or held in store; <strong>leases</strong>
       is how much ground a company holds, the same count the lease register shows.</p>
-    <table class="board">
-      <tr><th class="num">#</th><th>Company</th><th>Trade</th><th>Where</th><th class="num">Worth</th><th class="num">Month</th><th class="num">Size</th><th class="num">Leases</th></tr>
-      ${view.standings.map((r, i) => html`<tr class="${r.mine ? 'mine' : ''}">
+    ${rows.length === 0 ? html`<p class="muted">No companies of this kind.</p>` : html`<table class="board">
+      <tr><th class="num">#</th><th>Company</th><th>Trade</th><th>Regions</th><th class="num">Worth</th><th class="num">Month</th><th class="num">Size</th><th class="num">Leases</th></tr>
+      ${rows.map((r, i) => html`<tr class="${r.mine ? 'mine' : ''}">
         <td class="num rank">${i + 1}</td>
         <td>${r.name}${r.mine ? html` <span class="small good">you</span>` : ''}</td>
         <td class="small muted">${KIND_WORDS[r.kind] ?? r.kind}</td>
-        <td class="small muted">${r.displayName}</td>
+        <td class="small muted" title="${r.regions.join(', ')}">${r.regions.length > 1 ? html`<strong>Multiple</strong>` : (r.regions[0] ?? '')}</td>
         <td class="num">${money(r.netWorth)}</td>
         <td class="num small ${r.trend === 'UP' ? 'good' : r.trend === 'DOWN' ? 'bad' : 'muted'}">${TREND_MARKS[r.trend] ?? ''}</td>
         <td class="num small muted">${bbl(r.size)}</td>
         <td class="num small muted" title="${r.blocks === 1 ? 'one lease held' : `${r.blocks} leases held`}">${r.blocks > 0 ? r.blocks : ''}</td>
       </tr>`)}
-    </table>`;
+    </table>`}`;
 }
 
 /** News and alerts, newest first. */

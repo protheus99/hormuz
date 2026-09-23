@@ -147,7 +147,8 @@ export interface Standing {
   readonly name: string;
   readonly kind: 'PRODUCER' | 'REFINER' | 'INTEGRATED' | 'TRADER';
   readonly region: RegionName;
-  readonly displayName: string;
+  /** Where it works: its home, plus anywhere it holds ground, a second plant or an office. */
+  readonly regions: readonly string[];
   /** What the company is worth, as it would be published.  */
   readonly netWorth: number;
   /** Barrels a day: pumped for a field, put through for a refinery, held for a trading office. */
@@ -440,6 +441,19 @@ function lotsFor(w: World, playerId: AgentId): LotView[] {
   });
 }
 
+/**
+ * Everywhere a company works: its home, and anywhere it holds ground, a second plant or an office.
+ * More than one is worth saying, because a company in two places is a different animal from one in
+ * a single region — it can be shut out of a strait in one and carry on in the other.
+ */
+function regionsOf(a: World['agents'][number]): string[] {
+  const where = new Set<string>([REGIONS[a.region].displayName]);
+  for (const lease of wellOf(a)?.leases ?? []) where.add(REGIONS[lease.region].displayName);
+  for (const plant of plantsOf(a)) where.add(REGIONS[plant.region].displayName);
+  if (a.kind === 'TRADER') for (const region of Object.keys(a.hubs)) where.add(REGIONS[region as RegionName].displayName);
+  return [...where];
+}
+
 /** How big a company is, in the terms its own trade is measured in. */
 function sizeOf(a: World['agents'][number]): number {
   const field = wellOf(a);
@@ -471,7 +485,7 @@ function standingsFor(w: World, playerId: AgentId, before: Record<string, number
         name: a.name,
         kind: a.kind,
         region: a.region,
-        displayName: REGIONS[a.region].displayName,
+        regions: regionsOf(a),
         netWorth: worth,
         size: sizeOf(a),
         blocks: wellOf(a)?.leases.length ?? 0,

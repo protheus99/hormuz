@@ -1228,8 +1228,15 @@ them would let a rival trade against it. A set of accounts is a different thing:
 company files one, and the industry reads them. The board carries net worth, size and ground — and
 nothing anyone could trade against.
 
-**One table, not one per trade.** Worth is comparable across a producer, a refiner and a trader in a
-way that barrels a day is not, so the board is a single ranking with the trade shown as a column.
+**One table a trade**, chosen with a control at the top and opening on the player's own, because a
+company is only really ranked against the companies it competes with — and because that is how the
+finale decides. A company that runs both a field and a plant is judged with the producers, as the
+finale judges it.
+
+**Where a company works** is a column of its own: its home, plus anywhere it holds ground, a second
+plant or an office. More than one reads as *Multiple*, which is worth saying — a company in two
+regions is a different animal from one in a single region, since it can be shut out of a strait in
+one and carry on in the other.
 
 Its most useful property is unplanned: since depletion arrived, a producer that is not replacing its
 reserves slides down the board month after month while its rivals climb. The leaderboard therefore

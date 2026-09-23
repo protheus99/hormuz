@@ -5,7 +5,7 @@
 import { GameSession, msPerDay, PLAYER_ID, type CardType, type PlayerView, type SaveData, type Speed } from '../src/game';
 import { dateOf, html, money, mount } from './dom';
 import { inboxPanel, missionPanel, opportunitiesPanel } from './inbox';
-import { companyPanel, activityPanel, dealsPanel, leaderboardPanel, leasesPanel, mapPanel, newsPanel } from './panels';
+import { companyPanel, activityPanel, dealsPanel, leaderboardPanel, leasesPanel, mapPanel, newsPanel, type BoardKind } from './panels';
 import { saveGame } from './storage';
 
 type Tab = 'company' | 'activity' | 'leases' | 'deals' | 'board' | 'news';
@@ -33,6 +33,8 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
   let speed: Speed = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let tab: Tab = 'company';
+  // The board opens on the player's own trade: it is the ranking they are being judged in.
+  let board: BoardKind = view.company.kind === 'REFINER' ? 'REFINER' : view.company.kind === 'TRADER' ? 'TRADER' : 'PRODUCER';
   let busy = false;
   /** Which sheet is open over the game, and whether the clock stopped for an unseen decision. */
   let sheet: 'mission' | 'opportunities' | null = null;
@@ -102,7 +104,7 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
     mount(body, tab === 'company' ? companyPanel(view)
       : tab === 'activity' ? activityPanel(view)
       : tab === 'leases' ? leasesPanel(view)
-      : tab === 'board' ? leaderboardPanel(view)
+      : tab === 'board' ? leaderboardPanel(view, board)
       : tab === 'deals' ? dealsPanel(view) : newsPanel(view));
     body.scrollTop = scroll;
   };
@@ -183,6 +185,7 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
         await refresh();
       });
     } else if (d.tab !== undefined) { tab = d.tab as Tab; renderTabs(); }
+    else if (d.board !== undefined) { board = d.board as BoardKind; renderTabs(); }
     else if (d.card !== undefined && d.choice !== undefined) {
       const cardId = d.card;
       const choice = d.choice as 'YES' | 'NO' | 'MAYBE';
