@@ -541,12 +541,6 @@ function chargeRunningCosts(w: World, tick: Tick): ReckoningReport[] {
 function runAuction(w: World, tick: Tick): void {
   const cfg = w.config;
   if (w.auction !== null && w.auction.tick === tick) {
-    for (const lot of w.auction.lots) {
-      for (const agent of w.agents) {
-        if (agent.controller === 'HUMAN') continue;             // the player's bid came from a card
-        placeBid(lot, agent.agentId, aiBid(agent, lot, cfg, w.rng.ai));
-      }
-    }
     // Ground bought is ground with nothing on it, so nothing about the winner's output changes
     // today: it has wells to drill before a barrel moves (§12A.4). The bonus leaves the economy
     // the way a tariff does, so it is recorded as a fee or the cash invariant would catch it.
@@ -558,6 +552,15 @@ function runAuction(w: World, tick: Tick): void {
   if (w.auction === null && tick % cfg.AUCTION.EVERY_TICKS === cfg.AUCTION.EVERY_TICKS - cfg.AUCTION.NOTICE_TICKS) {
     w.auctionSeq += 1;
     w.auction = { tick: (tick + cfg.AUCTION.NOTICE_TICKS) as Tick, lots: surveyLots(w.auctionSeq, cfg, w.rng.wells, w.agents) };
+    // A sealed bid is lodged when the round opens and opened on the day, so the rest of the field
+    // has already decided while the player is still thinking. That is what makes a number somebody
+    // was not meant to hear worth anything at all (§12A.6, dilemma 23).
+    for (const lot of w.auction.lots) {
+      for (const agent of w.agents) {
+        if (agent.controller === 'HUMAN') continue;             // the player's bid comes from a card
+        placeBid(lot, agent.agentId, aiBid(agent, lot, cfg, w.rng.ai));
+      }
+    }
   }
 }
 

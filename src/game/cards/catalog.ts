@@ -15,7 +15,7 @@ import { priceDeal, signDeal, type DealTerms } from '../../engine/deals';
 import type { Grade } from '../../engine/enums';
 import type { Agent, AgentId, Deal, Lease, LeaseId, PlantState, Producer, Tick } from '../../engine/model';
 import { refinerQuote, type MarketView } from '../../engine/rules';
-import { bandFor, bidAmount, mayWork, worthTo } from '../../engine/auction';
+import { bandFor, bidAmount, mayWork, topRivalBid, worthTo } from '../../engine/auction';
 import { describe as describeEntry, escapeCost, escapeOffered, nextEntry, rungOf, type EscapeKind, type ExposureTarget } from '../../engine/exposure';
 import { bestLeaseToDrill } from '../../engine/leases';
 import { avoidFor, findRoute, LaneRouteProvider } from '../../engine/transport';
@@ -264,6 +264,11 @@ const DUE_WINDOW = 20;
 const HUNCH_ODDS = 1 / 550;
 /** And a reserves report about as often; both are a career's worth, not a year's (§12A.6). */
 const REPORT_ODDS = 1 / 550;
+/** How near the sale a number gets overheard, how often, and how far over it you have to go. */
+const OVERHEARD_WINDOW = 7;
+const OVERHEARD_ODDS = 1 / 3;
+const OVERHEARD_MARGIN = 1.02;
+const OVERHEARD_FLOOR = 0.1;
 /** What a contractor charges for a copy, and what knowing before you bid is worth. */
 const SURVEY_PRICE = 0.03;
 const SURVEY_WORTH = 0.15;
@@ -1118,6 +1123,40 @@ export const CATALOG: readonly CardDef[] = [
     options: (_ctx, s) => ({
       yes: {
         actions: [{ kind: 'BUY_SURVEY', lotId: String(s.data.lotId), price: Number(s.data.priceNum), saved: Number(s.data.savedNum) }],
+      },
+      maybe: null,
+    }),
+  },
+
+  {
+    // The other side of the sealed round: every rival lodged its bid when the lots were published,
+    // so there is a real number to be told. Yes wins the ground for less than a strong bid would
+    // have cost, and the ground answers for it if it ever comes out (DILEMMAS.md, 23).
+    type: 'OVERHEARD_BID', kinds: PRODUCERS, raised: true, opportunity: false, operating: false,
+    detect: ({ w, me, roll }) => {
+      const auction = w.auction;
+      if (auction === null || auction.tick - w.tick > OVERHEARD_WINDOW) return null;
+      const lot = auction.lots.find((l) => mayWork(me, l) && !l.tainted.some((t) => t.agentId === me.agentId));
+      if (lot === undefined) return null;
+      const top = topRivalBid(lot, me.agentId);
+      if (top === null || roll() >= OVERHEARD_ODDS) return null;
+      const amount = OVERHEARD_MARGIN * top.amount;
+      if (amount > me.cash - me.cashReserved) return null;          // no use to a company that cannot pay
+      // What it is worth: what a strong bid would have cost over this one, and never nothing,
+      // because the real prize is ground you would otherwise have lost.
+      const strong = bidAmount(lot, me, w.config, 'STRONG');
+      const saved = Math.max(OVERHEARD_FLOOR * amount, strong - amount);
+      return {
+        key: `overheard-${lot.lotId}`,
+        data: {
+          lot: lot.name, rival: w.agents.find((a) => a.agentId === top.agentId)?.name ?? 'a rival',
+          amount: money(amount), lotId: lot.lotId, amountNum: amount, savedNum: saved,
+        },
+      };
+    },
+    options: (_ctx, s) => ({
+      yes: {
+        actions: [{ kind: 'TAINTED_BID', lotId: String(s.data.lotId), amount: Number(s.data.amountNum), saved: Number(s.data.savedNum) }],
       },
       maybe: null,
     }),

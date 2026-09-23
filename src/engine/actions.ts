@@ -5,7 +5,7 @@
 
 import { internalTransfer, refreshCapacity, startMaintenance } from './agents';
 import { bestLeaseToDrill, drillWell } from './leases';
-import { buySurvey, mayWork, placeBid } from './auction';
+import { buySurvey, mayWork, placeBid, taintLot } from './auction';
 import { addExposure, escapeCost, takeEscape, type EscapeKind, type ExposureTarget } from './exposure';
 import { charterCost, newCharter } from './charters';
 import {
@@ -99,6 +99,7 @@ export type Action =
   | { readonly kind: 'RESTATE_RESERVES'; readonly uplift: number }
   | { readonly kind: 'GRANT_LICENCE'; readonly region: RegionName }
   | { readonly kind: 'BUY_SURVEY'; readonly lotId: string; readonly price: number; readonly saved: number }
+  | { readonly kind: 'TAINTED_BID'; readonly lotId: string; readonly amount: number; readonly saved: number }
   | { readonly kind: 'CUT_CORNER'; readonly amount: number; readonly saved: number; readonly target: ExposureTarget }
   | { readonly kind: 'PAY'; readonly amount: number; readonly what: 'REPORT' | 'CLEANUP' | 'FAVOUR' };
 
@@ -175,6 +176,9 @@ export function actionCost(w: World, agentId: AgentId, action: Action): { readon
     }
     case 'BUY_SURVEY':
       return { now: action.price, total: action.price };
+    case 'TAINTED_BID':
+      // Nothing leaves until the lot is awarded, and only if this bid is the one that takes it.
+      return { now: 0, total: action.amount };
     case 'STANDING_ORDER':
       return action.side === 'BID' ? { now: 0, total: action.price * action.qty * action.days } : { now: 0, total: 0 };
     case 'SIGN_DEAL':
@@ -401,6 +405,16 @@ export function applyAction(w: World, agentId: AgentId, action: Action): void {
     case 'GRANT_LICENCE': {
       const field = need(well, 'wells');
       if (!field.licences.includes(action.region)) field.licences.push(action.region);
+      return;
+    }
+    case 'TAINTED_BID': {
+      // A bid placed on a number you were not meant to hear (§12A.6, dilemma 23). It costs nothing
+      // now, which is the whole temptation; it costs the block if it wins you one.
+      const lot = w.auction?.lots.find((l) => l.lotId === action.lotId);
+      const agent = w.agents.find((x) => x.agentId === agentId);
+      if (lot === undefined || agent === undefined || !mayWork(agent, lot)) return;
+      placeBid(lot, agentId, action.amount);
+      taintLot(lot, agentId, action.saved);
       return;
     }
     case 'BUY_SURVEY': {

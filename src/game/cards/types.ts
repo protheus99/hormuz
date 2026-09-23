@@ -25,7 +25,8 @@ export type CardType =
   // The escapes (§12A.6): what is still on offer depends on how loudly the world is asking
   | 'PUT_IT_RIGHT' | 'TELL_THEM_FIRST' | 'RETAIN_COUNSEL'
   // The dilemmas (§12A.6, DILEMMAS.md). Refusing is always safe; the corner is always the Yes.
-  | 'SERVICE_HOLD' | 'MANAGER_HUNCH' | 'ORPHAN_WELLS' | 'RESERVES_REPORT' | 'MINISTRY_FEE' | 'BOUGHT_SURVEY';
+  | 'SERVICE_HOLD' | 'MANAGER_HUNCH' | 'ORPHAN_WELLS' | 'RESERVES_REPORT' | 'MINISTRY_FEE' | 'BOUGHT_SURVEY'
+  | 'OVERHEARD_BID';
 
 /** The four meters every option shows (spec G4.1, G4.5). */
 export interface Impact {

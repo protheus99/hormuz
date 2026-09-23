@@ -154,7 +154,22 @@ export function bandFor(lot: LeaseLot, agent: Agent): LeaseBand {
 /** Puts a copy of somebody else's survey in a bidder's hands, and marks what it cost them. */
 export function buySurvey(lot: LeaseLot, agentId: AgentId, saved: number): void {
   if (!lot.surveyed.includes(agentId)) lot.surveyed.push(agentId);
+  taintLot(lot, agentId, saved);
+}
+
+/** Marks a bidder as having come by something they should not have, and what it was worth. */
+export function taintLot(lot: LeaseLot, agentId: AgentId, saved: number): void {
   if (!lot.tainted.some((t) => t.agentId === agentId)) lot.tainted.push({ agentId, saved });
+}
+
+/** The best anybody else has lodged for this lot, and who lodged it. Engine-only. */
+export function topRivalBid(lot: LeaseLot, agentId: AgentId): { readonly agentId: AgentId; readonly amount: number } | null {
+  let best: { agentId: AgentId; amount: number } | null = null;
+  for (const bid of lot.bids) {
+    if (bid.agentId === agentId) continue;
+    if (best === null || bid.amount > best.amount) best = { agentId: bid.agentId, amount: bid.amount };
+  }
+  return best;
 }
 
 /** What a company would offer at each level. The player picks a level, never a number (G4.3). */

@@ -91,6 +91,12 @@ const TEXT: Readonly<Record<string, CardText>> = {
       + 'for {cost}. It would tell you what is actually down there, which is the one thing the published survey does not.',
     yes: 'Buy the copy.', maybe: '', no: 'Bid on the published survey like everyone else.',
   },
+  OVERHEARD_BID: {
+    title: 'The number you were not meant to hear',
+    situation: 'The night before the sale, somebody tells you what {rival} means to bid for {lot}. A little over it '
+      + 'takes the ground: {amount}. Nobody can tell you how they came to know, or who else they told.',
+    yes: 'Use it, and bid {amount}.', maybe: '', no: 'Bid as you were going to.',
+  },
   PUT_IT_RIGHT: {
     title: 'Put it right',
     situation: 'You can still go back and do properly what you did not do about {what}. It costs {cost}.{downtime} '
