@@ -135,31 +135,28 @@ export interface LotView {
 }
 
 /**
- * The leaderboard (spec G5). What one company may know about another is what the industry knows:
- * how big it is, where it is, and what ground it holds. Cash, stock, deals and what anyone is worth
- * stay private — a company's books are its own business, and a board that showed them would hand
- * the player something no rival could ever see.
+ * The leaderboard (spec G5), ranked by what each company is worth.
  *
- * Ranked within kind, because a trader's warehouse and a producer's field are not the same thing
- * and pretending otherwise would be a league table of nothing.
+ * This is the one thing about a rival that is published rather than guessed at. G5 keeps what a
+ * competitor could act on — today's orders, stock, deals, cash in hand — to the company that holds
+ * it; a set of accounts is a different matter, and every listed oil company files them. So the
+ * board carries net worth, size and ground, and nothing that would let anyone trade against
+ * anybody.
  */
 export interface Standing {
   readonly name: string;
+  readonly kind: 'PRODUCER' | 'REFINER' | 'INTEGRATED' | 'TRADER';
   readonly region: RegionName;
   readonly displayName: string;
+  /** What the company is worth, as it would be published.  */
+  readonly netWorth: number;
   /** Barrels a day: pumped for a field, put through for a refinery, held for a trading office. */
   readonly size: number;
   /** Blocks of ground held, for companies that drill. */
   readonly blocks: number;
   readonly mine: boolean;
-  /** Down if it is smaller than it was a month ago, up if bigger. */
+  /** Which way its worth has moved over the past month. */
   readonly trend: 'UP' | 'DOWN' | 'LEVEL';
-}
-
-export interface StandingsGroup {
-  readonly kind: 'PRODUCER' | 'REFINER' | 'TRADER';
-  readonly measure: string;
-  readonly rows: readonly Standing[];
 }
 
 export interface PlantView {
@@ -189,8 +186,8 @@ export interface PlayerView {
   readonly register: readonly RegionLeases[];
   /** Ground up for auction right now, with what a bid would cost. Empty between auctions. */
   readonly lots: readonly LotView[];
-  /** Who is biggest, by kind (spec G5). Public knowledge only. */
-  readonly standings: readonly StandingsGroup[];
+  /** Every company, richest first (spec G5). What a set of accounts would say, and no more. */
+  readonly standings: readonly Standing[];
   readonly chokepoints: readonly {
     readonly name: ChokepointName; readonly displayName: string; readonly status: ChokepointStatus;
     /** War-risk cover charged on every barrel crossing today, and days added to the crossing. */
@@ -455,43 +452,34 @@ function sizeOf(a: World['agents'][number]): number {
   return plantsOf(a).reduce((t, p) => t + p.processingCapacity, 0);
 }
 
-/** Every company's size today, for the session to keep so a month's trend can be worked out. */
-export function sizesNow(w: World): Record<string, number> {
-  const sizes: Record<string, number> = {};
-  for (const a of w.agents) sizes[String(a.agentId)] = sizeOf(a);
-  return sizes;
+/** What every company is worth today, for the session to keep so a month's trend can be worked out. */
+export function worthNow(w: World): Record<string, number> {
+  const worth: Record<string, number> = {};
+  for (const a of w.agents) worth[String(a.agentId)] = netWorth(w, a);
+  return worth;
 }
 
-const MEASURES = {
-  PRODUCER: 'barrels a day out of the ground',
-  REFINER: 'barrels a day through the plant',
-  TRADER: 'barrels of storage held',
-} as const;
-
-/** The board, biggest first within each kind. Nothing here is private to anybody (G5). */
-function standingsFor(w: World, playerId: AgentId, before: Record<string, number>): StandingsGroup[] {
-  const groups: StandingsGroup[] = [];
-  for (const kind of ['PRODUCER', 'REFINER', 'TRADER'] as const) {
-    const rows = w.agents
-      // An integrated company is counted among producers: it is what the industry calls it.
-      .filter((a) => (kind === 'PRODUCER' ? a.kind === 'PRODUCER' || a.kind === 'INTEGRATED' : a.kind === kind))
-      .map((a) => {
-        const size = sizeOf(a);
-        const was = before[String(a.agentId)];
-        return {
-          name: a.name,
-          region: a.region,
-          displayName: REGIONS[a.region].displayName,
-          size,
-          blocks: wellOf(a)?.leases.length ?? 0,
-          mine: a.agentId === playerId,
-          trend: was === undefined || Math.abs(size - was) < 1 ? 'LEVEL' as const : size > was ? 'UP' as const : 'DOWN' as const,
-        };
-      })
-      .sort((x, y) => y.size - x.size);
-    if (rows.length > 0) groups.push({ kind, measure: MEASURES[kind], rows });
-  }
-  return groups;
+/** The board, richest first. Nothing here is what a rival could trade against (G5). */
+function standingsFor(w: World, playerId: AgentId, before: Record<string, number>): Standing[] {
+  return w.agents
+    .map((a) => {
+      const worth = netWorth(w, a);
+      const was = before[String(a.agentId)];
+      // A percent either way is the same company having an ordinary month.
+      const moved = was === undefined || was === 0 ? 0 : (worth - was) / Math.abs(was);
+      return {
+        name: a.name,
+        kind: a.kind,
+        region: a.region,
+        displayName: REGIONS[a.region].displayName,
+        netWorth: worth,
+        size: sizeOf(a),
+        blocks: wellOf(a)?.leases.length ?? 0,
+        mine: a.agentId === playerId,
+        trend: Math.abs(moved) < 0.01 ? 'LEVEL' as const : moved > 0 ? 'UP' as const : 'DOWN' as const,
+      };
+    })
+    .sort((x, y) => y.netWorth - x.netWorth);
 }
 
 /** The register, built from every company's ground. Reserves and well counts are left out. */

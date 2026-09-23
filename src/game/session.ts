@@ -24,7 +24,7 @@ import { cardText } from '../content/cards';
 import { detectAlerts, pausesAt, rememberForAlerts, type Alert, type AlertMemory, type Severity } from './alerts';
 import { applyCommand, rejectReason, type Command, type CommandResult, type LoggedCommand } from './commands';
 import { newGameWorld, PLAYER_ID, type GameSettings } from './newgame';
-import { buildPlayerView, dailyPrices, dayLog, sizesNow, type DailyPrices, type DayLog, type PlayerView } from './view';
+import { buildPlayerView, dailyPrices, dayLog, worthNow, type DailyPrices, type DayLog, type PlayerView } from './view';
 
 /** Clock speeds (spec G3): days per second of real time is speed ÷ 2 at the default pace. */
 export const SPEEDS = [0, 1, 2, 4, 8] as const;
@@ -82,7 +82,7 @@ export class GameSession {
     log: LoggedCommand[];
     history: DailyPrices[];
     days: DayLog[];
-    /** Every company's size a month ago, so the leaderboard can show which way each is going. */
+    /** What every company was worth a month ago, for the leaderboard's trend. */
     sizes: Record<string, number>[];
     alerts: Alert[];
     memory: AlertMemory;
@@ -263,7 +263,7 @@ export class GameSession {
     s.days.push(dayLog(s.world, PLAYER_ID, report));
     if (s.days.length > DAYS_KEPT) s.days.splice(0, s.days.length - DAYS_KEPT);
     // A month of sizes is all the leaderboard's trend needs.
-    s.sizes.push(sizesNow(s.world));
+    s.sizes.push(worthNow(s.world));
     if (s.sizes.length > 31) s.sizes.splice(0, s.sizes.length - 31);
     const cards = advise(s.world, s.advisor, report.fills);
     refreshOpportunities(s.world, s.advisor);

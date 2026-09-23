@@ -1218,21 +1218,22 @@ Drilling results and remaining reserves stay private, as rivals' orders and deal
 
 ### 12A.4a The leaderboard
 
-Every company, ranked within its own trade — barrels a day out of the ground, through the plant, or
-held in storage — with which way each has moved over the past month and how many blocks it holds.
+Every company, ranked by **what it is worth**, with which way that has moved over the past month,
+how big it is and how much ground it holds. The player's own row is marked and their place named.
 
-**Only what the industry knows.** G5 keeps rivals' cash, stock, deals and orders private, so the
-board shows size and direction and nothing else. A board ranked on net worth would hand the player a
-view no rival could ever have, and would quietly turn the game into a scoreboard rather than a
-market. What a company is worth stays its own business, as the player's does theirs.
+**Why net worth, when G5 keeps rivals private** (the owner's call, 2026-09-22). The distinction that
+matters is between what a competitor could *act on* and what a company *publishes*. Today's orders,
+stock in tank, signed deals and cash in hand stay with the company that holds them, because knowing
+them would let a rival trade against it. A set of accounts is a different thing: every listed oil
+company files one, and the industry reads them. The board carries net worth, size and ground — and
+nothing anyone could trade against.
 
-**Ranked within kind**, because a trader's storage and a producer's field are not the same thing and
-a single table of them would be a league of nothing. It is also how the finale already judges, which
-makes the board something a player can steer by.
+**One table, not one per trade.** Worth is comparable across a producer, a refiner and a trader in a
+way that barrels a day is not, so the board is a single ranking with the trade shown as a column.
 
-Its most useful property is unplanned: since depletion arrived, most producers drift **down** every
-month unless they drill or buy. The board therefore shows at a glance who is replacing their
-reserves and who is quietly running out — which is exactly what the auction is for.
+Its most useful property is unplanned: since depletion arrived, a producer that is not replacing its
+reserves slides down the board month after month while its rivals climb. The leaderboard therefore
+says out loud what the auction is for.
 
 ### 12A.5 Cards are events, not actions
 

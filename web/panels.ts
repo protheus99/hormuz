@@ -380,33 +380,34 @@ export function leasesPanel(view: PlayerView): Html {
 }
 
 const KIND_WORDS: Readonly<Record<string, string>> = {
-  PRODUCER: 'Producers', REFINER: 'Refiners', TRADER: 'Traders',
+  PRODUCER: 'Producer', REFINER: 'Refiner', INTEGRATED: 'Integrated', TRADER: 'Trader',
 };
 const TREND_MARKS: Readonly<Record<string, string>> = { UP: '▲', DOWN: '▼', LEVEL: '·' };
 
 /**
- * The leaderboard (spec G5). How big everyone is, and which way they are going — which is what the
- * industry knows about its competitors. What a company is worth, what it holds and what it has
- * signed are its own business, and a board that showed them would hand the player something no
- * rival could ever see.
+ * The leaderboard (spec G5), ranked by what each company is worth — the one figure about a rival
+ * that is published rather than guessed at. What a competitor could act on, which is today's
+ * orders, stock and deals, stays where it belongs.
  */
 export function leaderboardPanel(view: PlayerView): Html {
+  const mine = view.standings.findIndex((r) => r.mine);
   return html`
-    <p class="small muted">How big every company is, and which way it has moved this month. Ranked
-      within its own trade, because a trader's storage and a producer's field are not the same
-      thing. What anyone is worth stays their own business — as yours does theirs.</p>
-    ${view.standings.map((g) => html`
-      <h3 style="margin-top:14px">${KIND_WORDS[g.kind] ?? g.kind} <span class="small muted">${g.measure}</span></h3>
-      <table class="board">
-        ${g.rows.map((r, i) => html`<tr class="${r.mine ? 'mine' : ''}">
-          <td class="num rank">${i + 1}</td>
-          <td>${r.name}${r.mine ? html` <span class="small good">you</span>` : ''}</td>
-          <td class="small muted">${r.displayName}</td>
-          <td class="num">${bbl(r.size)}</td>
-          <td class="num small ${r.trend === 'UP' ? 'good' : r.trend === 'DOWN' ? 'bad' : 'muted'}">${TREND_MARKS[r.trend] ?? ''}</td>
-          <td class="num small muted">${r.blocks > 0 ? `${r.blocks} ${r.blocks === 1 ? 'block' : 'blocks'}` : ''}</td>
-        </tr>`)}
-      </table>`)}`;
+    <p class="small muted">Every company, by what it is worth, with which way that has moved this
+      month.${mine >= 0 ? html` You are <strong>${mine + 1} of ${view.standings.length}</strong>.` : ''}
+      A set of accounts is published; what anyone is holding, buying or has signed is not.</p>
+    <table class="board">
+      <tr><th class="num">#</th><th>Company</th><th>Trade</th><th>Where</th><th class="num">Worth</th><th class="num">Month</th><th class="num">Size</th><th class="num">Ground</th></tr>
+      ${view.standings.map((r, i) => html`<tr class="${r.mine ? 'mine' : ''}">
+        <td class="num rank">${i + 1}</td>
+        <td>${r.name}${r.mine ? html` <span class="small good">you</span>` : ''}</td>
+        <td class="small muted">${KIND_WORDS[r.kind] ?? r.kind}</td>
+        <td class="small muted">${r.displayName}</td>
+        <td class="num">${money(r.netWorth)}</td>
+        <td class="num small ${r.trend === 'UP' ? 'good' : r.trend === 'DOWN' ? 'bad' : 'muted'}">${TREND_MARKS[r.trend] ?? ''}</td>
+        <td class="num small muted">${bbl(r.size)}</td>
+        <td class="num small muted">${r.blocks > 0 ? r.blocks : ''}</td>
+      </tr>`)}
+    </table>`;
 }
 
 /** News and alerts, newest first. */
