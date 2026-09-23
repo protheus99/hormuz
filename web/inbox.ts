@@ -3,7 +3,7 @@
 // panels the things they buy live in (§12A.5, web/panels.ts).
 
 import type { Card, CardOption, PlayerView } from '../src/game';
-import { dateOf, html, money, signed, type Html } from './dom';
+import { bbl, dateOf, html, money, signed, type Html } from './dom';
 import { priceStrip } from './panels';
 
 const RISK_WORDS = { LOW: 'Low', MEDIUM: 'Medium', HIGH: 'High' } as const;
@@ -63,8 +63,23 @@ function option(card: Card, o: CardOption, answered: string | undefined): Html {
         <span>${supply(o)}</span>
         <span>Risk <span class="risk ${i.risk}">${RISK_WORDS[i.risk]}</span></span>
       </div>` : ''}
+      ${payback(o)}
       ${o.affordable ? '' : html`<div class="unaffordable">Not enough money yet${o.affordableInDays !== null ? ` — about ${o.affordableInDays} days at current profit` : ' — not at current profit'}</div>`}
     </button>`;
+}
+
+/**
+ * What an option buys, for the decisions thirty days of meters cannot see (§12A.8). A well, a block
+ * or a refinery costs money now and earns it back over years, so the number that answers it is how
+ * long that takes — not a month's profit, which on the lease auction was blank for every option.
+ */
+function payback(o: CardOption): Html {
+  const p = o.payback;
+  if (p === null) return html``;
+  const soon = p.months !== null && p.months <= 24;
+  return html`<div class="payback ${p.months === null ? 'muted' : soon ? 'good' : 'bad'}">
+    ${money(p.cost)} to get it earning${p.barrels > 0 ? html` · ${bbl(p.barrels)} bbl/day` : ''} · ${p.words}
+  </div>`;
 }
 
 function card(c: Card, answered: string | undefined, open: boolean): Html {
@@ -80,6 +95,8 @@ function card(c: Card, answered: string | undefined, open: boolean): Html {
         <p>${c.details || 'No further numbers.'}</p>
         ${c.options.map((o) => html`<p>${o.choice}: costs ${money(o.totalCost)} in all${o.impact && o.impact.riskReason !== 'NONE' ? `; risk comes from ${RISK_REASONS[o.impact.riskReason]}` : ''}.</p>`)}
         ${reasons.length === 0 ? html`<p>Meters show the next 30 days if today’s conditions hold.</p>` : ''}
+        ${c.options.some((o) => o.payback !== null) ? html`<p>Anything you buy is judged by how long it
+          takes to pay for itself, not by a month’s profit — thirty days cannot see a well.</p>` : ''}
       </details>
     </article>`;
 }

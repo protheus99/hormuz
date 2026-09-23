@@ -35,7 +35,7 @@ describe('formatting', () => {
 
 describe('what an answer says it costs', () => {
   const option = (cash: number, totalCost: number): CardOption => ({
-    choice: 'YES', label: '', actions: [], totalCost, affordable: true, affordableInDays: null, effect: null,
+    choice: 'YES', label: '', actions: [], totalCost, affordable: true, affordableInDays: null, effect: null, payback: null,
     impact: { cash, profit: 0, supply: { value: 0, unit: 'days' }, risk: 'LOW', riskReason: 'NONE' },
   });
 
@@ -49,7 +49,7 @@ describe('what an answer says it costs', () => {
 
 describe('how long an answer ties you in', () => {
   const deal = (termDays: number, profit: number): CardOption => ({
-    choice: 'YES', label: `Sign for ${termDays} days.`, totalCost: 0, affordable: true, affordableInDays: null, effect: null,
+    choice: 'YES', label: `Sign for ${termDays} days.`, totalCost: 0, affordable: true, affordableInDays: null, effect: null, payback: null,
     actions: [{ kind: 'SIGN_DEAL', terms: { termDays } }] as never,
     impact: { cash: 0, profit, supply: null, risk: 'LOW', riskReason: 'NONE' } as never,
   });

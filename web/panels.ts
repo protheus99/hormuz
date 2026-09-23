@@ -23,9 +23,11 @@ export function offerBlock(view: PlayerView, where: OfferPlace, heading: string)
         <div class="small"><strong>${o.title}</strong> · <span class="muted">${o.what}</span></div>
         <div class="seg offers">${o.choices.map((c) => html`
           <button data-offer="${o.type}" data-choice="${c.choice}" ${c.affordable ? '' : 'disabled'}
-            title="${c.affordable ? '' : 'More than your cash and credit line'}">
+            title="${c.affordable ? (c.payback?.words ?? '') : 'More than your cash and credit line'}">
             ${c.label.replace(/[.]$/, '')}${c.cost > 0 ? html` · <span class="muted">${money(c.cost)}</span>` : ''}
           </button>`)}</div>
+        ${o.choices.map((c) => (c.payback?.months === null || c.payback === undefined || c.payback === null ? ''
+          : html`<div class="small muted">${c.label.replace(/[.]$/, '')}: ${c.payback.words}</div>`))}
       </div>`)}`;
 }
 

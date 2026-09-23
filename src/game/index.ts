@@ -6,6 +6,7 @@ export type { Command, CommandResult, LoggedCommand } from './commands';
 export type { Alert, Severity } from './alerts';
 export type { Counterparty, DailyPrices, DayLog, LeaseView, LotView, MarketView, OwnCompanyView, PlayerView, RegionLeases, Standing } from './view';
 export type { Card, CardOption, CardType, Choice, Impact, RiskLevel } from './cards/types';
+export type { Payback } from './cards/payback';
 export type { CardsView } from './view';
 export type { Offer, OfferChoice, OfferPlace } from './offers';
 export { mapLayout, regionName, type MapLayout, type MapLane, type MapRegion, type Point } from './map';

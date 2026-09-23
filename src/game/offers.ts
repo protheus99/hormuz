@@ -16,6 +16,7 @@ import type { Agent } from '../engine/model';
 import type { World } from '../engine/world';
 import { cardText } from '../content/cards';
 import { CARD_DEFS, type CardContext } from './cards/catalog';
+import { paybackOf, type Payback } from './cards/payback';
 import type { AdvisorMemory, CardType, Choice } from './cards/types';
 
 /** Which panel an offer belongs in: where the thing it buys already lives. */
@@ -57,6 +58,12 @@ export interface OfferChoice {
   readonly label: string;
   readonly cost: number;
   readonly affordable: boolean;
+  /**
+   * How long it takes to pay for itself (§12A.8). An offer shows no projected meters — it is a
+   * purchase, not a forecast — but what a purchase costs and what it earns back is the arithmetic
+   * the decision is actually made on, so it belongs on the button.
+   */
+  readonly payback: Payback | null;
 }
 
 export interface Offer {
@@ -94,7 +101,7 @@ export function offerOf(w: World, memory: AdvisorMemory, me: Agent, type: CardTy
   const add = (choice: Choice, label: string, spec: { readonly actions: readonly { readonly kind: string }[] } | null) => {
     if (spec === null || label === '') return;
     const cost = spec.actions.reduce((sum, a) => sum + actionCost(w, me.agentId, a as never).total, 0);
-    choices.push({ choice, label, cost, affordable: cost <= spend(me) });
+    choices.push({ choice, label, cost, affordable: cost <= spend(me), payback: paybackOf(w, me, spec.actions as never) });
   };
   add('YES', text.yes, yes);
   add('MAYBE', text.maybe, maybe);

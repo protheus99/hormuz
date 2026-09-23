@@ -1492,7 +1492,39 @@ it is that good and bad decisions both make money. Losses must stay avoidable by
    is the window, so the way out belongs beside the letter that told you the window was closing.
    There is no panel for the record itself, and there must not be.
 6. The economics rebalance and company failure (§12A.8), then one retune of every scenario target
-   and the D44 band.
+   and the D44 band. Split into four, and the first of them was not on the list:
+
+   a. ✅ **A meter for what you buy.** Measured 2026-09-23: the lease auction showed a player **$0
+      of profit for every option** — Yes, Maybe and No alike — because a sealed bid costs nothing
+      today and the lots are awarded thirty days out, which is exactly the projection window.
+      Drilling showed zero or less, a well taking months. So a player deciding by the numbers never
+      grew, and finished the finale mid-pack behind every rival that did.
+
+      This is a blocker for the package, not a detail: A takes payback from 44 days to 1.5–2 years,
+      after which every growth card would project a loss and nobody reading the meters would ever
+      invest in anything.
+
+      A card that buys something now says what it costs to get earning, what it will make, and how
+      long that takes to come back — today's arithmetic, not a forecast. It counts the drilling in
+      the price of ground (a $9M bid is $26.6M to get earning) and it counts dry holes (a programme
+      of four is not four wells). Where a thing earns no barrels of its own — tanks, a tier upgrade
+      — it says so in a sentence rather than inventing a number. The meter-led bot reads it too, and
+      will not buy what takes more than two years to come back, which is the judgement A is meant to
+      make hard.
+
+      Measured after it, three seeds: P2 went 0/3 to 1/3 with all three seeds landing on the target
+      instead of scattered far below it ($30.7M, $29.6M, $34.6M against $32.5M, from $25.4M, $7.8M,
+      $5.8M); the finale's worst rank went from 18th of 20 to 5th. **It also settles the finale
+      question** — QUESTIONS.md had the measure punishing growth, but `performance()` divides by
+      capacity recorded at the *start*, so buying ground can only help it. The bot was not being
+      punished for growing; it could not see that growing was worth it.
+
+      What it costs elsewhere: P3 went 1/3 to 0/3. Its goal is profit per barrel of *starting*
+      capacity over twelve months, and a company that now spends on ground has not got those barrels
+      back inside the year. That tension is real and belongs to the retune.
+   b. The economics package itself: A, B and C (§12A.8).
+   c. One retune of every scenario target and the D44 band.
+   d. Company failure and replacement, which is new machinery rather than tuning.
 
 **Stage 3b ✅ (2026-09-23): operating in a second region.** Built in two steps, on the same
 derived-aggregate pattern that let leases land without touching a card or a panel.
@@ -1910,6 +1942,7 @@ The free web version stays available after Steam launches. Schools mostly use Ch
 | 3.1 | 2026-09-18 | Closed the real-world framing decision as D32: real geography, fictional companies, faceless and non-violent event wording, coastline-only map. Renamed nine companies whose names matched or crowded real companies. Removed the refiner's "Buy an oilfield" card: only producers can become integrated. |
 | 3.2 | 2026-09-18 | Made every chokepoint a live risk: an event profile for each of the seven, deck rules, route cards that react to delays as well as tension, a campaign featuring six of the seven, verification runs S13–S17, and a property test that no single closure strands a region. |
 | 3.5 | 2026-09-19 | Phase 7 calibration: price discovery (bids climb towards value as tanks empty; unsold asks decay; closing offers published), refiners count the voyage in stock targets and tank space, credit lines, recoverable insolvency, AI output cuts, personality mixes, the global portfolio's cash and storage, and the D35 decisions. Global S0: markers about 78 / 71 / 63 in grade order on ~90% of days, no insolvencies. |
+| 4.11 | 2026-09-23 | Stage 6a: a payback meter for capital decisions, after measuring that the lease auction showed a player nothing at all. Settles the finale question: the measure never punished growth; the meters could not see it. |
 | 4.10 | 2026-09-23 | Three bugs the stage 3b invariants caught, all in stage 4's forfeiture: crude taken with forfeited ground was not accounted, the field's capacity was not refreshed with it, and a lease could fill room another lease was standing in after a drill shifted the tank shares. A dilemma answered is now not asked again for four months. |
 | 4.9 | 2026-09-23 | Stage 5: the eleven purchases become standing actions in their own panels, the Opportunities sheet and its machinery are removed, raising and asking become separate questions, and the escapes move under the News. |
 | 4.8 | 2026-09-23 | Stage 3b: a lease holds its own oil and posts its own ask, ground elsewhere costs what it costs there, and a producer may take ground in any region it has the right to. Dilemma 24 landed with it. |

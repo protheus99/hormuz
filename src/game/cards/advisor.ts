@@ -13,6 +13,7 @@ import { chooseForAi, AI_CARD_TYPES, AI_GROWTH_TYPES } from '../../ai/scoring';
 import { cardText } from '../../content/cards';
 import { CARD_DEFS, CATALOG, type CardContext, type CardDef, type OptionSpec, type Situation } from './catalog';
 import { projectOptions } from './projection';
+import { paybackOf } from './payback';
 import { emptyMemory, type AdvisorMemory, type Card, type CardOption, type CardType, type Choice } from './types';
 
 export interface ResolvedCard {
@@ -206,7 +207,10 @@ function option(w: World, me: Agent, state: AdvisorState, choice: Choice, label:
     const perDay = first !== undefined && last !== undefined && history.length > 1 ? (last - first) / (history.length - 1) : 0;
     affordableInDays = perDay > 0 ? Math.ceil((totalCost - available) / perDay) : null;
   }
-  return { choice, label, actions: o.actions, impact, totalCost, affordable, affordableInDays, effect: o.effect ?? null };
+  return {
+    choice, label, actions: o.actions, impact, totalCost, affordable, affordableInDays,
+    effect: o.effect ?? null, payback: paybackOf(w, me, o.actions),
+  };
 }
 
 function details(s: Situation): string {

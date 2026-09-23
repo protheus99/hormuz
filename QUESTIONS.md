@@ -35,11 +35,15 @@ Recommendations are marked **R**.
   whether a thing can be done at all), and the escapes would have been stranded when the sheet went.
   Both handled — see §12A.7 step 5. Found 2026-09-22, answered 2026-09-23.
 
-- **The finale's measure works against growth.** It ranks on profit per barrel of capacity, and
-  capacity is now something you buy at auction. A company that takes new ground and drills it ranks
-  *worse* for having grown — the meter-led bot fell from 1/3 to 0/3 on the finale the moment
-  auctions came within reach, while every producer scenario got easier. Replace the measure in the
-  stage 6 retune: absolute profit, or what net worth did over the run. Found 2026-09-22.
+- ~~**The finale's measure works against growth.**~~ **Wrong diagnosis, corrected 2026-09-23.**
+  `performance()` divides by `c.capacity`, which is recorded at the **start** of the scenario and
+  never updated, so buying ground cannot enlarge the denominator and growth can only help the ratio.
+  The real cause was the meters: the lease auction showed $0 of profit for Yes, Maybe and No alike,
+  because a sealed bid costs nothing today and the lots are awarded thirty days out — the whole
+  projection window. A player reading the numbers therefore never grew. Giving capital decisions a
+  payback (stage 6a) took the finale's worst rank from 18th of 20 to 5th without touching the
+  measure. Whether the measure still needs replacing is now a question for the 6c retune, on
+  evidence rather than on this. Found 2026-09-22, re-measured 2026-09-23.
 
 - **Daily reporting.** The engine keeps the day and will (D56), so the Activity tab is a list of
   days and nothing rolls those days up. Wanted: a reporting layer over the daily record — a day's

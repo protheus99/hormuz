@@ -2,6 +2,7 @@
 
 import type { Action } from '../../engine/actions';
 import type { AgentId } from '../../engine/model';
+import type { Payback } from './payback';
 
 export type Choice = 'YES' | 'NO' | 'MAYBE';
 export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH';
@@ -54,6 +55,12 @@ export interface CardOption {
   readonly affordableInDays: number | null;
   /** Things the advisor itself does: ask the market for deals, or deliver a report. */
   readonly effect: OptionEffect | null;
+  /**
+   * For an option that buys something: what it costs to get earning and how long that takes to come
+   * back (§12A.8). The four meters project thirty days, which cannot see a well, a block or a
+   * refinery — and showed a player nothing at all on the lease auction. Null on every other card.
+   */
+  readonly payback: Payback | null;
 }
 
 export type OptionEffect = { readonly tender: number } | { readonly report: true };
