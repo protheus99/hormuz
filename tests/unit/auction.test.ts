@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { GLOBAL_PORTFOLIO } from '../../src/data/portfolios';
 import { REGIONS } from '../../src/data/regions';
-import { aiBid, award, baseWorth, leasableRegions, mayBid, mayWork, placeBid, surveyLots, type LeaseLot } from '../../src/engine/auction';
+import { aiBid, award, bandFor, baseWorth, buySurvey, leasableRegions, mayBid, mayWork, placeBid, surveyLots, worthTo, type LeaseLot } from '../../src/engine/auction';
 import { wellOf } from '../../src/engine/companies';
 import { DEFAULT_CONFIG } from '../../src/engine/config';
 import { rngFor } from '../../src/engine/rng';
@@ -143,5 +143,62 @@ describe('a year of the world', () => {
     for (let d = w.tick; d < every; d++) step(w);
     expect(w.auction).toBeNull();                       // awarded and closed
     expect(w.agents.reduce((t, a) => t + (wellOf(a)?.leases.length ?? 0), 0)).toBeGreaterThan(held);
+  });
+});
+
+describe('the survey somebody else paid for', () => {
+  it('publishes a reading, not the ground: some lots are a band out either way', () => {
+    // Over many rounds the published band and the real one part company about as often as the
+    // config says they should, and in both directions (§12A.6, dilemma 22).
+    const w = world();
+    const order = ['LOW', 'MEDIUM', 'HIGH'];
+    let wrong = 0, better = 0, worse = 0, total = 0;
+    for (let seq = 0; seq < 200; seq++) {
+      for (const lot of surveyLots(seq, DEFAULT_CONFIG, rngFor(`s${seq}`, 'wells'), w.agents)) {
+        total++;
+        const gap = order.indexOf(lot.trueBand) - order.indexOf(lot.band);
+        if (gap === 0) continue;
+        wrong++;
+        if (gap > 0) better++; else worse++;
+      }
+    }
+    expect(total).toBeGreaterThan(300);
+    expect(wrong / total).toBeGreaterThan(0.1);
+    expect(wrong / total).toBeLessThan(0.4);
+    expect(better).toBeGreaterThan(0);
+    expect(worse).toBeGreaterThan(0);
+  });
+
+  it('is the only way to know before bidding, and changes what a bidder offers', () => {
+    const w = world();
+    // A lot whose published survey is wrong is the only one where knowing is worth anything.
+    let lot = surveyLots(0, DEFAULT_CONFIG, rngFor('x', 'wells'), w.agents)[0]!;
+    for (let i = 1; i < 60 && lot.trueBand === lot.band; i++) lot = surveyLots(i, DEFAULT_CONFIG, rngFor(`x${i}`, 'wells'), w.agents)[0]!;
+    expect(lot.trueBand).not.toBe(lot.band);
+    const bidder = w.agents.find((a) => mayWork(a, lot))!;
+    expect(bandFor(lot, bidder)).toBe(lot.band);
+    const blind = worthTo(lot, bidder, DEFAULT_CONFIG);
+
+    buySurvey(lot, bidder.agentId, 1_000);
+    expect(bandFor(lot, bidder)).toBe(lot.trueBand);
+    expect(worthTo(lot, bidder, DEFAULT_CONFIG)).not.toBeCloseTo(blind, 0);
+    // And nobody else sees a thing.
+    const other = w.agents.find((a) => a !== bidder && mayWork(a, lot));
+    if (other) expect(bandFor(lot, other)).toBe(lot.band);
+  });
+
+  it('makes the block itself answer for it, once it has won you one', () => {
+    const w = world();
+    const lot = surveyLots(0, DEFAULT_CONFIG, rngFor('taint', 'wells'), w.agents)[0]!;
+    const bidder = w.agents.find((a) => mayWork(a, lot))!;
+    bidder.cash = 10 * lot.reserve;          // a company that can actually pay for the ground
+    buySurvey(lot, bidder.agentId, 250_000);
+    placeBid(lot, bidder.agentId, lot.reserve);
+    const won = award([lot], w.agents, w.tick, DEFAULT_CONFIG);
+    expect(won).toHaveLength(1);
+    const entry = bidder.record[0];
+    expect(entry?.saved).toBe(250_000);
+    expect(entry?.amount).toBe(250_000 * DEFAULT_CONFIG.EXPOSURE.PER_SAVED);
+    expect(entry?.target).toEqual({ kind: 'LEASE', leaseId: won[0]!.lease.leaseId });
   });
 });

@@ -5,7 +5,7 @@
 
 import { internalTransfer, refreshCapacity, startMaintenance } from './agents';
 import { bestLeaseToDrill, drillWell } from './leases';
-import { mayWork, placeBid } from './auction';
+import { buySurvey, mayWork, placeBid } from './auction';
 import { addExposure, escapeCost, takeEscape, type EscapeKind, type ExposureTarget } from './exposure';
 import { charterCost, newCharter } from './charters';
 import {
@@ -98,6 +98,7 @@ export type Action =
   | { readonly kind: 'HOLD_SERVICES'; readonly days: number }
   | { readonly kind: 'RESTATE_RESERVES'; readonly uplift: number }
   | { readonly kind: 'GRANT_LICENCE'; readonly region: RegionName }
+  | { readonly kind: 'BUY_SURVEY'; readonly lotId: string; readonly price: number; readonly saved: number }
   | { readonly kind: 'CUT_CORNER'; readonly amount: number; readonly saved: number; readonly target: ExposureTarget }
   | { readonly kind: 'PAY'; readonly amount: number; readonly what: 'REPORT' | 'CLEANUP' | 'FAVOUR' };
 
@@ -172,6 +173,8 @@ export function actionCost(w: World, agentId: AgentId, action: Action): { readon
       const due = dueForService(a, action.count);
       return { now: due.cost, total: due.cost };
     }
+    case 'BUY_SURVEY':
+      return { now: action.price, total: action.price };
     case 'STANDING_ORDER':
       return action.side === 'BID' ? { now: 0, total: action.price * action.qty * action.days } : { now: 0, total: 0 };
     case 'SIGN_DEAL':
@@ -398,6 +401,16 @@ export function applyAction(w: World, agentId: AgentId, action: Action): void {
     case 'GRANT_LICENCE': {
       const field = need(well, 'wells');
       if (!field.licences.includes(action.region)) field.licences.push(action.region);
+      return;
+    }
+    case 'BUY_SURVEY': {
+      // A copy of a survey shot for somebody else (§12A.6, dilemma 22). It tells you what is really
+      // down there before you bid — and it marks the lot, so ground it wins you is ground you can be
+      // made to give back, with the oil still under it.
+      const lot = w.auction?.lots.find((l) => l.lotId === action.lotId);
+      if (lot === undefined) return;
+      charge(w, a, action.price, FeeKind.REPORT, tick);
+      buySurvey(lot, agentId, action.saved);
       return;
     }
     case 'ESCAPE': {

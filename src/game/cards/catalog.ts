@@ -15,7 +15,7 @@ import { priceDeal, signDeal, type DealTerms } from '../../engine/deals';
 import type { Grade } from '../../engine/enums';
 import type { Agent, AgentId, Deal, Lease, LeaseId, PlantState, Producer, Tick } from '../../engine/model';
 import { refinerQuote, type MarketView } from '../../engine/rules';
-import { bidAmount, mayWork } from '../../engine/auction';
+import { bandFor, bidAmount, mayWork, worthTo } from '../../engine/auction';
 import { describe as describeEntry, escapeCost, escapeOffered, nextEntry, rungOf, type EscapeKind, type ExposureTarget } from '../../engine/exposure';
 import { bestLeaseToDrill } from '../../engine/leases';
 import { avoidFor, findRoute, LaneRouteProvider } from '../../engine/transport';
@@ -264,6 +264,9 @@ const DUE_WINDOW = 20;
 const HUNCH_ODDS = 1 / 550;
 /** And a reserves report about as often; both are a career's worth, not a year's (§12A.6). */
 const REPORT_ODDS = 1 / 550;
+/** What a contractor charges for a copy, and what knowing before you bid is worth. */
+const SURVEY_PRICE = 0.03;
+const SURVEY_WORTH = 0.15;
 /** Plugging what came with the ground, as a share of what the ground cost. */
 const PLUGGING_SHARE = 0.05;
 /** What standing by last year's figure is worth on the credit line, and what it is worth to you. */
@@ -394,7 +397,7 @@ export const CATALOG: readonly CardDef[] = [
         key: `auction-${lot.lotId}`,
         deadline: (auction.tick - 1) as Tick,
         data: {
-          lot: lot.name, band: BAND_WORDS[lot.band] ?? 'unsurveyed', slots: lot.maxWells, lotId: lot.lotId,
+          lot: lot.name, band: BAND_WORDS[bandFor(lot, me)] ?? 'unsurveyed', slots: lot.maxWells, lotId: lot.lotId,
           strong: money(bidAmount(lot, me, w.config, 'STRONG')), steady: money(bidAmount(lot, me, w.config, 'STEADY')),
           reserve: money(lot.reserve),
         },
@@ -1094,6 +1097,30 @@ export const CATALOG: readonly CardDef[] = [
         maybe: { actions: [{ kind: 'RESTATE_RESERVES', uplift: uplift / 2 }, corner(w, (RESTATE_WORTH * uplift) / 2, target)] },
       };
     },
+  },
+
+  {
+    // "The strongest fit in the deck" (DILEMMAS.md, 22). The published survey is a reading, and
+    // now and then it is a band out. A copy of the one a rival paid for is the only way to know
+    // before bidding — and it is the block itself that answers for it if it wins you one.
+    type: 'BOUGHT_SURVEY', kinds: PRODUCERS, raised: true, opportunity: false, operating: false,
+    detect: ({ w, me }) => {
+      const auction = w.auction;
+      const lot = auction?.lots.find((l) => mayWork(me, l) && !l.surveyed.includes(me.agentId));
+      if (auction === null || lot === undefined) return null;
+      const worth = worthTo(lot, me, w.config);
+      const price = SURVEY_PRICE * worth;
+      return {
+        key: `survey-${lot.lotId}`,
+        data: { lot: lot.name, cost: money(price), lotId: lot.lotId, priceNum: price, savedNum: SURVEY_WORTH * worth },
+      };
+    },
+    options: (_ctx, s) => ({
+      yes: {
+        actions: [{ kind: 'BUY_SURVEY', lotId: String(s.data.lotId), price: Number(s.data.priceNum), saved: Number(s.data.savedNum) }],
+      },
+      maybe: null,
+    }),
   },
 
   // ── The escapes (§12A.6) ──

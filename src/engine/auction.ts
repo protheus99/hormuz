@@ -22,8 +22,16 @@ export interface LeaseLot {
   readonly name: string;
   readonly region: RegionName;
   readonly grade: Grade;
-  /** The published survey (§12A.2). What is actually under the ground is set when it is awarded. */
+  /** The published survey (§12A.2), which is all a bidder is told. */
   readonly band: LeaseBand;
+  /**
+   * What the ground actually is. Engine-only: a published survey is somebody's reading of somebody's
+   * data, and now and then it is a band out either way. This is what the lease turns out to be, and
+   * the only way to know it before bidding is to come by a survey shot for somebody else (§12A.6).
+   */
+  readonly trueBand: LeaseBand;
+  /** Bidders who have seen the real thing. */
+  surveyed: AgentId[];
   readonly maxWells: number;
   /** What a fully drilled lease here would make a day — the size every bidder can work out. */
   readonly notionalCapacity: number;
@@ -102,6 +110,10 @@ export function surveyLots(seq: number, cfg: Config, rng: Rng, agents: readonly 
     // Most ground on offer is ordinary; a genuinely big block is rare, which is what makes one
     // worth a fight (§12A.4).
     const band = roll < 0.15 ? LeaseBand.HIGH : roll < 0.55 ? LeaseBand.MEDIUM : LeaseBand.LOW;
+    // A published survey is a reading, not the ground. Now and then it is a band out, either way,
+    // which is what makes a copy of somebody else's worth buying (§12A.6, dilemma 22).
+    const miss = nextFloat(rng);
+    const trueBand = miss < cfg.AUCTION.MISREAD / 2 ? shift(band, 1) : miss < cfg.AUCTION.MISREAD ? shift(band, -1) : band;
     const maxWells = cfg.AUCTION.WELLS.MIN + Math.floor(nextFloat(rng) * (cfg.AUCTION.WELLS.MAX - cfg.AUCTION.WELLS.MIN + 1));
     const lotName = nameGround(used, Math.floor(nextFloat(rng) * 19) + seq * 3 + i, region);
     used.add(lotName);
@@ -111,6 +123,8 @@ export function surveyLots(seq: number, cfg: Config, rng: Rng, agents: readonly 
       region,
       grade,
       band,
+      trueBand,
+      surveyed: [],
       maxWells,
       notionalCapacity: maxWells * cfg.DRILL_STEP,
       baseExtractionCost: cfg.AUCTION.BASE_COST[grade] ?? cfg.AUCTION.BASE_COST.MEDIUM,
@@ -122,13 +136,40 @@ export function surveyLots(seq: number, cfg: Config, rng: Rng, agents: readonly 
   return lots;
 }
 
+/** One band up or down, as far as the scale goes. */
+function shift(band: LeaseBand, by: number): LeaseBand {
+  const order = [LeaseBand.LOW, LeaseBand.MEDIUM, LeaseBand.HIGH];
+  const at = order.indexOf(band) + by;
+  return order[Math.max(0, Math.min(order.length - 1, at))] as LeaseBand;
+}
+
+/**
+ * What a bidder believes about a lot: the real thing if they have seen it, the published survey
+ * otherwise. Everything a bidder works out — what it is worth, what to offer — comes through here.
+ */
+export function bandFor(lot: LeaseLot, agent: Agent): LeaseBand {
+  return lot.surveyed.includes(agent.agentId) ? lot.trueBand : lot.band;
+}
+
+/** Puts a copy of somebody else's survey in a bidder's hands, and marks what it cost them. */
+export function buySurvey(lot: LeaseLot, agentId: AgentId, saved: number): void {
+  if (!lot.surveyed.includes(agentId)) lot.surveyed.push(agentId);
+  if (!lot.tainted.some((t) => t.agentId === agentId)) lot.tainted.push({ agentId, saved });
+}
+
 /** What a company would offer at each level. The player picks a level, never a number (G4.3). */
 export type BidLevel = 'STRONG' | 'STEADY' | 'NONE';
 
 export function bidAmount(lot: LeaseLot, agent: Agent, cfg: Config, level: BidLevel): number {
   if (level === 'NONE') return 0;
   const share = level === 'STRONG' ? cfg.AUCTION.STRONG_SHARE : cfg.AUCTION.STEADY_SHARE;
-  return Math.min(share * baseWorth(lot, cfg), Math.max(0, agent.cash - agent.cashReserved));
+  // A bidder offers on what it believes is down there, which is the survey unless it has seen more.
+  return Math.min(share * worthTo(lot, agent, cfg), Math.max(0, agent.cash - agent.cashReserved));
+}
+
+/** What this lot is worth to this bidder, on whichever survey they are working from. */
+export function worthTo(lot: LeaseLot, agent: Agent, cfg: Config): number {
+  return baseWorth({ ...lot, band: bandFor(lot, agent) }, cfg);
 }
 
 /** Records a bid, replacing anything that company had already offered for the lot. */
@@ -146,7 +187,8 @@ export function aiBid(agent: Agent, lot: LeaseLot, cfg: Config, rng: Rng): numbe
   if (!mayWork(agent, lot)) return 0;
   const appetite = cfg.AUCTION.AI_BID.MIN + nextFloat(rng) * (cfg.AUCTION.AI_BID.MAX - cfg.AUCTION.AI_BID.MIN);
   const affordable = Math.max(0, agent.cash - agent.cashReserved) * cfg.AUCTION.MAX_CASH_SHARE;
-  const offer = Math.min(baseWorth(lot, cfg) * appetite, affordable);
+  // An AI company works from the published survey like everyone else who paid for nothing.
+  const offer = Math.min(worthTo(lot, agent, cfg) * appetite, affordable);
   return offer >= lot.reserve ? offer : 0;
 }
 
@@ -176,7 +218,7 @@ export function award(
       region: lot.region,
       grade: lot.grade,
       capacity: lot.notionalCapacity,
-      band: lot.band,
+      band: lot.trueBand,
       baseExtractionCost: lot.baseExtractionCost,
       acquiredFor: best.amount,
       wells: 0,

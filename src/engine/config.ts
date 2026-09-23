@@ -99,6 +99,7 @@ export interface Config {
     readonly NOTICE_TICKS: number;         // lots are published this long before they are awarded
     readonly LOTS: number;                 // blocks on offer each time
     readonly WELLS: { readonly MIN: number; readonly MAX: number };   // slots on a lot
+    readonly MISREAD: number;              // how often a published survey is a band out, either way
     readonly RESERVE_SHARE: number;        // no lot sells below this share of what it is worth
     readonly MAX_CASH_SHARE: number;       // and nobody bids away more than this much of their cash
     readonly AI_BID: { readonly MIN: number; readonly MAX: number };  // appetite, as a share of worth
@@ -250,7 +251,7 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
     // Twice a year. Yearly put the only award on the last day of every 365-day scenario, too late
     // to drill what you had just bought, so the auction existed and no campaign could use it.
     EVERY_TICKS: 180, NOTICE_TICKS: 30, LOTS: 3, WELLS: { MIN: 6, MAX: 12 },
-    RESERVE_SHARE: 0.35, MAX_CASH_SHARE: 0.5, AI_BID: { MIN: 0.5, MAX: 1.2 },
+    MISREAD: 0.3, RESERVE_SHARE: 0.35, MAX_CASH_SHARE: 0.5, AI_BID: { MIN: 0.5, MAX: 1.2 },
     // Bidding strong clears the keenest rival, so it wins — and pays a third over the odds for the
     // privilege. Bidding steady wins only against a shy field. That is the decision (§12A.4).
     STRONG_SHARE: 1.3, STEADY_SHARE: 0.75,
