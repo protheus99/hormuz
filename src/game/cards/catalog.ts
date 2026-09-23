@@ -10,13 +10,13 @@ import { leaseRate, leaseRegions, OFFICE_HUB_CAPACITY, projectCost, type Action 
 import { actualCost, effectiveUtilization, fillRatio } from '../../engine/agents';
 import { previousClose, referencePrice } from '../../engine/clearing';
 import { acceptedGrades, averageCost, CLOSED_TO_NEW_REFINING, integrationPlant, plantOf, plantsOf, total, wellOf } from '../../engine/companies';
-import { configFor } from '../../engine/config';
+import { configFor, type Config } from '../../engine/config';
 import { priceDeal, signDeal, type DealTerms } from '../../engine/deals';
 import type { Grade } from '../../engine/enums';
-import type { Agent, AgentId, Deal, PlantState, Producer, Tick } from '../../engine/model';
+import type { Agent, AgentId, Deal, Lease, LeaseId, PlantState, Producer, Tick } from '../../engine/model';
 import { refinerQuote, type MarketView } from '../../engine/rules';
 import { bidAmount, mayWork } from '../../engine/auction';
-import { describe as describeEntry, escapeCost, escapeOffered, nextEntry, rungOf, type EscapeKind } from '../../engine/exposure';
+import { describe as describeEntry, escapeCost, escapeOffered, nextEntry, rungOf, type EscapeKind, type ExposureTarget } from '../../engine/exposure';
 import { bestLeaseToDrill } from '../../engine/leases';
 import { avoidFor, findRoute, LaneRouteProvider } from '../../engine/transport';
 import { netWorth, type World } from '../../engine/world';
@@ -53,7 +53,12 @@ export interface CardDef {
   /** AI companies answer it from Phase 9 (spec G4.6: operating cards). */
   readonly operating: boolean;
   detect(ctx: CardContext): Situation | null;
-  options(ctx: CardContext, s: Situation): { readonly yes: OptionSpec; readonly maybe: OptionSpec | null };
+  /**
+   * What each answer does. A dilemma may give No actions of its own — refusing to cut a corner is
+   * usually doing the job properly, which costs what it costs (§12A.6). A card that leaves No out
+   * means what it has always meant: nothing happens.
+   */
+  options(ctx: CardContext, s: Situation): { readonly yes: OptionSpec; readonly maybe: OptionSpec | null; readonly no?: OptionSpec };
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────────────────────
@@ -246,6 +251,32 @@ const ALL: Agent['kind'][] = ['PRODUCER', 'REFINER', 'INTEGRATED', 'TRADER'];
 
 /** How a survey's band reads on a card. */
 const BAND_WORDS: Readonly<Record<string, string>> = { LOW: 'small', MEDIUM: 'fair-sized', HIGH: 'large' };
+
+
+/** Wells on a lease that are running, longest since a service first. */
+const pumping = (l: Lease) => l.wells.filter((x) => x.status === 'PUMPING').sort((a, b) => b.daysSinceMaintenance - a.daysSinceMaintenance);
+
+/** Wells within a few weeks of being pulled for a service. */
+const dueSoon = (l: Lease, cfg: Config) => pumping(l).filter((x) => x.daysSinceMaintenance >= cfg.WELL.MAINT_INTERVAL - DUE_WINDOW);
+
+const DUE_WINDOW = 20;
+/** Roughly once every eighteen months for a producer with a field worth worrying about. */
+const HUNCH_ODDS = 1 / 550;
+/** And a reserves report about as often; both are a career's worth, not a year's (§12A.6). */
+const REPORT_ODDS = 1 / 550;
+/** Plugging what came with the ground, as a share of what the ground cost. */
+const PLUGGING_SHARE = 0.05;
+/** What standing by last year's figure is worth on the credit line, and what it is worth to you. */
+const RESTATE_SHARE = 0.25;
+const RESTATE_WORTH = 0.2;
+
+/**
+ * What a corner puts on the record (§12A.6). The saving is what the card told the player they were
+ * getting; the amount is what it will cost if it ever catches up, and no card ever shows it.
+ */
+function corner(w: World, saved: number, target: ExposureTarget): Action {
+  return { kind: 'CUT_CORNER', amount: saved * w.config.EXPOSURE.PER_SAVED, saved, target };
+}
 
 /** How long this world has left to run: part of how hard a reckoning presses (§12A.6). */
 const horizonDays = (w: World) => (w.horizon === null ? null : w.horizon - w.tick);
@@ -966,6 +997,103 @@ export const CATALOG: readonly CardDef[] = [
       return region ? { key: 'office', data: { region: REGIONS[region].displayName, regionId: region, cost: money(w.config.OFFICE_COST.OPEN), daily: money(w.config.OFFICE_COST.PER_TICK), hub: OFFICE_HUB_CAPACITY } } : null;
     },
     options: (_ctx, s) => ({ yes: { actions: [{ kind: 'OPEN_OFFICE', region: s.data.regionId as RegionName }] }, maybe: null }),
+  },
+
+
+  // ── The dilemmas (§12A.6, DILEMMAS.md) ──
+  // Four rules hold for all of them. The corner is always the Yes, so refusing is always free and
+  // always safe. Each card states what is certain and says plainly that the rest cannot be known.
+  // What the corner saves is real and arrives at once. What it puts on the record is never shown.
+  {
+    type: 'SERVICE_HOLD', kinds: PRODUCERS, raised: true, opportunity: false, operating: false,
+    detect: ({ w, me }) => {
+      const field = wellOf(me);
+      if (field === undefined) return null;
+      const price = w.nodes[NODE_FOR_GRADE[field.grade]].markerPrice;
+      // Only when prices are good: holding a service off when crude is cheap is not a temptation.
+      if (price < 1.5 * field.baseExtractionCost) return null;
+      const lease = field.leases.find((l) => w.tick >= l.serviceHoldUntil && dueSoon(l, w.config).length >= 2);
+      if (lease === undefined) return null;
+      const due = dueSoon(lease, w.config);
+      const saved = due.reduce((sum, x) => sum + x.rate, 0) * w.config.WELL.MAINT_TICKS * price;
+      return {
+        key: `service-${String(lease.leaseId)}`,
+        data: { wells: due.length, lease: lease.name, saved: money(saved), savedNum: saved, leaseId: lease.leaseId },
+      };
+    },
+    options: ({ w }, s) => {
+      const saved = Number(s.data.savedNum);
+      const target = { kind: 'LEASE', leaseId: s.data.leaseId as LeaseId } as const;
+      return {
+        yes: { actions: [{ kind: 'HOLD_SERVICES', days: 60 }, corner(w, saved, target)] },
+        maybe: { actions: [{ kind: 'HOLD_SERVICES', days: 30 }, corner(w, saved / 2, target)] },
+      };
+    },
+  },
+  {
+    // The owner's steer: the hunch is decided in secret and unconnected to the wells' true state,
+    // so the board cannot be read for the answer. Nothing about it is ever resolved on screen.
+    type: 'MANAGER_HUNCH', kinds: PRODUCERS, raised: true, opportunity: false, operating: false,
+    detect: ({ w, me, roll }) => {
+      const field = wellOf(me);
+      const lease = field?.leases.find((l) => pumping(l).length >= 4);
+      if (field === undefined || lease === undefined || roll() >= HUNCH_ODDS) return null;
+      const wells = pumping(lease).slice(0, 4);
+      const cost = wells.reduce((sum, x) => sum + x.rate, 0) * w.config.WELL.MAINT_COST;
+      return {
+        key: `hunch-${String(lease.leaseId)}`,
+        data: { wells: wells.length, cost: money(cost), lease: lease.name, leaseId: lease.leaseId, savedNum: cost },
+      };
+    },
+    options: ({ w }, s) => {
+      const saved = Number(s.data.savedNum);
+      const target = { kind: 'LEASE', leaseId: s.data.leaseId as LeaseId } as const;
+      return {
+        yes: { actions: [corner(w, saved, target)] },
+        maybe: { actions: [{ kind: 'SERVICE_WELLS', count: 2 }, corner(w, saved / 2, target)] },
+        no: { actions: [{ kind: 'SERVICE_WELLS', count: 4 }] },
+      };
+    },
+  },
+  {
+    type: 'ORPHAN_WELLS', kinds: PRODUCERS, raised: true, opportunity: false, operating: false,
+    detect: ({ me }) => {
+      // Ground bought at auction and not yet drilled: the window in which what came with it is
+      // still somebody else's doing rather than yours.
+      const lease = wellOf(me)?.leases.find((l) => l.acquiredFor > 0 && l.attempts === 0 && l.wells.length === 0);
+      if (lease === undefined) return null;
+      const cost = PLUGGING_SHARE * lease.acquiredFor;
+      return {
+        key: `orphans-${String(lease.leaseId)}`,
+        data: { lease: lease.name, wells: lease.maxWells, cost: money(cost), costNum: cost, leaseId: lease.leaseId },
+      };
+    },
+    options: ({ w }, s) => {
+      const cost = Number(s.data.costNum);
+      const target = { kind: 'LEASE', leaseId: s.data.leaseId as LeaseId } as const;
+      return {
+        yes: { actions: [{ kind: 'PAY', amount: cost, what: 'CLEANUP' }] },
+        maybe: { actions: [{ kind: 'PAY', amount: cost / 3, what: 'CLEANUP' }, corner(w, (2 * cost) / 3, target)] },
+        no: { actions: [corner(w, cost, target)] },
+      };
+    },
+  },
+  {
+    type: 'RESERVES_REPORT', kinds: PRODUCERS, raised: true, opportunity: false, operating: false,
+    detect: ({ me, roll }) => {
+      const lease = wellOf(me)?.leases[0];
+      if (lease === undefined || me.creditLimit <= 0 || roll() >= REPORT_ODDS) return null;
+      const uplift = RESTATE_SHARE * me.creditLimit;
+      return { key: 'reserves', data: { lease: lease.name, uplift: money(uplift), upliftNum: uplift } };
+    },
+    options: ({ w }, s) => {
+      const uplift = Number(s.data.upliftNum);
+      const target = { kind: 'CREDIT' } as const;
+      return {
+        yes: { actions: [{ kind: 'RESTATE_RESERVES', uplift }, corner(w, RESTATE_WORTH * uplift, target)] },
+        maybe: { actions: [{ kind: 'RESTATE_RESERVES', uplift: uplift / 2 }, corner(w, (RESTATE_WORTH * uplift) / 2, target)] },
+      };
+    },
   },
 
   // ── The escapes (§12A.6) ──

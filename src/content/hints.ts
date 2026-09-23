@@ -123,3 +123,28 @@ export function reckoningText(severity: string, what: string, cost: string): { r
       return { headline: 'A penalty has been imposed', body: `${cost}, payable at once, and the matter is closed.` };
   }
 }
+
+/**
+ * What happened afterwards (§12A.6). A scenario can end before a reckoning arrives, and a record
+ * that was never answered for is not the same as one that never existed — so the last thing a
+ * player reads says what the years after brought. No numbers here either: the epilogue knows only
+ * how loudly the world was asking on the day the books closed.
+ */
+export function epilogueFor(rung: Rung, counsel: boolean): string {
+  const helped = counsel ? ' Your lawyers were worth what they cost, which is not the same as being worth having needed them.' : '';
+  switch (rung) {
+    case 0:
+    case 1:
+      return 'Nothing came of it. A letter still arrives from the insurer every year or two and is answered, '
+        + 'and that is all it ever amounts to — which is, in the end, what everybody is counting on.' + helped;
+    case 2:
+      return 'The questions went on after the books closed. It was settled in the second year, quietly and for money, '
+        + 'and the people who signed it off were not the people who had decided it.' + helped;
+    case 3:
+      return 'The story ran about eighteen months later, with your name in the third paragraph. The ground was worked by '
+        + 'somebody else by then, on terms that were worse than yours because of what had been written about it.' + helped;
+    case 4:
+      return 'A file had been opened before you finished, and it did not close when you did. What was taken was taken '
+        + 'afterwards — from whoever was holding the company by then, which is one way of putting it.' + helped;
+  }
+}

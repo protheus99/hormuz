@@ -86,7 +86,7 @@ describe('bidding and award', () => {
     const cashBefore = winner.cash;
     const leasesBefore = wellOf(winner)!.leases.length;
 
-    const results = award([lot], w.agents);
+    const results = award([lot], w.agents, w.tick, DEFAULT_CONFIG);
     expect(results).toHaveLength(1);
     expect(results[0]?.winner.agentId).toBe(winner.agentId);
     expect(winner.cash).toBeCloseTo(cashBefore - worth, 6);
@@ -104,7 +104,7 @@ describe('bidding and award', () => {
     const lot = surveyLots(1, DEFAULT_CONFIG, rngFor('lots', 'wells'), w.agents)[0]!;
     const bidder = w.agents.find((a) => mayWork(a, lot))!;
     placeBid(lot, bidder.agentId, bidder.cash * 10);
-    expect(award([lot], w.agents)).toHaveLength(0);
+    expect(award([lot], w.agents, w.tick, DEFAULT_CONFIG)).toHaveLength(0);
     expect(wellOf(bidder)!.leases.every((l) => l.name !== lot.name)).toBe(true);
   });
 
@@ -113,7 +113,7 @@ describe('bidding and award', () => {
     const lot = surveyLots(1, DEFAULT_CONFIG, rngFor('lots', 'wells'), w.agents)[0]!;
     const bidder = w.agents.find((a) => mayWork(a, lot))!;
     placeBid(lot, bidder.agentId, 0.5 * lot.reserve);
-    expect(award([lot], w.agents)).toHaveLength(0);
+    expect(award([lot], w.agents, w.tick, DEFAULT_CONFIG)).toHaveLength(0);
   });
 
   it('never has a company bid away more than half its cash', () => {

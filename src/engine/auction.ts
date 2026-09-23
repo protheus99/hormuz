@@ -13,6 +13,7 @@ import { Grade } from './enums';
 import { BAND_YEARS, newLease } from './leases';
 import { LeaseBand, type Agent, type AgentId, type Lease, type Tick } from './model';
 import { nextFloat, type Rng } from './rng';
+import { addExposure } from './exposure';
 import { nameGround } from '../data/leasenames';
 
 /** One lot in an auction: ground as the survey describes it, and the bids it has drawn. */
@@ -30,6 +31,12 @@ export interface LeaseLot {
   /** No lot sells below this. */
   readonly reserve: number;
   bids: { readonly agentId: AgentId; readonly amount: number }[];
+  /**
+   * Bidders who came by something they should not have (§12A.6, dilemmas 22 and 23). It costs
+   * nothing until the ground is won: what a corner buys only becomes something you hold when it
+   * wins you the lot, and that is what a reckoning takes back.
+   */
+  tainted: { readonly agentId: AgentId; readonly saved: number }[];
 }
 
 export interface Auction {
@@ -108,7 +115,7 @@ export function surveyLots(seq: number, cfg: Config, rng: Rng, agents: readonly 
       notionalCapacity: maxWells * cfg.DRILL_STEP,
       baseExtractionCost: cfg.AUCTION.BASE_COST[grade] ?? cfg.AUCTION.BASE_COST.MEDIUM,
       reserve: 0,
-      bids: [],
+      bids: [], tainted: [],
     };
     lots.push({ ...lot, reserve: cfg.AUCTION.RESERVE_SHARE * baseWorth(lot, cfg) });
   }
@@ -149,7 +156,7 @@ export function aiBid(agent: Agent, lot: LeaseLot, cfg: Config, rng: Rng): numbe
  * nothing else: no wells, no production, and the drilling still to pay for (§12A.4).
  */
 export function award(
-  lots: readonly LeaseLot[], agents: readonly Agent[],
+  lots: readonly LeaseLot[], agents: readonly Agent[], tick: Tick, cfg: Config,
 ): { readonly lot: LeaseLot; readonly winner: Agent; readonly price: number; readonly lease: Lease }[] {
   const won: { lot: LeaseLot; winner: Agent; price: number; lease: Lease }[] = [];
   for (const lot of lots) {
@@ -176,6 +183,14 @@ export function award(
       maxWells: lot.maxWells,
     });
     field.leases.push(lease);
+    // Ground won on something you were not meant to have is ground you can be made to give back.
+    const taint = lot.tainted.find((t) => t.agentId === (best as { agent: Agent }).agent.agentId);
+    if (taint !== undefined) {
+      addExposure(best.agent, {
+        amount: taint.saved * cfg.EXPOSURE.PER_SAVED, saved: taint.saved, tick,
+        target: { kind: 'LEASE', leaseId: lease.leaseId },
+      });
+    }
     won.push({ lot, winner: best.agent, price: best.amount, lease });
   }
   return won;

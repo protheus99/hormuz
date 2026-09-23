@@ -19,8 +19,9 @@ import {
 } from './cards/advisor';
 import type { Card, CardType } from './cards/types';
 import { createDeck, deckDay, priceNews, pushNews, type DeckState, type ScriptedEvent } from './events';
-import { createHints, hintDay, type HintState } from './hints';
-import { reckoningText } from '../content/hints';
+import { createHints, daysLeft, hintDay, type HintState } from './hints';
+import { rungOf } from '../engine/exposure';
+import { epilogueFor, reckoningText } from '../content/hints';
 import { money } from '../content/cards';
 import { applySetup, campaignDay, campaignView, createCampaign, scenario, scriptedActions, scriptFor, type CampaignState } from './campaign';
 import { cardText } from '../content/cards';
@@ -285,7 +286,11 @@ export class GameSession {
     s.memory = rememberForAlerts(s.world, PLAYER_ID);
     if (s.campaign && decided === null && s.campaign.result !== null) {
       alerts.push({ tick: s.world.tick, severity: 'CRITICAL', message: `${s.campaign.result === 'WON' ? 'Scenario won' : 'Scenario lost'}: ${s.campaign.reason}` });
-    } else if (this.ended()) alerts.push({ tick: s.world.tick, severity: 'CRITICAL', message: 'The game has ended.' });
+      alerts.push(...this.epilogue());
+    } else if (this.ended()) {
+      alerts.push({ tick: s.world.tick, severity: 'CRITICAL', message: 'The game has ended.' });
+      alerts.push(...this.epilogue());
+    }
     s.alerts.push(...alerts);
     if (s.alerts.length > ALERTS_KEPT) s.alerts.splice(0, s.alerts.length - ALERTS_KEPT);
     return { alerts, cards };
@@ -313,6 +318,20 @@ export class GameSession {
       alerts.push({ tick, severity: 'CRITICAL', message: `${text.headline}. ${text.body}` });
     }
     return alerts;
+  }
+
+  /**
+   * What happened afterwards (§12A.6). A game can finish before a reckoning arrives, and a record
+   * nobody ever answered for is not the same as one that was never there — so the last thing a
+   * player reads says what the years after brought. A company that finishes clean reads nothing.
+   */
+  private epilogue(): Alert[] {
+    const s = this.state;
+    const me = s.world.agents.find((a) => a.agentId === PLAYER_ID);
+    if (me === undefined || me.record.length === 0) return [];
+    const text = epilogueFor(rungOf(me, s.world.config, s.world.tick, daysLeft(s.world)), me.counsel);
+    pushNews(s.deck, { tick: s.world.tick, headline: 'Afterwards', body: text });
+    return [{ tick: s.world.tick, severity: 'CRITICAL', message: `Afterwards: ${text}` }];
   }
 
   private ended(): boolean {

@@ -51,6 +51,46 @@ const TEXT: Readonly<Record<string, CardText>> = {
       + 'wells; each takes {ticks} days to drill, and not every one finds oil.',
     yes: 'Drill {steps} new wells.', maybe: 'Drill half as many.', no: 'Leave the fields as they are.',
   },
+  // ── The dilemmas (§12A.6) ──
+  // Each states what is certain and says plainly that the rest cannot be projected. None counts the
+  // odds, because four numbers would decide the matter and there would be no decision left.
+  SERVICE_HOLD: {
+    title: 'The service you can postpone',
+    situation: 'Prices are the best they have been in a long while, and {wells} wells on {lease} are due to be '
+      + 'pulled for a service. Holding them off is worth about {saved} at today’s price. Nobody can tell you what '
+      + 'the wells will do in the meantime.',
+    yes: 'Hold the services for two months.', maybe: 'Hold them for one month.', no: 'Pull them now, as planned.',
+  },
+  MANAGER_HUNCH: {
+    title: 'Your maintenance manager wants wells pulled early',
+    situation: 'He wants {wells} of them off now. He cannot say why, only that he does not like what he is seeing. '
+      + 'Pulling them costs about {cost} and there is nothing on any gauge to say whether he is right.',
+    yes: 'Leave them running.', maybe: 'Pull the two he is most worried about.', no: 'Pull them all, as he asks.',
+  },
+  ORPHAN_WELLS: {
+    title: 'The wells that came with the block',
+    situation: '{lease} has {wells} old wells on it, unplugged, that nobody has been responsible for in thirty '
+      + 'years. Two of them are wet. Plugging the lot costs about {cost}.',
+    yes: 'Plug them all.', maybe: 'Plug the two that are leaking.', no: 'They were there before you.',
+  },
+  RESERVES_REPORT: {
+    title: 'The reserves report',
+    situation: 'Your engineer’s estimate for {lease} is well below the figure you published last year, and the '
+      + 'bank lends against the published figure. Standing by last year’s would be worth about {uplift} of credit.',
+    yes: 'Republish last year’s figure.', maybe: 'Publish a range, and lean on the top of it.', no: 'Publish his number.',
+  },
+  MINISTRY_FEE: {
+    title: 'A friend at the ministry',
+    situation: 'A licence for {region} could be had in weeks rather than a year, for a consultancy fee of {cost} to '
+      + 'a firm that does not appear to do very much consulting.',
+    yes: 'Pay the fee.', maybe: '', no: 'Wait your turn.',
+  },
+  BOUGHT_SURVEY: {
+    title: 'The survey that was not shot for you',
+    situation: 'A contractor who shot a seismic survey over {lot} for a rival will sell you a copy before the sale, '
+      + 'for {cost}. It would tell you what is actually down there, which is the one thing the published survey does not.',
+    yes: 'Buy the copy.', maybe: '', no: 'Bid on the published survey like everyone else.',
+  },
   PUT_IT_RIGHT: {
     title: 'Put it right',
     situation: 'You can still go back and do properly what you did not do about {what}. It costs {cost}.{downtime} '

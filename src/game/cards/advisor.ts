@@ -163,11 +163,11 @@ function prioritized(): CardDef[] {
 }
 
 function buildCard(w: World, state: AdvisorState, me: Agent, def: CardDef, s: Situation, ctx: CardContext, id: string | null): Card | null {
-  const { yes, maybe } = def.options(ctx, s);
+  const { yes, maybe, no } = def.options(ctx, s);
   if (yes.actions.length === 0 && yes.effect === undefined) return null;
   const specs: [Choice, OptionSpec][] = [['YES', yes]];
   if (maybe && (maybe.actions.length > 0 || maybe.effect !== undefined)) specs.push(['MAYBE', maybe]);
-  specs.push(['NO', { actions: [] }]);
+  specs.push(['NO', no ?? { actions: [] }]);
   const impacts = projectOptions(w, me.agentId, specs.map(([, o]) => o.actions));
   // A raised card offering only market orders that would not fill is not a decision (spec G4.7).
   // Other options can pay off beyond the projection (a well takes months), so they always show.
@@ -214,10 +214,16 @@ function details(s: Situation): string {
     .join(' · ');
 }
 
-/** Cards past their deadline resolve as No (spec G4.1). */
+/**
+ * Cards past their deadline resolve as No (spec G4.1), and a No that does something does it. Not
+ * deciding is a decision: on a dilemma it is the answer where the work quietly does not get done.
+ */
 function expire(w: World, state: AdvisorState): void {
   for (const card of [...state.cards]) {
-    if (card.deadline !== null && w.tick >= card.deadline) resolve(w, state, card, 'NO', true);
+    if (card.deadline === null || w.tick < card.deadline) continue;
+    const no = card.options.find((o) => o.choice === 'NO');
+    if (no !== undefined && no.actions.length > 0) apply(w, card.agentId, no.actions);
+    resolve(w, state, card, 'NO', true);
   }
 }
 
@@ -349,10 +355,10 @@ function answerAsAi(w: World, state: AdvisorState, me: Agent): void {
     if (s === null) continue;
     const growth = AI_GROWTH_TYPES.includes(type);
     state.cooldowns[key] = w.tick + (growth && !def.raised ? AI_GROWTH_INTERVAL : w.config.CARD_COOLDOWN);
-    const { yes, maybe } = def.options(ctx, s);
+    const { yes, maybe, no } = def.options(ctx, s);
     const hasMaybe = maybe !== null && maybe.actions.length > 0;
     const choice = chooseForAi(def.type, me.personality, hasMaybe, nextFloat(w.rng.ai));
-    const actions = choice === 'YES' ? yes.actions : choice === 'MAYBE' && maybe ? maybe.actions : [];
+    const actions = choice === 'YES' ? yes.actions : choice === 'MAYBE' && maybe ? maybe.actions : no?.actions ?? [];
     const cost = actions.reduce((sum, a) => sum + actionCost(w, me.agentId, a).total, 0);
     const available = growth ? me.cash - me.cashReserved : me.cash - me.cashReserved + me.creditLimit - me.creditDrawn;
     if (cost <= available) apply(w, me.agentId, actions);

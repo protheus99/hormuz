@@ -550,7 +550,7 @@ function runAuction(w: World, tick: Tick): void {
     // Ground bought is ground with nothing on it, so nothing about the winner's output changes
     // today: it has wells to drill before a barrel moves (§12A.4). The bonus leaves the economy
     // the way a tariff does, so it is recorded as a fee or the cash invariant would catch it.
-    for (const { winner, price } of award(w.auction.lots, w.agents)) {
+    for (const { winner, price } of award(w.auction.lots, w.agents, tick, cfg)) {
       recordFee(w.ledger, { tick, agentId: winner.agentId, kind: FeeKind.LEASE_BONUS, amount: price });
     }
     w.auction = null;

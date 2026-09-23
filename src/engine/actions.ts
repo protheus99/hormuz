@@ -16,7 +16,7 @@ import { cancelDeal, signDeal, type DealTerms } from './deals';
 import { FeeKind, type Grade, type Side } from './enums';
 import { recordFee } from './economics';
 import {
-  asEdgeId, makeDealId, type Agent, type AgentId, type CharterSize, type ChokepointName, type DealId, type NodeName, type PlantState, type RegionName, type Tick,
+  asEdgeId, makeDealId, WellStatus, type Agent, type AgentId, type CharterSize, type ChokepointName, type DealId, type NodeName, type PlantState, type RegionName, type Tick, type Well,
 } from './model';
 import { setReservation } from './transport';
 import type { World } from './world';
@@ -94,13 +94,30 @@ export type Action =
   | { readonly kind: 'KEEP_AFLOAT'; readonly days: number }
   | { readonly kind: 'BID_LEASE'; readonly lotId: string; readonly amount: number }
   | { readonly kind: 'ESCAPE'; readonly escape: EscapeKind }
+  | { readonly kind: 'SERVICE_WELLS'; readonly count: number }
+  | { readonly kind: 'HOLD_SERVICES'; readonly days: number }
+  | { readonly kind: 'RESTATE_RESERVES'; readonly uplift: number }
+  | { readonly kind: 'GRANT_LICENCE'; readonly region: RegionName }
   | { readonly kind: 'CUT_CORNER'; readonly amount: number; readonly saved: number; readonly target: ExposureTarget }
-  | { readonly kind: 'PAY'; readonly amount: number; readonly what: 'REPORT' };
+  | { readonly kind: 'PAY'; readonly amount: number; readonly what: 'REPORT' | 'CLEANUP' | 'FAVOUR' };
 
 export type ActionKind = Action['kind'];
 
 /** New office hubs start with this much storage, bbl. */
 export const OFFICE_HUB_CAPACITY = 10_000;
+
+/**
+ * The wells a company would pull off next, longest since their last service first, and what pulling
+ * them costs. Used by the card that offers to do it and by the action that does.
+ */
+function dueForService(a: Agent, count: number): { wells: Well[]; cost: number } {
+  const wells = (wellOf(a)?.leases ?? [])
+    .flatMap((l) => l.wells)
+    .filter((x) => x.status === WellStatus.PUMPING)
+    .sort((x, y) => y.daysSinceMaintenance - x.daysSinceMaintenance)
+    .slice(0, Math.max(0, count));
+  return { wells, cost: wells.reduce((sum, x) => sum + x.rate, 0) * 30 };
+}
 
 /** What an action costs: `now` leaves cash at once; `total` includes instalments to come. */
 export function actionCost(w: World, agentId: AgentId, action: Action): { readonly now: number; readonly total: number } {
@@ -151,6 +168,10 @@ export function actionCost(w: World, agentId: AgentId, action: Action): { readon
     }
     case 'PAY':
       return { now: action.amount, total: action.amount };
+    case 'SERVICE_WELLS': {
+      const due = dueForService(a, action.count);
+      return { now: due.cost, total: due.cost };
+    }
     case 'STANDING_ORDER':
       return action.side === 'BID' ? { now: 0, total: action.price * action.qty * action.days } : { now: 0, total: 0 };
     case 'SIGN_DEAL':
@@ -350,6 +371,33 @@ export function applyAction(w: World, agentId: AgentId, action: Action): void {
     case 'CHARTER': {
       w.charterSeq += 1;
       w.charters.push(newCharter(cfg, agentId, action.size, action.days, tick, w.charterSeq));
+      return;
+    }
+    case 'SERVICE_WELLS': {
+      // Doing the job properly: the wells come off, they are paid for, and they go back on in a
+      // few days with their hazard back where it started (§12A.3).
+      const due = dueForService(a, action.count);
+      for (const well of due.wells) {
+        well.status = WellStatus.MAINTENANCE;
+        well.ticksRemaining = cfg.WELL.MAINT_TICKS;
+      }
+      charge(w, a, due.cost, FeeKind.WELL_SERVICE, tick);
+      if (well !== undefined) refreshCapacity(well);
+      return;
+    }
+    case 'HOLD_SERVICES': {
+      // Nothing is pulled off until this day, on every lease. The hazard keeps climbing while it is.
+      const field = need(well, 'wells');
+      for (const lease of field.leases) lease.serviceHoldUntil = (tick + action.days) as Tick;
+      return;
+    }
+    case 'RESTATE_RESERVES':
+      // The bank lends against the published figure, so the line follows it the same week (§12A.6).
+      a.creditLimit += action.uplift;
+      return;
+    case 'GRANT_LICENCE': {
+      const field = need(well, 'wells');
+      if (!field.licences.includes(action.region)) field.licences.push(action.region);
       return;
     }
     case 'ESCAPE': {
