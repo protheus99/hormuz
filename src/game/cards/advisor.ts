@@ -290,6 +290,25 @@ function effect(w: World, state: AdvisorState, agentId: AgentId, e: NonNullable<
   m.reports.push({ tick: w.tick, agentId, asOf: oldest.tick, byRegion });
 }
 
+/**
+ * Takes a standing action (§12A.5). It is rebuilt from the world on the day the command applies,
+ * the same way answering an Opportunity always was, so a replay — which never saw a panel — buys
+ * exactly what the player was looking at, at the price it costs that day.
+ */
+export function takeOffer(w: World, state: AdvisorState, me: Agent, type: CardType, choice: Choice): string[] {
+  const def = CARD_DEFS.get(type);
+  if (def === undefined || !def.kinds.includes(me.kind)) return [`${me.name} cannot do that`];
+  const ctx = context(w, state, me);
+  const s = def.detect(ctx);
+  if (s === null) return ['That is no longer on offer'];
+  const { yes, maybe } = def.options(ctx, s);
+  const spec = choice === 'MAYBE' ? maybe : yes;
+  if (spec === null || (spec.actions.length === 0 && spec.effect === undefined)) return ['That is no longer on offer'];
+  const problems = apply(w, me.agentId, spec.actions);
+  if (spec.effect) effect(w, state, me.agentId, spec.effect);
+  return problems;
+}
+
 /** A free market report (a campaign reward, spec G7.2). */
 export function grantReport(w: World, state: AdvisorState, agentId: AgentId): void {
   effect(w, state, agentId, { report: true });

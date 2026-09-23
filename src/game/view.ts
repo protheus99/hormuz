@@ -3,6 +3,7 @@
 // each player their own view and nothing else. Rivals appear by name, type and region only.
 
 import { CHOKEPOINTS, type ChokepointName } from '../data/chokepoints';
+import type { Offer } from './offers';
 import { NODE_NAMES, type NodeName } from '../data/nodes';
 import type { RegionName } from '../data/regions';
 import { plantOf, plantsOf, wellOf } from '../engine/companies';
@@ -22,6 +23,8 @@ import type { CampaignView } from './campaign';
 export interface CardsView {
   readonly cards: readonly Card[];
   readonly opportunities: readonly { readonly type: CardType; readonly title: string }[];
+  /** Standing actions, shown in the panel the thing lives in (§12A.5). */
+  readonly offers: readonly Offer[];
   readonly reports: readonly { readonly tick: number; readonly asOf: number; readonly byRegion: Readonly<Partial<Record<string, number>>> }[];
   /** News, newest first (spec G7.1). */
   readonly news: readonly { readonly tick: number; readonly headline: string; readonly body: string }[];
@@ -207,6 +210,8 @@ export interface PlayerView {
   readonly cards: readonly Card[];
   /** Opportunities the player could open today. */
   readonly opportunities: CardsView['opportunities'];
+  /** What the company can do today, wherever it would go looking for it (§12A.5). */
+  readonly offers: readonly Offer[];
   /** Market reports bought (spec G5). */
   readonly reports: CardsView['reports'];
   readonly news: CardsView['news'];
@@ -293,6 +298,7 @@ export function buildPlayerView(
     alerts: [...alerts],
     cards: [...cards.cards],
     opportunities: [...cards.opportunities],
+    offers: [...cards.offers],
     reports: [...cards.reports],
     news: [...cards.news],
     campaign: cards.campaign,

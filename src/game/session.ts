@@ -20,6 +20,7 @@ import {
 import type { Card, CardType } from './cards/types';
 import { createDeck, deckDay, priceNews, pushNews, type DeckState, type ScriptedEvent } from './events';
 import { createHints, daysLeft, hintDay, type HintState } from './hints';
+import { offersFor } from './offers';
 import { rungOf } from '../engine/exposure';
 import { epilogueFor, reckoningText } from '../content/hints';
 import { money } from '../content/cards';
@@ -203,6 +204,7 @@ export class GameSession {
     const cards = {
       cards: s.advisor.cards.filter((c) => c.agentId === playerId),
       opportunities: (me ? availableOpportunities(s.world, s.advisor, me) : []).map((type) => ({ type, title: cardText(type, {}).title })),
+      offers: me ? offersFor(s.world, s.advisor.memory, me) : [],
       reports: s.advisor.memory.reports.filter((r) => r.agentId === playerId),
       news: [...s.deck.news].reverse(),
       campaign: s.campaign ? campaignView(s.world, s.campaign) : null,

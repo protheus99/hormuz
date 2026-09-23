@@ -8,14 +8,17 @@ import {
 import type { AgentId, CompanySettings } from '../engine/model';
 import type { World } from '../engine/world';
 import { bidAmount, mayWork, placeBid, type BidLevel } from '../engine/auction';
-import { answer, answerProblem, openOpportunity, type AdvisorState } from './cards/advisor';
-import type { Choice } from './cards/types';
+import { answer, answerProblem, openOpportunity, takeOffer, type AdvisorState } from './cards/advisor';
+import { offerOf } from './offers';
+import type { CardType, Choice } from './cards/types';
 
 export type Command =
   | { readonly kind: 'SET_SETTING'; readonly setting: keyof CompanySettings; readonly value: string }
   | { readonly kind: 'ANSWER_CARD'; readonly cardId: string; readonly choice: Choice }
   /** A sealed bid on a lot at auction, placed from the lease register (§12A.4). */
-  | { readonly kind: 'BID_LEASE'; readonly lotId: string; readonly level: BidLevel };
+  | { readonly kind: 'BID_LEASE'; readonly lotId: string; readonly level: BidLevel }
+  /** A standing action taken from the panel the thing lives in (§12A.5): buy tanks, hire a ship. */
+  | { readonly kind: 'TAKE_OFFER'; readonly offer: CardType; readonly choice: Choice };
 
 /** A command as the replay log stores it: who, what, and the tick it applies at. */
 export interface LoggedCommand {
@@ -60,6 +63,13 @@ export function rejectReason(w: World, playerId: AgentId, command: Command, advi
     }
     case 'ANSWER_CARD':
       return answerProblem(advisor, playerId, command.cardId, command.choice);
+    case 'TAKE_OFFER': {
+      const offer = offerOf(w, advisor.memory, company, command.offer);
+      const choice = offer?.choices.find((c) => c.choice === command.choice);
+      if (offer === null || choice === undefined) return 'That is no longer on offer';
+      if (!choice.affordable) return 'Not enough money yet';
+      return null;
+    }
     case 'BID_LEASE': {
       const lot = w.auction?.lots.find((l) => l.lotId === command.lotId);
       if (lot === undefined) return 'That ground is no longer up for auction';
@@ -91,6 +101,8 @@ export function applyCommand(w: World, entry: LoggedCommand, advisor: AdvisorSta
       }
       return [];
     }
+    case 'TAKE_OFFER':
+      return takeOffer(w, advisor, company, command.offer, command.choice);
     case 'ANSWER_CARD': {
       // An Opportunity is rebuilt from the world as it stands, so a replay (which never opened it)
       // answers exactly the card the player saw.
