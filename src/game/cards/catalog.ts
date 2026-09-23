@@ -51,6 +51,11 @@ export interface CardDef {
    * action: the player takes it from a panel, and a rival takes it as a growth decision (§12A.5).
    */
   readonly raised: boolean;
+  /**
+   * One of the ethical dilemmas (§12A.6). They are rare by design — a career's worth, not a year's
+   * — so one that has been put to a player is not put again for `EXPOSURE.COOLDOWN` days.
+   */
+  readonly dilemma?: boolean;
   /** AI companies answer it from Phase 9 (spec G4.6: operating cards). */
   readonly operating: boolean;
   detect(ctx: CardContext): Situation | null;
@@ -1040,7 +1045,7 @@ export const CATALOG: readonly CardDef[] = [
   // always safe. Each card states what is certain and says plainly that the rest cannot be known.
   // What the corner saves is real and arrives at once. What it puts on the record is never shown.
   {
-    type: 'SERVICE_HOLD', kinds: PRODUCERS, raised: true, operating: false,
+    type: 'SERVICE_HOLD', kinds: PRODUCERS, raised: true, operating: false, dilemma: true,
     detect: ({ w, me }) => {
       const field = wellOf(me);
       if (field === undefined) return null;
@@ -1068,7 +1073,7 @@ export const CATALOG: readonly CardDef[] = [
   {
     // The owner's steer: the hunch is decided in secret and unconnected to the wells' true state,
     // so the board cannot be read for the answer. Nothing about it is ever resolved on screen.
-    type: 'MANAGER_HUNCH', kinds: PRODUCERS, raised: true, operating: false,
+    type: 'MANAGER_HUNCH', kinds: PRODUCERS, raised: true, operating: false, dilemma: true,
     detect: ({ w, me, roll }) => {
       const field = wellOf(me);
       const lease = field?.leases.find((l) => pumping(l).length >= 4);
@@ -1091,7 +1096,7 @@ export const CATALOG: readonly CardDef[] = [
     },
   },
   {
-    type: 'ORPHAN_WELLS', kinds: PRODUCERS, raised: true, operating: false,
+    type: 'ORPHAN_WELLS', kinds: PRODUCERS, raised: true, operating: false, dilemma: true,
     detect: ({ me }) => {
       // Ground bought at auction and not yet drilled: the window in which what came with it is
       // still somebody else's doing rather than yours.
@@ -1114,7 +1119,7 @@ export const CATALOG: readonly CardDef[] = [
     },
   },
   {
-    type: 'RESERVES_REPORT', kinds: PRODUCERS, raised: true, operating: false,
+    type: 'RESERVES_REPORT', kinds: PRODUCERS, raised: true, operating: false, dilemma: true,
     detect: ({ me, roll }) => {
       const lease = wellOf(me)?.leases[0];
       if (lease === undefined || me.creditLimit <= 0 || roll() >= REPORT_ODDS) return null;
@@ -1135,7 +1140,7 @@ export const CATALOG: readonly CardDef[] = [
     // "The strongest fit in the deck" (DILEMMAS.md, 22). The published survey is a reading, and
     // now and then it is a band out. A copy of the one a rival paid for is the only way to know
     // before bidding — and it is the block itself that answers for it if it wins you one.
-    type: 'BOUGHT_SURVEY', kinds: PRODUCERS, raised: true, operating: false,
+    type: 'BOUGHT_SURVEY', kinds: PRODUCERS, raised: true, operating: false, dilemma: true,
     detect: ({ w, me }) => {
       const auction = w.auction;
       const lot = auction?.lots.find((l) => mayWork(me, l) && !l.surveyed.includes(me.agentId));
@@ -1159,7 +1164,7 @@ export const CATALOG: readonly CardDef[] = [
     // The other side of the sealed round: every rival lodged its bid when the lots were published,
     // so there is a real number to be told. Yes wins the ground for less than a strong bid would
     // have cost, and the ground answers for it if it ever comes out (DILEMMAS.md, 23).
-    type: 'OVERHEARD_BID', kinds: PRODUCERS, raised: true, operating: false,
+    type: 'OVERHEARD_BID', kinds: PRODUCERS, raised: true, operating: false, dilemma: true,
     detect: ({ w, me, roll }) => {
       const auction = w.auction;
       if (auction === null || auction.tick - w.tick > OVERHEARD_WINDOW) return null;
@@ -1192,7 +1197,7 @@ export const CATALOG: readonly CardDef[] = [
   {
     // Worth answering only now that a producer can work a second region (stage 3b): before that a
     // licence bought nothing, which is why this card waited (DILEMMAS.md, 24).
-    type: 'MINISTRY_FEE', kinds: PRODUCERS, raised: true, operating: false,
+    type: 'MINISTRY_FEE', kinds: PRODUCERS, raised: true, operating: false, dilemma: true,
     detect: ({ w, me, roll }) => {
       const field = wellOf(me);
       if (field === undefined || roll() >= MINISTRY_ODDS) return null;

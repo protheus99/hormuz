@@ -73,6 +73,7 @@ export interface Config {
       readonly CLOSING_DAYS: number;
     };
     readonly PER_SAVED: number;            // what a corner puts on the record, per dollar it saved
+    readonly COOLDOWN: number;             // days before the same dilemma is put to a player again
     readonly GRACE: number;                // days a corner stands before anybody asks about it
     readonly RUNGS: readonly number[];     // where each rung of the hint ladder starts, worst odds = 1
   };
@@ -234,7 +235,10 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
     DRAG: 0.0001, CHANCE_PER_DOLLAR: 1e-9, MAX_CHANCE: 0.01, PENALTY: 2.0,
     FORFEIT_ABOVE: 3_000_000, SHUT_TICKS: 40,
     TROUBLE: { CASH: 3, CLOSING: 2, CLOSING_DAYS: 120 },
-    PER_SAVED: 4, GRACE: 15, RUNGS: [0.05, 0.15, 0.35, 0.60],
+    // A deck this size is a career's worth, not a year's (§12A.6), so a dilemma answered is not
+    // asked again for four months. Without it the same lot's survey is offered three times in one
+    // notice period, and a year of saying yes to everything bankrupts a producer on paperwork.
+    PER_SAVED: 4, COOLDOWN: 120, GRACE: 15, RUNGS: [0.05, 0.15, 0.35, 0.60],
   },
   // Priced so that cutting corners *planning* to clean up loses, and loses obviously: at a two in
   // three chance of being warned in time, the wait-and-clean plan costs about 2.3x what it saved,

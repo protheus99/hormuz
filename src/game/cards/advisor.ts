@@ -121,6 +121,11 @@ function context(w: World, state: AdvisorState, me: Agent): CardContext {
 
 const cooldownKey = (agentId: string, type: CardType) => `${agentId}:${type}`;
 
+/** How long before this card may be put again. A dilemma waits far longer than anything else. */
+function cooldownFor(w: World, type: CardType): number {
+  return CARD_DEFS.get(type)?.dilemma === true ? w.config.EXPOSURE.COOLDOWN : w.config.CARD_COOLDOWN;
+}
+
 function raiseFor(w: World, state: AdvisorState, me: Agent): Card[] {
   const ctx = context(w, state, me);
   const raised: Card[] = [];
@@ -141,7 +146,7 @@ function raiseFor(w: World, state: AdvisorState, me: Agent): Card[] {
     const card = buildCard(w, state, me, def, s, ctx, same?.id ?? null);
     if (card === null) {
       // Not worth showing today; look again after the cooldown rather than re-projecting daily.
-      state.cooldowns[cooldownKey(me.agentId, def.type)] = w.tick + w.config.CARD_COOLDOWN;
+      state.cooldowns[cooldownKey(me.agentId, def.type)] = w.tick + cooldownFor(w, def.type);
       continue;
     }
     if (same) {
@@ -226,7 +231,7 @@ function expire(w: World, state: AdvisorState): void {
 
 function resolve(w: World, state: AdvisorState, card: Card, choice: Choice, expired: boolean): void {
   state.cards = state.cards.filter((c) => c.id !== card.id);
-  state.cooldowns[cooldownKey(card.agentId, card.type)] = w.tick + w.config.CARD_COOLDOWN;
+  state.cooldowns[cooldownKey(card.agentId, card.type)] = w.tick + cooldownFor(w, card.type);
   state.resolved.push({ type: card.type, agentId: card.agentId, raisedTick: card.raisedTick, tick: w.tick, choice, expired });
 }
 

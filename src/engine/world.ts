@@ -68,6 +68,8 @@ export interface WorldTotals {
   extractedBy: Partial<Record<AgentId, number>>;
   refined: number;
   forceSold: number;
+  /** Crude taken with ground that was forfeited (§12A.6). It leaves the world with the lease. */
+  confiscated: number;
   retailRevenue: number;
   forcedSaleRevenue: number;
   /** Credit drawn less credit repaid, across all companies: money lent into the economy. */
@@ -173,7 +175,7 @@ export function createWorld(s: WorldSettings): World {
     dealSeq: 0,
     events: [...(s.events ?? [])].sort((a, b) => a.tick - b.tick),
     totals: {
-      extracted: 0, extractedBy: {}, refined: 0, forceSold: 0, retailRevenue: 0, forcedSaleRevenue: 0, netBorrowing: 0,
+      extracted: 0, extractedBy: {}, refined: 0, forceSold: 0, confiscated: 0, retailRevenue: 0, forcedSaleRevenue: 0, netBorrowing: 0,
       startingBarrels: barrelsHeld(agents, []),
       startingCash: agents.reduce((sum, a) => sum + a.cash, 0),
     },
@@ -344,10 +346,10 @@ export function checkInvariants(w: World, deliveries: readonly DealDelivery[] = 
 
   // Tolerances: a millionth of a barrel and a tenth of a cent, plus float rounding on large sums.
   // 1. Barrel conservation.
-  const expectedBarrels = t.startingBarrels + t.extracted - t.refined - t.forceSold;
+  const expectedBarrels = t.startingBarrels + t.extracted - t.refined - t.forceSold - t.confiscated;
   const held = barrelsHeld(w.agents, w.cargo);
   if (Math.abs(held - expectedBarrels) > 1e-6 + 1e-12 * Math.abs(expectedBarrels)) {
-    fail(`barrels held ${held} ≠ start + extracted − refined − force-sold = ${expectedBarrels}`);
+    fail(`barrels held ${held} ≠ start + extracted − refined − force-sold − confiscated = ${expectedBarrels}`);
   }
 
   // 2. Cash conservation.
@@ -540,7 +542,10 @@ function chargeRunningCosts(w: World, tick: Tick): ReckoningReport[] {
     }
     // What a company has coming to it costs a little every day, and may come due on any of them.
     const reckoning = exposureDay(a, w.ledger, tick, cfg, w.rng.events, w.horizon === null ? null : w.horizon - tick);
-    if (reckoning !== null) reckonings.push({ ...reckoning, agentId: a.agentId });
+    if (reckoning !== null) {
+      reckonings.push({ ...reckoning, agentId: a.agentId });
+      w.totals.confiscated += reckoning.barrels;
+    }
     if (a.kind === 'TRADER') {
       const offices = cfg.OFFICE_COST.PER_TICK * a.offices.length;
       a.cash -= offices;

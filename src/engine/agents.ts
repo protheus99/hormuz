@@ -146,12 +146,18 @@ export function extract(company: Producer | IntegratedMajor, ledger: FeeLedger, 
   // the tanks at that lease — a lease whose tanks are full halts its own wells and nobody else's,
   // because there is nowhere else within reach to put the barrels (stage 3b).
   const all = capacityOf(well.leases);
+  // Tankage is shared out by the ground each lease works, and that share moves when a well is
+  // drilled: a lease can be left holding more than its new share, with nowhere to put it and no way
+  // to shift it. Its neighbour must not then fill the room that lease is standing in, so the
+  // company's own free space caps the day as well as each lease's (stage 3b).
+  let free = Math.max(0, well.storageCapacity - well.storage - well.storageEscrow);
   let barrels = 0;
   let cost = 0;
   for (const lease of well.leases) {
     const share = all > 0 ? (leaseCapacity(lease) / all) * wanted : 0;
-    const lifted = liftFrom(lease, Math.min(share, roomAt(well, lease)));
+    const lifted = liftFrom(lease, Math.max(0, Math.min(share, roomAt(well, lease), free)));
     lease.storage += lifted;
+    free -= lifted;
     barrels += lifted;
     // Ground elsewhere costs what it costs there: its own base cost, at its own region's wages.
     cost += lifted * costAt(lease, labor);

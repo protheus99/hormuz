@@ -17,6 +17,8 @@ import type { Config } from './config';
 import { FeeKind } from './enums';
 import { recordFee, type FeeLedger } from './economics';
 import { wellOf } from './companies';
+import { refreshStorage } from './leases';
+import { refreshCapacity } from './agents';
 import type { Agent, LeaseId, RegionName, Tick } from './model';
 import { nextFloat, type Rng } from './rng';
 
@@ -195,6 +197,11 @@ export interface Reckoning {
   readonly cost: number;
   /** For the telling: which block, which region. */
   readonly what: string;
+  /**
+   * Crude standing in the tanks at ground that was taken. It goes with the ground — you do not get
+   * to drive it away — so it leaves the world, and the books have to say so (stage 3b, spec §9).
+   */
+  readonly barrels: number;
 }
 
 /**
@@ -225,14 +232,14 @@ export function exposureDay(
   const cost = item.amount * cfg.EXPOSURE.PENALTY;
   company.cash -= cost;
   recordFee(ledger, { tick, agentId: company.agentId, kind: FeeKind.SETTLEMENT, amount: cost });
-  return { item, severity: outcome.severity, cost, what: outcome.what };
+  return { item, severity: outcome.severity, cost, what: outcome.what, barrels: outcome.barrels };
 }
 
 /**
  * Takes the thing the corner was protecting. A lease goes for good when the entry is a large one and
  * is shut when it is not — the difference between losing the ground and losing a season of it.
  */
-function take(company: Agent, item: ExposureItem, cfg: Config): { severity: Severity; what: string } {
+function take(company: Agent, item: ExposureItem, cfg: Config): { severity: Severity; what: string; barrels: number } {
   const field = wellOf(company);
   // Counsel retained (escape E6) is spent on whatever arrives next: it does not make the file go
   // away, it argues down what is taken. Once.
@@ -242,27 +249,33 @@ function take(company: Agent, item: ExposureItem, cfg: Config): { severity: Seve
     case 'LEASE': {
       const id = item.target.leaseId;
       const lease = field?.leases.find((l) => l.leaseId === id);
-      if (lease === undefined) return { severity: 'FINE', what: 'ground you no longer hold' };
+      if (lease === undefined) return { severity: 'FINE', what: 'ground you no longer hold', barrels: 0 };
       if (item.amount >= cfg.EXPOSURE.FORFEIT_ABOVE && !counsel) {
+        // The crude standing in the tanks there goes with the ground, so it leaves the world and
+        // the field's own tank has to be told (stage 3b).
+        const barrels = lease.storage + lease.storageEscrow;
         field!.leases = field!.leases.filter((l) => l !== lease);
-        return { severity: 'FORFEIT', what: lease.name };
+        // The wells on it stop being this company's, so both derived totals have to be told.
+        refreshStorage(field!);
+        refreshCapacity(field!);
+        return { severity: 'FORFEIT', what: lease.name, barrels };
       }
       // A forfeiture argued down is still a long shutdown: counsel buys the ground back, not the year.
       const days = item.amount >= cfg.EXPOSURE.FORFEIT_ABOVE ? 2 * cfg.EXPOSURE.SHUT_TICKS : cfg.EXPOSURE.SHUT_TICKS;
       lease.shutUntil = (lease.shutUntil > 0 ? lease.shutUntil : 0) + days;
-      return { severity: 'SHUT', what: lease.name };
+      return { severity: 'SHUT', what: lease.name, barrels: 0 };
     }
     case 'LICENCE': {
       const region = item.target.region;
-      if (field === undefined || !field.licences.includes(region)) return { severity: 'FINE', what: 'a licence you do not hold' };
-      if (counsel) return { severity: 'FINE', what: `your licence for ${String(region)}, which you keep` };
+      if (field === undefined || !field.licences.includes(region)) return { severity: 'FINE', what: 'a licence you do not hold', barrels: 0 };
+      if (counsel) return { severity: 'FINE', what: `your licence for ${String(region)}, which you keep`, barrels: 0 };
       field.licences = field.licences.filter((r) => r !== region);
-      return { severity: 'REVOKE', what: String(region) };
+      return { severity: 'REVOKE', what: String(region), barrels: 0 };
     }
     case 'CREDIT':
       company.creditLimit = counsel ? Math.round(company.creditLimit / 2) : 0;
-      return { severity: counsel ? 'FINE' : 'WITHDRAW', what: 'your credit line' };
+      return { severity: counsel ? 'FINE' : 'WITHDRAW', what: 'your credit line', barrels: 0 };
     case 'CASH':
-      return { severity: 'FINE', what: 'a penalty' };
+      return { severity: 'FINE', what: 'a penalty', barrels: 0 };
   }
 }
