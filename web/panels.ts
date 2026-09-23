@@ -394,9 +394,11 @@ export function leaderboardPanel(view: PlayerView): Html {
   return html`
     <p class="small muted">Every company, by what it is worth, with which way that has moved this
       month.${mine >= 0 ? html` You are <strong>${mine + 1} of ${view.standings.length}</strong>.` : ''}
-      A set of accounts is published; what anyone is holding, buying or has signed is not.</p>
+      A set of accounts is published; what anyone is holding, buying or has signed is not.
+      <strong>Size</strong> is barrels a day — pumped, refined or held in store; <strong>blocks</strong>
+      is how much ground a company has, the same count the lease register shows.</p>
     <table class="board">
-      <tr><th class="num">#</th><th>Company</th><th>Trade</th><th>Where</th><th class="num">Worth</th><th class="num">Month</th><th class="num">Size</th><th class="num">Ground</th></tr>
+      <tr><th class="num">#</th><th>Company</th><th>Trade</th><th>Where</th><th class="num">Worth</th><th class="num">Month</th><th class="num">Size</th><th class="num">Blocks</th></tr>
       ${view.standings.map((r, i) => html`<tr class="${r.mine ? 'mine' : ''}">
         <td class="num rank">${i + 1}</td>
         <td>${r.name}${r.mine ? html` <span class="small good">you</span>` : ''}</td>
@@ -405,7 +407,7 @@ export function leaderboardPanel(view: PlayerView): Html {
         <td class="num">${money(r.netWorth)}</td>
         <td class="num small ${r.trend === 'UP' ? 'good' : r.trend === 'DOWN' ? 'bad' : 'muted'}">${TREND_MARKS[r.trend] ?? ''}</td>
         <td class="num small muted">${bbl(r.size)}</td>
-        <td class="num small muted">${r.blocks > 0 ? r.blocks : ''}</td>
+        <td class="num small muted" title="${r.blocks === 1 ? 'one block of ground held' : `${r.blocks} blocks of ground held`}">${r.blocks > 0 ? r.blocks : ''}</td>
       </tr>`)}
     </table>`;
 }
