@@ -4,10 +4,11 @@
 // card answers replays exactly.
 
 import { describe, expect, it } from 'vitest';
+import { fillTanks } from '../../src/engine/leases';
 import { applyAction } from '../../src/engine/actions';
 import { plantOf, wellOf } from '../../src/engine/companies';
 import { fingerprint } from '../../src/engine/metrics';
-import type { Agent } from '../../src/engine/model';
+import type { Agent, WellState } from '../../src/engine/model';
 import { fork, netWorth, step, type World } from '../../src/engine/world';
 import { advise, answer, answerProblem, createAdvisor, type AdvisorState } from '../../src/game/cards/advisor';
 import { CATALOG, cardsFor } from '../../src/game/cards/catalog';
@@ -35,9 +36,9 @@ function setCash(w: World, a: Agent, cash: number): void {
   (w.totals as { startingCash: number }).startingCash += cash - a.cash;
   a.cash = cash;
 }
-function setStorage(w: World, well: { storage: number }, storage: number): void {
+function setStorage(w: World, well: WellState, storage: number): void {
   (w.totals as { startingBarrels: number }).startingBarrels += storage - well.storage;
-  well.storage = storage;
+  fillTanks(well, storage - well.storage);
 }
 
 /** Runs the advisor for today and returns the player's open card of this type. */

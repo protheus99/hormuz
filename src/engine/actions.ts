@@ -4,7 +4,7 @@
 // each action does to the world and what it costs.
 
 import { internalTransfer, refreshCapacity, startMaintenance } from './agents';
-import { bestLeaseToDrill, drillWell } from './leases';
+import { bestLeaseToDrill, drawFrom, drillWell, tankOf } from './leases';
 import { buySurvey, mayWork, placeBid, taintLot } from './auction';
 import { addExposure, escapeCost, takeEscape, type EscapeKind, type ExposureTarget } from './exposure';
 import { charterCost, newCharter } from './charters';
@@ -645,8 +645,12 @@ function endLease(w: World, l: Lease): void {
     }
   } else if (well) {
     well.storageCapacity -= l.capacity;
-    const excess = well.storage - well.storageCapacity;
-    if (excess > 0) { well.storage -= excess; sell(well.grade, excess); }
+    // Tankage is shared out by the ground each lease works, so losing some of it can overfill any
+    // of them. What will not fit goes at the day's price, wherever it was standing (stage 3b).
+    for (const lease of well.leases) {
+      const excess = lease.storage + lease.storageEscrow - tankOf(well, lease);
+      if (excess > 0) { drawFrom(well, [lease], excess); sell(lease.grade, excess); }
+    }
   } else if (plant) {
     plant.crudeStorageCapacity -= l.capacity;
     let excess = total(plant.crudeStock) - plant.crudeStorageCapacity;

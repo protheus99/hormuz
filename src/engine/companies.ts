@@ -7,7 +7,7 @@
 
 import { AgentKind, Controller, Grade, Personality, RegionRole } from './enums';
 import type { Config } from './config';
-import { leaseShapeFor, newLease } from './leases';
+import { fillTanks, leaseShapeFor, newLease } from './leases';
 import { REGIONS } from '../data/regions';
 import {
   asAgentId, emptyStock,
@@ -191,7 +191,7 @@ function buildWell(owner: CompanySpec, region: RegionName, w: WellSpec): WellSta
     wells: shape.wells,
     maxWells: shape.maxWells,
   });
-  return {
+  const field: WellState = {
     grade: w.grade,
     extractionCapacity: w.extractionCapacity,
     leases: [lease],
@@ -200,7 +200,7 @@ function buildWell(owner: CompanySpec, region: RegionName, w: WellSpec): WellSta
     fieldMaxCapacity: 2 * w.extractionCapacity,
     baseExtractionCost: w.baseExtractionCost,
     storageCapacity: w.storageCapacity,
-    storage,
+    storage: 0,
     storageEscrow: 0,
     peakCapacity: w.extractionCapacity,
     extractionRate: 1,
@@ -209,6 +209,9 @@ function buildWell(owner: CompanySpec, region: RegionName, w: WellSpec): WellSta
     daysUnsold: 0,
     breakevenStreak: 0,
   };
+  // Oil a company starts with stands at the ground it came out of, like every barrel after it.
+  fillTanks(field, storage);
+  return field;
 }
 
 function buildPlant(owner: CompanySpec, region: RegionName, pl: PlantSpec): PlantState {

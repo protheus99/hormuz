@@ -9,7 +9,7 @@
 
 import type { Config } from './config';
 import type { Grade } from './enums';
-import { asLeaseId, asWellId, LeaseBand, WellStatus, type Agent, type Lease, type RegionName, type Tick, type Well } from './model';
+import { asLeaseId, asWellId, LeaseBand, WellStatus, type Agent, type Lease, type RegionName, type Tick, type Well, type WellState } from './model';
 import { nextFloat, type Rng } from './rng';
 import { FeeKind } from './enums';
 import { recordFee, type FeeLedger } from './economics';
@@ -58,6 +58,8 @@ export function newLease(spec: LeaseSpec): Lease {
     lost: 0,
     serviceHoldUntil: 0 as Tick,
     shutUntil: 0 as Tick,
+    storage: 0,
+    storageEscrow: 0,
     attempts: count,
     band: spec.band,
     maxWells,
@@ -296,9 +298,133 @@ export function advanceWells(lease: Lease, owner: Agent, rng: Rng, ledger: FeeLe
   }
 }
 
+
+// ── Tanks (stage 3b) ─────────────────────────────────────────────────────────────────────
+//
+// Oil stands where it was lifted, because a barrel in one region cannot be loaded in another. The
+// field's own `storage` and `storageEscrow` are the sums of what stands at each lease, refreshed
+// whenever either moves — the same derived-aggregate pattern that let leases land without touching
+// a rule above the engine (§12A.2).
+
+/**
+ * A lease's share of the company's tankage, by what its wells were drilled to make. Not by what
+ * they made today — a lease whose wells are all down for a service does not lose its tank farm that
+ * morning — and not by its slots either, or ground bought empty at auction would take half the
+ * tanks off the field that is actually pumping into them.
+ */
+export function tankOf(well: WellState, lease: Lease): number {
+  const size = (l: Lease) => l.wells.reduce((sum, w) => sum + w.initialRate, 0);
+  const all = well.leases.reduce((sum, l) => sum + size(l), 0);
+  if (all <= 0) return well.leases.length > 0 ? well.storageCapacity / well.leases.length : 0;
+  return well.storageCapacity * (size(lease) / all);
+}
+
+/** Room left at one lease, counting what today's asks have locked. */
+export function roomAt(well: WellState, lease: Lease): number {
+  return Math.max(0, tankOf(well, lease) - lease.storage - lease.storageEscrow);
+}
+
+/** Puts the field's tank back in step with its leases. Called after anything moves barrels. */
+export function refreshStorage(well: WellState): void {
+  let storage = 0;
+  let escrow = 0;
+  for (const lease of well.leases) {
+    storage += lease.storage;
+    escrow += lease.storageEscrow;
+  }
+  well.storage = storage;
+  well.storageEscrow = escrow;
+}
+
+/** The leases whose oil could be loaded here: this region, this grade. */
+export function tanksFor(well: WellState, region: RegionName | null, grade: Grade | null): Lease[] {
+  return well.leases.filter((l) => (region === null || l.region === region) && (grade === null || l.grade === grade));
+}
+
+/** What stands in those tanks, free to sell. */
+export function heldIn(leases: readonly Lease[]): number {
+  return leases.reduce((sum, l) => sum + l.storage, 0);
+}
+
+/**
+ * Takes barrels out of a set of tanks, fullest first so no lease is left with a dribble nobody can
+ * sell in a lot. Returns what it actually got, which is all there was if that is less than asked.
+ */
+export function drawFrom(well: WellState, leases: readonly Lease[], qty: number): number {
+  let left = qty;
+  for (const lease of [...leases].sort((a, b) => b.storage - a.storage)) {
+    if (left <= 0) break;
+    const taken = Math.min(lease.storage, left);
+    lease.storage -= taken;
+    left -= taken;
+  }
+  refreshStorage(well);
+  return qty - left;
+}
+
+/** Locks barrels against today's asks, and lets them go when the fill ships. */
+export function lockIn(well: WellState, leases: readonly Lease[], qty: number): number {
+  let left = Math.min(qty, heldIn(leases));
+  for (const lease of [...leases].sort((a, b) => b.storage - a.storage)) {
+    if (left <= 0) break;
+    const taken = Math.min(lease.storage, left);
+    lease.storage -= taken;
+    lease.storageEscrow += taken;
+    left -= taken;
+  }
+  refreshStorage(well);
+  return qty - left;
+}
+
+export function shipFrom(well: WellState, leases: readonly Lease[], qty: number): number {
+  let left = Math.min(qty, leases.reduce((sum, l) => sum + l.storageEscrow, 0));
+  for (const lease of [...leases].sort((a, b) => b.storageEscrow - a.storageEscrow)) {
+    if (left <= 0) break;
+    const taken = Math.min(lease.storageEscrow, left);
+    lease.storageEscrow -= taken;
+    left -= taken;
+  }
+  refreshStorage(well);
+  return qty - left;
+}
+
+/**
+ * Puts barrels into the tanks at a set of leases, sharing them out by the ground each one works.
+ * Used when a company is built with oil already in hand, and by tests that want a tank filled.
+ */
+export function fillTanks(well: WellState, qty: number, leases: readonly Lease[] = well.leases): number {
+  const all = leases.reduce((sum, l) => sum + Math.max(leaseCapacity(l), 1), 0);
+  let left = qty;
+  for (const lease of leases) {
+    const share = all > 0 ? (Math.max(leaseCapacity(lease), 1) / all) * qty : 0;
+    const put = Math.min(share, left);
+    lease.storage += put;
+    left -= put;
+  }
+  const first = leases[0];
+  if (left > 0 && first !== undefined) first.storage += left;
+  refreshStorage(well);
+  return qty;
+}
+
+/** Puts an ask's unsold barrels back where they came from at the end of the day. */
+export function releaseTanks(well: WellState): void {
+  for (const lease of well.leases) {
+    lease.storage += lease.storageEscrow;
+    lease.storageEscrow = 0;
+  }
+  refreshStorage(well);
+}
+
 /** Work down a hole is paid for the day it is ordered, and shows in the day's costs under pumping. */
 function charge(owner: Agent, ledger: FeeLedger, tick: Tick, kind: FeeKind, amount: number): void {
   if (amount <= 0) return;
   owner.cash -= amount;
   recordFee(ledger, { tick, agentId: owner.agentId, kind, amount });
+}
+
+/** Empties every tank on a field. Used when a test wants to start from nothing in hand. */
+export function emptyTanks(well: WellState): void {
+  for (const lease of well.leases) { lease.storage = 0; lease.storageEscrow = 0; }
+  refreshStorage(well);
 }

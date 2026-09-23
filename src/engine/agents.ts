@@ -8,7 +8,7 @@ import { FeeKind, GRADES, type Grade } from './enums';
 import { productValue, recordFee, sellToSink, YIELDS, type FeeLedger, type RetailSink } from './economics';
 import type { IntegratedMajor, PlantState, Producer, Refiner, Tick, WellState } from './model';
 import { nextFloat, type Rng } from './rng';
-import { capacityOf, depleteWells, leaseCapacity, liftFrom } from './leases';
+import { capacityOf, depleteWells, drawFrom, heldIn, leaseCapacity, liftFrom, refreshStorage, roomAt, tanksFor } from './leases';
 
 /**
  * The share of capacity a refinery can run at today (spec §4.9): zero when offline or broken down,
@@ -76,8 +76,11 @@ export function internalTransfer(m: IntegratedMajor): number {
   const { well, plant } = m;
   if (!acceptedGrades(plant.techTier).includes(well.grade)) return 0;
   const room = plant.crudeStorageCapacity - total(plant.crudeStock);
-  const qty = Math.max(0, Math.min(well.storage, room));
-  well.storage -= qty;
+  // Only oil standing where the refinery is: crude in another region has a voyage to make, and a
+  // voyage is a sale, not a transfer (stage 3b).
+  const local = tanksFor(well, plant.region, well.grade);
+  const qty = Math.max(0, Math.min(heldIn(local), room));
+  drawFrom(well, local, qty);
   plant.crudeStock[well.grade] += qty;
   return qty;
 }
@@ -115,23 +118,23 @@ export function extract(company: Producer | IntegratedMajor, ledger: FeeLedger, 
     ramp = (config.RAMP_TICKS - well.rampTicksRemaining + 1) / config.RAMP_TICKS;
     well.rampTicksRemaining -= 1;
   }
-  const free = Math.max(0, well.storageCapacity - well.storage - well.storageEscrow);
   // One draw for the company, not one a well: averaging a dozen wells would quietly cancel the
   // day-to-day swing the field is supposed to have (D48).
   const swing = 1 + config.EXTRACTION_SPREAD * (2 * nextFloat(rng) - 1);
-  const wanted = Math.min(well.extractionCapacity * well.extractionRate * ramp * swing, free);
-  // Oil comes out of the ground a lease at a time, and a lease can run out (§12A.2).
+  const wanted = well.extractionCapacity * well.extractionRate * ramp * swing;
+  // Oil comes out of the ground a lease at a time, a lease can run out (§12A.2), and it goes into
+  // the tanks at that lease — a lease whose tanks are full halts its own wells and nobody else's,
+  // because there is nowhere else within reach to put the barrels (stage 3b).
+  const all = capacityOf(well.leases);
   let barrels = 0;
-  let left = wanted;
   for (const lease of well.leases) {
-    if (left <= 0) break;
-    const share = capacityOf(well.leases) > 0 ? (leaseCapacity(lease) / capacityOf(well.leases)) * wanted : 0;
-    const lifted = liftFrom(lease, Math.min(share, left));
+    const share = all > 0 ? (leaseCapacity(lease) / all) * wanted : 0;
+    const lifted = liftFrom(lease, Math.min(share, roomAt(well, lease)));
+    lease.storage += lifted;
     barrels += lifted;
-    left -= lifted;
   }
+  refreshStorage(well);
   const cost = barrels * actualCost(company);
-  well.storage += barrels;
   company.cash -= cost;
   recordFee(ledger, { tick, agentId: company.agentId, kind: FeeKind.EXTRACTION, amount: cost });
   return { barrels, cost };

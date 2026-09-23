@@ -190,9 +190,9 @@ export interface WellState {
   /** $/bbl before the region's labor index. */
   readonly baseExtractionCost: number;
   storageCapacity: number;
-  /** Barrels free to sell. */
+  /** Barrels free to sell. Derived: the sum of what stands at each lease (stage 3b). */
   storage: number;
-  /** Barrels locked by today's asks; zero at the end of every tick (invariant 4). */
+  /** Barrels locked by today's asks; zero at the end of every tick (invariant 4). Derived likewise. */
   storageEscrow: number;
   /** Highest capacity reached; the "Wells declining" card compares against it (spec G4.4). */
   peakCapacity: number;
@@ -324,6 +324,14 @@ export interface Lease {
   serviceHoldUntil: Tick;
   /** Nothing is pumped here until this day: a regulator's doing, not the company's (§12A.6). */
   shutUntil: Tick;
+  /**
+   * Barrels standing in the tanks at this lease, and barrels locked by today's asks (stage 3b).
+   * Oil is held where it was lifted, because a barrel in one region cannot be loaded in another.
+   * `WellState.storage` is the sum of these, so every rule that reads a field's tank reads one
+   * number and knows nothing about where it is.
+   */
+  storage: number;
+  storageEscrow: number;
   /** Wells sunk here, dry ones included: the next one is likelier to miss (§12A.3). */
   attempts: number;
   /** The published survey: LOW, MEDIUM or HIGH (§12A.2). */

@@ -1,6 +1,7 @@
 // Deals: signing, pricing, delivery, shortfall, cancel and split (spec §4.4, G4.3, §5 phase 5a).
 
 import { beforeEach, describe, expect, it } from 'vitest';
+import { fillTanks } from '../../src/engine/leases';
 import { createNode } from '../../src/engine/clearing';
 import { createProducer, createRefiner, total } from '../../src/engine/companies';
 import { DEFAULT_CONFIG } from '../../src/engine/config';
@@ -105,7 +106,7 @@ describe('daily delivery (spec §5 phase 5a)', () => {
   });
 
   it('compensates the buyer for barrels the seller could not load', () => {
-    qasr.storage = 2000;
+    fillTanks(qasr, 2000 - qasr.storage);
     const deal = sign();
     const [d] = deliver([deal], 11);
     expect(d).toMatchObject({ delivered: 2000, shortfall: 3000 });
@@ -117,7 +118,7 @@ describe('daily delivery (spec §5 phase 5a)', () => {
   it('delivers exactly qty_per_day a day, split between delivered and shortfall (invariant 10), and ends on time', () => {
     const deal = sign({ termDays: 30 });
     for (let t = 11; t <= 45; t++) {
-      qasr.storage += t % 3 === 0 ? 1000 : 6000;   // some days short
+      fillTanks(qasr, t % 3 === 0 ? 1000 : 6000);   // some days short
       const [d] = deliver([deal], t);
       if (t < 41) expect((d?.delivered ?? 0) + (d?.shortfall ?? 0)).toBe(5000);
       else expect(d).toBeUndefined();
@@ -190,7 +191,7 @@ describe('commitments, cancelling and splitting', () => {
 describe('conservation across deal deliveries', () => {
   it('moves barrels into cargo and cash only between the parties and the ledger', () => {
     const deal = sign();
-    qasr.storage = 12_000;
+    fillTanks(qasr, 12_000 - qasr.storage);
     const barrels = () => qasr.storage + total(malabar.crudeStock) + cargo.reduce((s, c) => s + c.qty, 0);
     const cash = () => qasr.cash + malabar.cash;
     const [b0, c0] = [barrels(), cash()];

@@ -1,6 +1,7 @@
 // Extraction, field decline and output control (spec §4.8, §5 phase 1).
 
 import { beforeEach, describe, expect, it } from 'vitest';
+import { emptyTanks, fillTanks, refreshStorage } from '../../src/engine/leases';
 import { actualCost, applyDecline, extract, fillRatio, setExtractionRate } from '../../src/engine/agents';
 import { createIntegrated, createProducer } from '../../src/engine/companies';
 import { DEFAULT_CONFIG, withOverrides } from '../../src/engine/config';
@@ -41,8 +42,10 @@ describe('extract (spec §5 phase 1)', () => {
   });
 
   it('halts when storage is full, counting barrels locked by asks', () => {
-    qasr.storage = 25_000;
-    qasr.storageEscrow = 3_000;
+    fillTanks(qasr, 28_000);
+    qasr.leases[0]!.storage -= 3_000;
+    qasr.leases[0]!.storageEscrow = 3_000;
+    refreshStorage(qasr);
     expect(extract(qasr, ledger, 1, STEADY, wells()).barrels).toBe(2000);
     expect(fillRatio(qasr)).toBe(1);
     expect(extract(qasr, ledger, 2, STEADY, wells()).barrels).toBe(0);
@@ -66,8 +69,8 @@ describe('field decline (spec §12A.3)', () => {
     for (let t = 0; t < 30; t++) {
       extract(boreal, ledger, (t + 1) as never, STEADY, wells());
       extract(qasr, ledger, (t + 1) as never, STEADY, wells());
-      boreal.storage = 0;
-      qasr.storage = 0;
+      emptyTanks(boreal);
+      emptyTanks(qasr);
       applyDecline(boreal, DEFAULT_CONFIG);
       applyDecline(qasr, DEFAULT_CONFIG);
     }
@@ -137,7 +140,7 @@ describe('the day-to-day swing (spec §5 phase 1)', () => {
   });
 
   it('still stops at a full tank, however good the day', () => {
-    qasr.storage = qasr.storageCapacity - 100;
+    fillTanks(qasr, qasr.storageCapacity - 100);
     expect(extract(qasr, ledger, 1, DEFAULT_CONFIG, rngFor('swing', 'wells')).barrels).toBe(100);
   });
 });

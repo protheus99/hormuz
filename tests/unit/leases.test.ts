@@ -5,11 +5,11 @@
 import { describe, expect, it } from 'vitest';
 import { GLOBAL_PORTFOLIO } from '../../src/data/portfolios';
 import { wellOf } from '../../src/engine/companies';
-import { advanceWells, capacityOf, depleteWells, drillWell, liftFrom, newLease, reservesOf, BAND_YEARS } from '../../src/engine/leases';
+import { advanceWells, capacityOf, depleteWells, drillWell, liftFrom, newLease, refreshStorage, reservesOf, roomAt, tankOf, BAND_YEARS } from '../../src/engine/leases';
 import type { Lease } from '../../src/engine/model';
 
 const leaseCapacityOf = (l: Lease) => capacityOf([l]);
-import { createWorld, step } from '../../src/engine/world';
+import { createWorld, run, step } from '../../src/engine/world';
 import { FIELD_NAMES } from '../../src/data/leasenames';
 import { DEFAULT_CONFIG, withOverrides } from '../../src/engine/config';
 import { createLedger } from '../../src/engine/economics';
@@ -239,5 +239,45 @@ describe('what a player may know about their own ground (spec §12A.2)', () => {
     expect(view.days.every((d) => Number.isFinite(d.pumped))).toBe(true);
     expect(view.company.cash).toBeGreaterThan(0);
     expect(PLAYER_ID).toBeDefined();
+  });
+});
+
+describe('oil stands where it came out of the ground (stage 3b)', () => {
+  it('fills the tank at the lease that lifted it, and the field is their sum', () => {
+    const w = createWorld({ seed: 'tanks', portfolio: GLOBAL_PORTFOLIO, personalityMix: 'EVEN' });
+    run(w, 5);
+    for (const a of w.agents) {
+      const field = wellOf(a);
+      if (field === undefined) continue;
+      const held = field.leases.reduce((sum, l) => sum + l.storage + l.storageEscrow, 0);
+      expect(held).toBeCloseTo(field.storage + field.storageEscrow, 6);
+      for (const l of field.leases) expect(l.storage).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it('shares the tank farm by what the wells were drilled to make, not by slots', () => {
+    // Ground bought empty at auction has slots and no wells, and must not take the tanks off the
+    // lease that is actually pumping into them.
+    const w = createWorld({ seed: 'tanks2', portfolio: GLOBAL_PORTFOLIO, personalityMix: 'EVEN' });
+    const me = w.agents.find((a) => wellOf(a) !== undefined)!;
+    const field = wellOf(me)!;
+    const working = field.leases[0]!;
+    const before = tankOf(field, working);
+    field.leases.push(newLease({
+      id: 'empty', name: 'Empty Ground', region: me.region, grade: field.grade, capacity: 5_000,
+      band: 'HIGH', baseExtractionCost: 30, acquiredFor: 1, wells: 0, maxWells: 12,
+    }));
+    expect(tankOf(field, working)).toBe(before);
+    expect(tankOf(field, field.leases[1]!)).toBe(0);
+  });
+
+  it('halts one lease without halting the other', () => {
+    const w = createWorld({ seed: 'tanks3', portfolio: GLOBAL_PORTFOLIO, personalityMix: 'EVEN' });
+    const me = w.agents.find((a) => wellOf(a) !== undefined)!;
+    const field = wellOf(me)!;
+    const lease = field.leases[0]!;
+    lease.storage = tankOf(field, lease);
+    refreshStorage(field);
+    expect(roomAt(field, lease)).toBe(0);
   });
 });

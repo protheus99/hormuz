@@ -2,6 +2,7 @@
 // every invariant holding).
 
 import { describe, expect, it } from 'vitest';
+import { fillTanks } from '../../src/engine/leases';
 import { CORE_PORTFOLIO } from '../../src/data/portfolios';
 import { createRecorder, fingerprint, record, toCsv } from '../../src/engine/metrics';
 import { checkInvariants, createWorld, fork, run, step, type World } from '../../src/engine/world';
@@ -108,7 +109,7 @@ describe('invariants and insolvency (spec §9, G6)', () => {
     const w = s0();
     run(w, 5);
     const qasr = w.agents.find((a) => a.agentId === 'Qasr_Petroleum');
-    if (qasr?.kind === 'PRODUCER') qasr.storage += 1000;
+    if (qasr?.kind === 'PRODUCER') fillTanks(qasr, 1000);
     expect(() => checkInvariants(w)).toThrow(/Invariant broken at tick 5: barrels held/);
   });
 

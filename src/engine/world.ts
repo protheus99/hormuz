@@ -366,6 +366,14 @@ export function checkInvariants(w: World, deliveries: readonly DealDelivery[] = 
     if (well && well.storageEscrow !== 0) fail(`${a.name} still has ${well.storageEscrow} bbl in escrow`);
     // 5. Physical bounds.
     if (well && (well.storage < -1e-9 || well.storage > well.storageCapacity + 1e-6)) fail(`${a.name} storage ${well.storage} outside 0–${well.storageCapacity}`);
+    // 5b. Oil stands at the ground it came out of, and the field's tank is the sum of those (3b).
+    if (well) {
+      const inTanks = well.leases.reduce((sum, l) => sum + l.storage + l.storageEscrow, 0);
+      if (Math.abs(inTanks - well.storage - well.storageEscrow) > 1e-6 + 1e-12 * inTanks) {
+        fail(`${a.name} holds ${well.storage + well.storageEscrow} bbl but its ground holds ${inTanks}`);
+      }
+      for (const l of well.leases) if (l.storage < -1e-9 || l.storageEscrow < -1e-9) fail(`${a.name} holds ${l.storage} bbl at ${l.name}`);
+    }
     if (plant) {
       const stock = total(plant.crudeStock);
       if (stock > plant.crudeStorageCapacity + 1e-6) fail(`${a.name} holds ${stock} bbl in ${plant.crudeStorageCapacity} bbl of tanks`);

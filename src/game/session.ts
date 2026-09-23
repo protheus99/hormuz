@@ -8,10 +8,10 @@
 import type { AgentId } from '../engine/model';
 import { step, type TickReport, type World } from '../engine/world';
 import { rngFor, type Rng } from '../engine/rng';
-import { leaseShapeFor, newLease } from '../engine/leases';
+import { fillTanks, leaseShapeFor, newLease } from '../engine/leases';
 import { wellOf } from '../engine/companies';
 import { nameGround } from '../data/leasenames';
-import type { Lease } from '../engine/model';
+import type { Lease, WellState } from '../engine/model';
 import type { Grade } from '../engine/enums';
 import { DEFAULT_CONFIG, type Config } from '../engine/config';
 import {
@@ -157,10 +157,20 @@ export class GameSession {
     // it the lease that field would have been drilled on, at the size it is pumping today.
     const named = new Set<string>();
     data.world.agents.forEach((agent, index) => {
-      const field = wellOf(agent) as { leases?: Lease[]; extractionCapacity: number; grade: Grade; baseExtractionCost: number } | undefined;
+      const field = wellOf(agent) as
+        | { leases?: Lease[]; extractionCapacity: number; grade: Grade; baseExtractionCost: number; storage: number; storageEscrow: number }
+        | undefined;
       if (field === undefined) return;
       for (const l of field.leases ?? []) named.add(l.name);
-      if (field.leases !== undefined) return;
+      // A save written before oil stood where it was lifted has its barrels on the field and none
+      // at the ground (stage 3b). Put them where they came out, or the derived total wipes them.
+      if (field.leases !== undefined) {
+        if (field.leases.some((l) => (l as { storage?: number }).storage === undefined)) {
+          for (const l of field.leases) { l.storage = 0; l.storageEscrow = 0; }
+          fillTanks(field as unknown as WellState, field.storage + field.storageEscrow);
+        }
+        return;
+      }
       const shape = leaseShapeFor(field.extractionCapacity);
       const name = nameGround(named, index * 7, agent.region);
       named.add(name);
@@ -169,6 +179,7 @@ export class GameSession {
         grade: field.grade, capacity: field.extractionCapacity, band: shape.band,
         baseExtractionCost: field.baseExtractionCost, acquiredFor: 0, wells: shape.wells, maxWells: shape.maxWells,
       })];
+      fillTanks(field as unknown as WellState, field.storage + field.storageEscrow);
     });
     return new GameSession(data);
   }

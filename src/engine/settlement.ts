@@ -12,6 +12,7 @@
 // requires exactly zero.
 
 import { availableCash, acceptedGrades, averageCost, plantAt, plantsOf, wellOf } from './companies';
+import { heldIn, lockIn, releaseTanks, shipFrom, tanksFor } from './leases';
 import { freightRate, idleCharter } from './charters';
 import { FeeKind } from './enums';
 import { recordFee, type FeeLedger } from './economics';
@@ -29,7 +30,9 @@ export function placeOrder(agent: Agent, order: Order): void {
 
   if (order.side === 'ASK') {
     const slot = sellableStock(agent, order.originRegion, grade);
-    if (slot.available < order.qty) {
+    // A millionth of a barrel either way: a lot is worked out from the sum of several tanks, and
+    // the sum of several tanks is not always the same number twice (spec §9 tolerances).
+    if (slot.available < order.qty - 1e-6) {
       throw new Error(`${agent.name} offers ${order.qty} barrels of ${grade} from ${order.originRegion} but holds ${slot.available}`);
     }
     slot.lock(order.qty);
@@ -106,8 +109,7 @@ export function releaseEscrow(agents: Iterable<Agent>): void {
     agent.cashReserved = 0;
     const well = wellOf(agent);
     if (well) {
-      well.storage += well.storageEscrow;
-      well.storageEscrow = 0;
+      releaseTanks(well);
     } else if (agent.kind === 'TRADER') {
       for (const hub of Object.values(agent.hubs)) {
         for (const grade of Object.keys(hub.escrow) as Grade[]) {
@@ -130,14 +132,21 @@ function sellableStock(agent: Agent, region: RegionName, grade: Grade): StockSlo
   switch (agent.kind) {
     case 'PRODUCER':
     case 'INTEGRATED': {
+      // A producer sells from the tanks at the ground it lifted the oil from, so a company working
+      // two regions offers each of them separately (stage 3b).
       const well = wellOf(agent) as WellState;
-      if (region !== agent.region || grade !== well.grade) {
-        throw new Error(`${agent.name} produces ${well.grade} in ${agent.region}, not ${grade} in ${region}`);
+      const tanks = tanksFor(well, region, grade);
+      if (tanks.length === 0) {
+        const where = well.leases.map((l) => `${l.grade} in ${String(l.region)}`).join(' or ');
+        throw new Error(`${agent.name} produces ${where || 'nothing'}, not ${grade} in ${region}`);
       }
       return {
-        available: well.storage,
-        lock: (qty) => { well.storage -= qty; well.storageEscrow += qty; },
-        ship: (qty) => { takeFromEscrow(agent.name, well.storageEscrow, qty); well.storageEscrow -= qty; },
+        available: heldIn(tanks),
+        lock: (qty) => { lockIn(well, tanks, qty); },
+        ship: (qty) => {
+          takeFromEscrow(agent.name, tanks.reduce((sum, l) => sum + l.storageEscrow, 0), qty);
+          shipFrom(well, tanks, qty);
+        },
       };
     }
     case 'TRADER': {
@@ -179,8 +188,9 @@ function checkBuyer(agent: Agent, deliveryRegion: RegionName, grade: Grade): voi
 }
 
 
+/** A millionth of a barrel either way, the same tolerance the invariants allow (spec §9). */
 function takeFromEscrow(name: string, escrowed: number, qty: number): void {
-  if (escrowed < qty) throw new Error(`${name} ships ${qty} barrels but only ${escrowed} are in escrow`);
+  if (escrowed < qty - 1e-6) throw new Error(`${name} ships ${qty} barrels but only ${escrowed} are in escrow`);
 }
 
 function find(agents: ReadonlyMap<AgentId, Agent>, id: AgentId): Agent {

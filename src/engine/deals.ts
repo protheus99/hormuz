@@ -6,6 +6,7 @@
 // buyer SHORTFALL_RATE for any barrels it could not load. Deal trades never touch marker prices.
 
 import { acceptedGrades, averageCost, plantOf, wellOf } from './companies';
+import { drawFrom, heldIn, tanksFor } from './leases';
 import { freightRate, idleCharter } from './charters';
 import type { Config } from './config';
 import { FeeKind, type Grade, type Personality } from './enums';
@@ -268,8 +269,9 @@ function dispatch(
 /** The seller's barrels of a grade at an origin, and how to take them. */
 function stockOf(seller: Agent, origin: RegionName, grade: Grade): { available: number; take: (qty: number) => void } {
   const well = wellOf(seller);
-  if (well && seller.region === origin && well.grade === grade) {
-    return { available: well.storage, take: (qty) => { well.storage -= qty; } };
+  const tanks = well ? tanksFor(well, origin, grade) : [];
+  if (well && tanks.length > 0) {
+    return { available: heldIn(tanks), take: (qty) => { drawFrom(well, tanks, qty); } };
   }
   if (seller.kind === 'TRADER') {
     const hub = seller.hubs[origin];
