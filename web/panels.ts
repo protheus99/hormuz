@@ -366,11 +366,11 @@ export function leasesPanel(view: PlayerView): Html {
         </tr>`)}
       </table>
       <h3 style="margin-top:14px">The register</h3>`}
-    <p class="small">You hold ${held === 1 ? 'one block' : `${held} blocks`}. Ground comes up twice
+    <p class="small">You hold ${held === 1 ? 'one lease' : `${held} leases`}. Ground comes up twice
       a year: bids are sealed, everyone gets one, and the highest takes it. What a survey calls it is
       all anyone is told — the barrels underneath are nobody's business but the owner's.</p>
     <table class="register">
-      <tr><th>Region</th><th>Ground</th><th>Blocks held</th></tr>
+      <tr><th>Region</th><th>Ground</th><th>Leases held</th></tr>
       ${view.register.map((r) => html`<tr class="${r.mayBid ? 'open' : ''}">
         <td>${r.displayName}${r.mayBid ? html` <span class="small good">you may bid</span>` : ''}</td>
         <td class="small muted">${LEASING_WORDS[r.leasing] ?? r.leasing}</td>
@@ -395,10 +395,10 @@ export function leaderboardPanel(view: PlayerView): Html {
     <p class="small muted">Every company, by what it is worth, with which way that has moved this
       month.${mine >= 0 ? html` You are <strong>${mine + 1} of ${view.standings.length}</strong>.` : ''}
       A set of accounts is published; what anyone is holding, buying or has signed is not.
-      <strong>Size</strong> is barrels a day — pumped, refined or held in store; <strong>blocks</strong>
-      is how much ground a company has, the same count the lease register shows.</p>
+      <strong>Size</strong> is barrels a day — pumped, refined or held in store; <strong>leases</strong>
+      is how much ground a company holds, the same count the lease register shows.</p>
     <table class="board">
-      <tr><th class="num">#</th><th>Company</th><th>Trade</th><th>Where</th><th class="num">Worth</th><th class="num">Month</th><th class="num">Size</th><th class="num">Blocks</th></tr>
+      <tr><th class="num">#</th><th>Company</th><th>Trade</th><th>Where</th><th class="num">Worth</th><th class="num">Month</th><th class="num">Size</th><th class="num">Leases</th></tr>
       ${view.standings.map((r, i) => html`<tr class="${r.mine ? 'mine' : ''}">
         <td class="num rank">${i + 1}</td>
         <td>${r.name}${r.mine ? html` <span class="small good">you</span>` : ''}</td>
@@ -407,7 +407,7 @@ export function leaderboardPanel(view: PlayerView): Html {
         <td class="num">${money(r.netWorth)}</td>
         <td class="num small ${r.trend === 'UP' ? 'good' : r.trend === 'DOWN' ? 'bad' : 'muted'}">${TREND_MARKS[r.trend] ?? ''}</td>
         <td class="num small muted">${bbl(r.size)}</td>
-        <td class="num small muted" title="${r.blocks === 1 ? 'one block of ground held' : `${r.blocks} blocks of ground held`}">${r.blocks > 0 ? r.blocks : ''}</td>
+        <td class="num small muted" title="${r.blocks === 1 ? 'one lease held' : `${r.blocks} leases held`}">${r.blocks > 0 ? r.blocks : ''}</td>
       </tr>`)}
     </table>`;
 }
