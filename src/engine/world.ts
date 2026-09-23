@@ -25,7 +25,7 @@ import { nextFloat, rngFor, type Rng } from './rng';
 import { advanceWells, capacityOf } from './leases';
 import { nameGround } from '../data/leasenames';
 import { aiBid, award, placeBid, surveyLots, type Auction } from './auction';
-import { exposureDay } from './exposure';
+import { exposureDay, type Reckoning } from './exposure';
 import { decideOrders, recordSales, rememberMarkers, updateOutput, updateThrottle, type MarketView } from './rules';
 import { placeOrder, releaseEscrow, settleFills } from './settlement';
 import { avoidFor, buildLaneGraph, edgeCapacity, LaneRouteProvider, setChokepoint, type LaneGraph } from './transport';
@@ -129,6 +129,11 @@ export interface AgentDay {
   readonly retail: number;
 }
 
+/** A reckoning that landed today, and who it landed on (§12A.6). */
+export interface ReckoningReport extends Reckoning {
+  readonly agentId: AgentId;
+}
+
 export interface TickReport {
   readonly tick: Tick;
   readonly extracted: number;
@@ -138,6 +143,8 @@ export interface TickReport {
   readonly fills: readonly Fill[];
   readonly deliveries: readonly DealDelivery[];
   readonly logistics: LogisticsReport;
+  /** What caught up with anybody today. Empty on almost every day of almost every game. */
+  readonly reckonings: readonly ReckoningReport[];
   readonly fees: number;
 }
 
@@ -295,7 +302,7 @@ export function step(w: World): TickReport {
   recordSales(w.agents, asked, fills);
 
   // Phase 7: running costs, credit, trader memory, AI output cuts, insolvency, invariants.
-  chargeRunningCosts(w, tick);
+  const reckonings = chargeRunningCosts(w, tick);
   chargeLeases(w);
   chargeCharters(w, tick);
   settleCredit(w, tick);
@@ -304,7 +311,7 @@ export function step(w: World): TickReport {
   updateInsolvency(w);
   checkInvariants(w, deliveries);
 
-  return { tick, extracted, refined, byAgent, fills, deliveries, logistics, fees: w.ledger.total - feesBefore };
+  return { tick, extracted, refined, byAgent, fills, deliveries, logistics, reckonings, fees: w.ledger.total - feesBefore };
 }
 
 /** Runs n ticks, returning each tick's report. */
@@ -498,8 +505,9 @@ function markerFor(w: World, grade: Grade): number {
 }
 
 /** Phase 7 running costs (spec §7.1, D10): fixed operating costs on capacity, and trading offices. */
-function chargeRunningCosts(w: World, tick: Tick): void {
+function chargeRunningCosts(w: World, tick: Tick): ReckoningReport[] {
   const cfg = w.config;
+  const reckonings: ReckoningReport[] = [];
   for (const a of w.agents) {
     const well = wellOf(a);
     const fixed = (well ? cfg.FIXED_COST_RATE.PRODUCER * well.extractionCapacity : 0)
@@ -509,13 +517,15 @@ function chargeRunningCosts(w: World, tick: Tick): void {
       recordFee(w.ledger, { tick, agentId: a.agentId, kind: FeeKind.FIXED_COST, amount: fixed });
     }
     // What a company has coming to it costs a little every day, and may come due on any of them.
-    exposureDay(a, w.ledger, tick, cfg, w.rng.events, w.horizon === null ? null : w.horizon - tick);
+    const reckoning = exposureDay(a, w.ledger, tick, cfg, w.rng.events, w.horizon === null ? null : w.horizon - tick);
+    if (reckoning !== null) reckonings.push({ ...reckoning, agentId: a.agentId });
     if (a.kind === 'TRADER') {
       const offices = cfg.OFFICE_COST.PER_TICK * a.offices.length;
       a.cash -= offices;
       recordFee(w.ledger, { tick, agentId: a.agentId, kind: FeeKind.OFFICE, amount: offices });
     }
   }
+  return reckonings;
 }
 
 /**

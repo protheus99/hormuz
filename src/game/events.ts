@@ -129,6 +129,11 @@ function schedule(w: World, e: ScheduledEvent): void {
   else w.events.splice(at, 0, e);
 }
 
+/** Anything else the game wants in the news: hints, reckonings, a scenario's own telling. */
+export function pushNews(deck: DeckState, item: NewsItem): void {
+  addNews(deck, item);
+}
+
 function addNews(deck: DeckState, item: NewsItem): void {
   deck.news.push(item);
   if (deck.news.length > NEWS_KEPT) deck.news.splice(0, deck.news.length - NEWS_KEPT);

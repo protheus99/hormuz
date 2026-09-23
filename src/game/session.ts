@@ -6,7 +6,7 @@
 // in the client: it calls advance() at the chosen speed, and advance() stops early on an auto-pause.
 
 import type { AgentId } from '../engine/model';
-import { step, type World } from '../engine/world';
+import { step, type TickReport, type World } from '../engine/world';
 import { rngFor, type Rng } from '../engine/rng';
 import { leaseShapeFor, newLease } from '../engine/leases';
 import { wellOf } from '../engine/companies';
@@ -18,7 +18,10 @@ import {
   advise, availableOpportunities, closeOpportunity, createAdvisor, openOpportunity, refreshOpportunities, type AdvisorState,
 } from './cards/advisor';
 import type { Card, CardType } from './cards/types';
-import { createDeck, deckDay, priceNews, type DeckState, type ScriptedEvent } from './events';
+import { createDeck, deckDay, priceNews, pushNews, type DeckState, type ScriptedEvent } from './events';
+import { createHints, hintDay, type HintState } from './hints';
+import { reckoningText } from '../content/hints';
+import { money } from '../content/cards';
 import { applySetup, campaignDay, campaignView, createCampaign, scenario, scriptedActions, scriptFor, type CampaignState } from './campaign';
 import { cardText } from '../content/cards';
 import { detectAlerts, pausesAt, rememberForAlerts, type Alert, type AlertMemory, type Severity } from './alerts';
@@ -70,6 +73,8 @@ export interface SaveData {
   readonly pauseAt: Severity;
   readonly advisor: AdvisorState;
   readonly deck: DeckState;
+  /** The hint ladder's state (§12A.6). Absent in saves written before it existed. */
+  readonly hints?: HintState;
   /** Scripted events (campaign scenarios); empty in Sandbox. */
   readonly script: readonly ScriptedEvent[];
   readonly campaign: CampaignState | null;
@@ -90,6 +95,7 @@ export class GameSession {
     pauseAt: Severity;
     advisor: AdvisorState;
     deck: DeckState;
+    hints: HintState;
     script: readonly ScriptedEvent[];
     campaign: CampaignState | null;
   };
@@ -100,7 +106,7 @@ export class GameSession {
       settings: copy.settings, world: copy.world, log: [...copy.log], history: [...copy.history], days: [...(copy.days ?? [])],
       sizes: [...(copy.sizes ?? [])],
       alerts: [...copy.alerts], memory: copy.memory, seq: copy.seq, pauseAt: copy.pauseAt, advisor: copy.advisor,
-      deck: copy.deck, script: copy.script, campaign: copy.campaign,
+      deck: copy.deck, hints: copy.hints ?? createHints(copy.settings.seed), script: copy.script, campaign: copy.campaign,
     };
   }
 
@@ -129,6 +135,7 @@ export class GameSession {
       version: 2, settings, world, log: [], history: [dailyPrices(world)], days: [], sizes: [], alerts: [],
       memory: rememberForAlerts(world, PLAYER_ID), seq: 0, pauseAt: 'HIGH', advisor: createAdvisor(world),
       deck: createDeck(world, settings.seed, settings.difficulty ?? 'NORMAL', sc?.randomEvents ?? true, regions, me?.kind ?? 'PRODUCER'),
+      hints: createHints(settings.seed),
       script: sc ? scriptFor(sc, settings.seed) : [],
       campaign: sc ? createCampaign(world, sc, sc.lengthDays) : null,
     });
@@ -242,7 +249,7 @@ export class GameSession {
     return structuredClone({
       version: 2 as const, settings: s.settings, world: s.world, log: s.log, history: s.history, days: s.days, sizes: s.sizes,
       alerts: s.alerts, memory: s.memory, seq: s.seq, pauseAt: s.pauseAt, advisor: s.advisor,
-      deck: s.deck, script: s.script, campaign: s.campaign,
+      deck: s.deck, hints: s.hints, script: s.script, campaign: s.campaign,
     });
   }
 
@@ -272,6 +279,7 @@ export class GameSession {
     const decided = s.campaign?.result ?? null;
     if (s.campaign) campaignDay(s.world, s.campaign, s.advisor, report.fills, report.deliveries);
     const alerts = detectAlerts(s.world, PLAYER_ID, s.memory);
+    alerts.push(...this.exposureNews(report));
     for (const p of problems) alerts.push({ tick: s.world.tick, severity: 'MEDIUM', message: `Part of your decision could not be carried out: ${p}` });
     for (const c of cards) if (c.agentId === PLAYER_ID) alerts.push({ tick: s.world.tick, severity: 'INFO', message: `New decision: ${c.title}` });
     s.memory = rememberForAlerts(s.world, PLAYER_ID);
@@ -281,6 +289,30 @@ export class GameSession {
     s.alerts.push(...alerts);
     if (s.alerts.length > ALERTS_KEPT) s.alerts.splice(0, s.alerts.length - ALERTS_KEPT);
     return { alerts, cards };
+  }
+
+  /**
+   * What the record brings the player today (§12A.6): the hints as they build, and the reckoning
+   * when it lands. Both go in the news, so they can be read back; neither ever shows a number from
+   * the record itself.
+   */
+  private exposureNews(report: TickReport): Alert[] {
+    const s = this.state;
+    const tick = s.world.tick;
+    const alerts: Alert[] = [];
+    const me = s.world.agents.find((a) => a.agentId === PLAYER_ID);
+    if (me === undefined) return alerts;
+    const hint = hintDay(s.world, s.hints, me);
+    if (hint !== null) {
+      pushNews(s.deck, { tick, headline: hint.line.headline, body: hint.line.body });
+      alerts.push({ tick, severity: hint.severity, message: `${hint.line.headline}.` });
+    }
+    for (const r of report.reckonings.filter((x) => x.agentId === PLAYER_ID)) {
+      const text = reckoningText(r.severity, r.what, money(r.cost));
+      pushNews(s.deck, { tick, ...text });
+      alerts.push({ tick, severity: 'CRITICAL', message: `${text.headline}. ${text.body}` });
+    }
+    return alerts;
   }
 
   private ended(): boolean {
