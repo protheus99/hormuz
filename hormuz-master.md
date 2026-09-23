@@ -113,15 +113,15 @@ Deals only arrive as cards: a rival offers one, or the player opens **Find a dea
 
 ### G4.4 Card catalog
 
-"No" always keeps things as they are, so only Yes and Maybe are listed. **Opp** marks cards the player can also open from Opportunities at any time. An integrated company receives both the producer and refiner catalogs.
+"No" always keeps things as they are, so only Yes and Maybe are listed. ***(Standing)*** marks the eleven that are no longer cards at all: they are offers in the panel where the thing lives, always available, with no deadline and no meters (§12A.5, D54). Some are still raised as cards as well, when the situation is worth mentioning. An integrated company receives both the producer and refiner catalogs.
 
 **Shared**
 
 | Card | Raised when | Yes | Maybe | Engine effect |
 |---|---|---|---|---|
 | Cash running short | Available cash below 10 days of fixed costs | Borrow on the credit line | Pause capital projects | Credit draw / project hold |
-| Market report *(Opp)* | Always available | Buy | — | Market report (G5) |
-| Find a deal *(Opp)* | Always available | Request 90-day offers | Request 30-day offers | Tender; offers arrive as deal cards |
+| Market report *(Standing)* | Always available | Buy | — | Market report (G5) |
+| Find a deal *(Standing)* | Always available | Request 90-day offers | Request 30-day offers | Tender; offers arrive as deal cards |
 
 **Producer**
 
@@ -134,8 +134,8 @@ Deals only arrive as cards: a rival offers one, or the player opens **Find a dea
 | Wells declining | Capacity below 90% of peak | Drill new wells | Drill half | Drilling project |
 | Trouble on your export route | Any chokepoint on your buyers' routes reaches `TENSION` or `DELAYED` | Lock in buyers now, at a discount | Lock in half | Discounted deal offers to current buyers |
 | Closure risk on exports | `TENSION` on a chokepoint your exports cross, where a bypass pipeline exists | Reserve bypass space | Reserve half | Pipeline reservation |
-| Expand storage *(Opp)* | Always available | Two steps | One step | Storage project |
-| Build a refinery *(Opp, late)* | Net worth above `INTEGRATE_THRESHOLD`, eligible region | Build | — | Becomes integrated after `FACTORY_TICKS` |
+| Expand storage *(Standing)* | Always available | Two steps | One step | Storage project |
+| Build a refinery *(Standing, late)* | Net worth above `INTEGRATE_THRESHOLD`, eligible region | Build | — | Becomes integrated after `FACTORY_TICKS` |
 
 **Refiner**
 
@@ -150,10 +150,10 @@ Deals only arrive as cards: a rival offers one, or the player opens **Find a dea
 | Cheap heavy crude | Tier 3, and heavy crude's landed discount above threshold | Switch the crude mix to heavy | Blend in half | Grade weighting |
 | Trouble on your supply route | Any chokepoint on a deal's route reaches `TENSION` or `DELAYED` | Reroute the deal (costs more) | Reroute half | Deal avoid set / split |
 | Deal oil stuck at sea | Deal cargo held 3+ days | Cancel the deal (fee) | Keep it and buy emergency supply | Deal cancelled / emergency bid |
-| Upgrade tech tier *(Opp)* | Tier below 3 | Upgrade | — | Tier project |
-| Add a processing unit *(Opp)* | Always available | Build | — | Unit project: +`UNIT_CAPACITY` (2,500 bbl/day) after `FACTORY_TICKS` |
-| Build a second refinery *(Opp, late)* | Net worth above `INTEGRATE_THRESHOLD`, one refinery owned | Build | — | A `UNIT_CAPACITY` plant at the first plant's tier in another refining region (not `Middle_East`), after `FACTORY_TICKS` |
-| Expand crude storage *(Opp)* | Always available | Two steps | One step | Storage project |
+| Upgrade tech tier *(Standing)* | Tier below 3 | Upgrade | — | Tier project |
+| Add a processing unit *(Standing)* | Always available | Build | — | Unit project: +`UNIT_CAPACITY` (2,500 bbl/day) after `FACTORY_TICKS` |
+| Build a second refinery *(Standing, late)* | Net worth above `INTEGRATE_THRESHOLD`, one refinery owned | Build | — | A `UNIT_CAPACITY` plant at the first plant's tier in another refining region (not `Middle_East`), after `FACTORY_TICKS` |
+| Expand crude storage *(Standing)* | Always available | Two steps | One step | Storage project |
 
 **Trader**
 
@@ -167,9 +167,9 @@ Deals only arrive as cards: a rival offers one, or the player opens **Find a dea
 | A crisis is brewing | An event at `RUMOR` or `TENSION` | Stock up outside the danger zone | Stock up half | Bids in unaffected regions |
 | Your cargo is stuck | Own cargo held 3+ days | Sell it at sea at a discount | Sell half | Forced sale at `DISTRESS_DISCOUNT` |
 | Keep cargo afloat | Chartered cargo arriving while prices are unusually low | Hold it at sea | — | Floating storage |
-| Lease storage *(Opp)* | An office region with pool space | 90 days | 30 days | Lease |
-| Charter a tanker *(Opp)* | Companies that buy crude: refiners, traders, integrated (D45) | Large, 90 days | Small, 30 days | Charter |
-| Open a trading office *(Opp)* | A region without an office | Open | — | New tradeable region (`OFFICE_COST`) |
+| Lease storage *(Standing)* | An office region with pool space | 90 days | 30 days | Lease |
+| Charter a tanker *(Standing)* | Companies that buy crude: refiners, traders, integrated (D45) | Large, 90 days | Small, 30 days | Charter |
+| Open a trading office *(Standing)* | A region without an office | Open | — | New tradeable region (`OFFICE_COST`) |
 
 ### G4.5 Impact projections
 
@@ -1467,7 +1467,30 @@ it is that good and bad decisions both make money. Losses must stay avoidable by
 
    **A friend at the ministry** (dilemma 24) landed with stage 3b, since a licence is worth buying
    only once there is ground behind it a producer could actually work.
-5. The Opportunities cleanup: the 11 purchases move into their panels.
+5. ✅ Standing actions. The eleven purchases (D54) are no longer cards: they are offers, always
+   available, with no deadline, no meters and no No, each shown in the panel where the thing lives
+   — tanks under the tanks, refinery work under the refinery, a charter under the cargo, finding a
+   deal beside the deals, a market report under the leaderboard. `TAKE_OFFER` rebuilds the offer
+   from the world on the day it applies, as answering an Opportunity always did, so a replay buys
+   what the player saw at that day's price. The Opportunities sheet, the `opportunity` flag and the
+   whole open/close/refresh machinery are gone.
+
+   **The AI needed no rule of its own.** QUESTIONS.md flagged this as the fork that made stage 5
+   bigger than it looked — rivals grow by answering these very cards, so removing them would stop
+   the campaign. It turned out `answerAsAi` never read the sheet, only the definitions, so the
+   catalog stays as the one rulebook and both routes read it.
+
+   **Raising and asking are different questions**, which the detectors had been answering with one
+   condition. Raising asks "is this worth mentioning today"; a panel asks "can this be done at
+   all". Three definitions now carry a `whenAsked` beside `detect`: more tanks (a producer may want
+   them before they are half full), leased space and a new office. A refinery keeps its net-worth
+   threshold, which is a progression rule rather than topicality, and belongs to stage 6 if it is
+   to move.
+
+   **The escapes moved with them** (§12A.6). They were reachable only from Opportunities, so they
+   would have been stranded; they now sit under the News, which is where the hints arrive. The hint
+   is the window, so the way out belongs beside the letter that told you the window was closing.
+   There is no panel for the record itself, and there must not be.
 6. The economics rebalance and company failure (§12A.8), then one retune of every scenario target
    and the D44 band.
 
@@ -1887,6 +1910,7 @@ The free web version stays available after Steam launches. Schools mostly use Ch
 | 3.1 | 2026-09-18 | Closed the real-world framing decision as D32: real geography, fictional companies, faceless and non-violent event wording, coastline-only map. Renamed nine companies whose names matched or crowded real companies. Removed the refiner's "Buy an oilfield" card: only producers can become integrated. |
 | 3.2 | 2026-09-18 | Made every chokepoint a live risk: an event profile for each of the seven, deck rules, route cards that react to delays as well as tension, a campaign featuring six of the seven, verification runs S13–S17, and a property test that no single closure strands a region. |
 | 3.5 | 2026-09-19 | Phase 7 calibration: price discovery (bids climb towards value as tanks empty; unsold asks decay; closing offers published), refiners count the voyage in stock targets and tank space, credit lines, recoverable insolvency, AI output cuts, personality mixes, the global portfolio's cash and storage, and the D35 decisions. Global S0: markers about 78 / 71 / 63 in grade order on ~90% of days, no insolvencies. |
+| 4.9 | 2026-09-23 | Stage 5: the eleven purchases become standing actions in their own panels, the Opportunities sheet and its machinery are removed, raising and asking become separate questions, and the escapes move under the News. |
 | 4.8 | 2026-09-23 | Stage 3b: a lease holds its own oil and posts its own ask, ground elsewhere costs what it costs there, and a producer may take ground in any region it has the right to. Dilemma 24 landed with it. |
 | 4.7 | 2026-09-23 | Stage 4 built: the hint ladder, the three escapes and their pricing, the epilogue, and six producer dilemmas. Cards may now give No actions of their own; a published survey may be a band out; sealed bids are lodged when the round opens. Stage 3b's route written down. |
 | 4.6 | 2026-09-22 | Measured that a fine can never be the punishment (1.3% of three years' earnings, and a third of the time nothing), and settled the answer: consequences in kind, timed to follow trouble, hinted at as they build, and able to lose a scenario. |

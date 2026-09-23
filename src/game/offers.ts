@@ -19,10 +19,20 @@ import { CARD_DEFS, type CardContext } from './cards/catalog';
 import type { AdvisorMemory, CardType, Choice } from './cards/types';
 
 /** Which panel an offer belongs in: where the thing it buys already lives. */
-export type OfferPlace = 'TANKS' | 'PLANT' | 'GROUND' | 'CARGO' | 'DEALS' | 'RIVALS' | 'OFFICES';
+export type OfferPlace = 'TANKS' | 'PLANT' | 'GROUND' | 'CARGO' | 'DEALS' | 'RIVALS' | 'OFFICES' | 'RECORD';
 
-/** The eleven, and where each one goes (§12A.5). Nothing else is an offer. */
+/**
+ * The eleven purchases (§12A.5), and the three escapes (§12A.6), which are standing actions of the
+ * same shape: things a player does when they decide to, not things that happen to them.
+ *
+ * The escapes go under the news, which is where the hints arrive. That is the whole point of them —
+ * the hint is the window, so the way out belongs beside the letter that told you the window was
+ * closing. There is no panel for the record itself, and there must not be: it is hidden.
+ */
 export const OFFER_PLACES: Readonly<Partial<Record<CardType, OfferPlace>>> = {
+  PUT_IT_RIGHT: 'RECORD',
+  TELL_THEM_FIRST: 'RECORD',
+  RETAIN_COUNSEL: 'RECORD',
   MARKET_REPORT: 'RIVALS',
   FIND_DEAL: 'DEALS',
   EXPAND_STORAGE: 'TANKS',
@@ -37,6 +47,9 @@ export const OFFER_PLACES: Readonly<Partial<Record<CardType, OfferPlace>>> = {
 };
 
 export const OFFER_TYPES: readonly CardType[] = Object.keys(OFFER_PLACES) as CardType[];
+
+/** The eleven purchases alone, for the tests that care about D54's list rather than the shape. */
+export const PURCHASE_TYPES: readonly CardType[] = OFFER_TYPES.filter((t) => OFFER_PLACES[t] !== 'RECORD');
 
 export interface OfferChoice {
   /** YES or MAYBE: an offer has no No, because not buying a thing is not an answer. */
@@ -73,7 +86,7 @@ export function offerOf(w: World, memory: AdvisorMemory, me: Agent, type: CardTy
   // A standing action takes no draws: it is looked at whenever a player opens a panel, and a world
   // whose luck depended on how often somebody looked at a panel would not replay (G10).
   const ctx: CardContext = { w, me, memory, roll: () => 0 };
-  const s = def.detect(ctx);
+  const s = (def.whenAsked ?? def.detect)(ctx);
   if (s === null) return null;
   const text = cardText(type, s.data);
   const { yes, maybe } = def.options(ctx, s);

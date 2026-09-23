@@ -188,7 +188,6 @@ td.num, th.num { text-align: right; }
 /* ── Cards ── */
 .inbox-empty { color: var(--text-2); padding: 8px 0; }
 .card { border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; background: var(--panel-2); margin-bottom: 10px; }
-.card.opportunity { border-style: dashed; }
 .card .head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
 .card .deadline { font-size: 12px; color: var(--warn); white-space: nowrap; }
 .card .situation { margin: 6px 0 10px; }
@@ -218,7 +217,12 @@ td.num, th.num { text-align: right; }
 .unaffordable { font-size: 12px; color: var(--bad); margin-top: 2px; }
 .answered { font-size: 13px; color: var(--good); font-weight: 600; }
 details { margin-top: 6px; font-size: 12px; color: var(--text-2); }
-.opps { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+/* Standing actions (§12A.5): a line saying what a thing is, and buttons saying what it costs. */
+.offer { margin: 8px 0 10px; }
+.offer .small { margin-bottom: 5px; }
+.seg.offers { flex-wrap: wrap; max-width: 100%; }
+.seg.offers button { text-align: left; }
+.seg.offers button:disabled { color: var(--text-3); cursor: not-allowed; }
 
 /* A decision waiting for an answer: a red count, in the inbox and in the top bar. */
 .badge {

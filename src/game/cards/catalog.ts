@@ -46,13 +46,22 @@ export interface OptionSpec {
 export interface CardDef {
   readonly type: CardType;
   readonly kinds: readonly Agent['kind'][];
-  /** Raised by the game when its situation arises. */
+  /**
+   * Raised by the game when its situation arises. A definition that is not raised is a standing
+   * action: the player takes it from a panel, and a rival takes it as a growth decision (§12A.5).
+   */
   readonly raised: boolean;
-  /** Can be opened from Opportunities (spec G4.4 "Opp"). */
-  readonly opportunity: boolean;
   /** AI companies answer it from Phase 9 (spec G4.6: operating cards). */
   readonly operating: boolean;
   detect(ctx: CardContext): Situation | null;
+  /**
+   * What this offers when a player goes looking for it in a panel, rather than when the game
+   * decides to raise it (§12A.5). Raising asks "is this worth mentioning today"; a panel asks "can
+   * this be done at all", and they are not the same question — a producer may want more tanks
+   * before they are half full. Defaults to `detect`, which is right for anything the game never
+   * raises on its own.
+   */
+  whenAsked?(ctx: CardContext): Situation | null;
   /**
    * What each answer does. A dilemma may give No actions of its own — refusing to cut a corner is
    * usually doing the job properly, which costs what it costs (§12A.6). A card that leaves No out
@@ -300,7 +309,7 @@ const horizonDays = (w: World) => (w.horizon === null ? null : w.horizon - w.tic
  */
 function escape(type: CardType, kind: EscapeKind): CardDef {
   return {
-    type, kinds: ALL, raised: false, opportunity: true, operating: false,
+    type, kinds: ALL, raised: false, operating: false,
     detect: ({ w, me }) => {
       const left = horizonDays(w);
       if (!escapeOffered(me, kind, w.config, w.tick, left)) return null;
@@ -322,10 +331,27 @@ function escape(type: CardType, kind: EscapeKind): CardDef {
   };
 }
 
+
+/** More tanks: a producer can ask for them whenever none are already being built (§12A.5). */
+function storageOffer({ w, me }: CardContext): Situation | null {
+  const well = wellOf(me);
+  if (!well || w.projects.some((p) => p.agentId === me.agentId && p.kind === 'STORAGE')) return null;
+  return { key: 'expand-storage', data: { step: bbl(w.config.STORAGE_STEP), fill: pct(fillRatio(well)) } };
+}
+
+/** A trading office: anywhere a trader does not already have one, and can be paid for. */
+function officeOffer({ w, me }: CardContext): Situation | null {
+  if (me.kind !== 'TRADER' || me.offices.length >= 3) return null;
+  const candidates: RegionName[] = ['Coastal_Asia', 'South_Asia', 'US_Gulf_Coast', 'Southern_Europe', 'North_Sea', 'Middle_East', 'West_Africa'];
+  const region = candidates.find((r) => !me.offices.includes(r));
+  return region === undefined ? null
+    : { key: 'office', data: { region: REGIONS[region].displayName, regionId: region, cost: money(w.config.OFFICE_COST.OPEN), daily: money(w.config.OFFICE_COST.PER_TICK), hub: OFFICE_HUB_CAPACITY } };
+}
+
 export const CATALOG: readonly CardDef[] = [
   // ── Shared ──
   {
-    type: 'CASH_SHORT', kinds: ALL, raised: true, opportunity: false, operating: false,
+    type: 'CASH_SHORT', kinds: ALL, raised: true, operating: false,
     detect: ({ w, me }) => {
       const fixed = dailyFixed(w, me);
       const credit = me.creditLimit - me.creditDrawn;
@@ -339,20 +365,20 @@ export const CATALOG: readonly CardDef[] = [
     }),
   },
   {
-    type: 'MARKET_REPORT', kinds: ALL, raised: false, opportunity: true, operating: false,
+    type: 'MARKET_REPORT', kinds: ALL, raised: false, operating: false,
     detect: ({ w }) => ({ key: 'report', data: { cost: money(w.config.REPORT_COST), lag: w.config.REPORT_LAG } }),
     options: ({ w }) => ({ yes: { actions: [{ kind: 'PAY', amount: w.config.REPORT_COST, what: 'REPORT' }], effect: { report: true } }, maybe: null }),
   },
   {
-    type: 'FIND_DEAL', kinds: ['PRODUCER', 'REFINER'], raised: false, opportunity: true, operating: false,
+    type: 'FIND_DEAL', kinds: ['PRODUCER', 'REFINER'], raised: false, operating: false,
     detect: ({ memory, me }) => (memory.pendingTenders.some((t) => t.agentId === me.agentId) ? null : { key: 'tender', data: {} }),
     options: () => ({ yes: { actions: [], effect: { tender: 90 } }, maybe: { actions: [], effect: { tender: 30 } } }),
   },
 
   // ── Producer ──
-  { type: 'BUYER_OFFERS_DEAL', kinds: ['PRODUCER'], raised: true, opportunity: false, operating: false, detect: offerDetect, options: offerOptions },
+  { type: 'BUYER_OFFERS_DEAL', kinds: ['PRODUCER'], raised: true, operating: false, detect: offerDetect, options: offerOptions },
   {
-    type: 'PRICES_BELOW_COST', kinds: PRODUCERS, raised: true, opportunity: false, operating: true,
+    type: 'PRICES_BELOW_COST', kinds: PRODUCERS, raised: true, operating: true,
     detect: ({ me }) => {
       const well = wellOf(me);
       if (!well || well.breakevenStreak > -10 || well.extractionRate <= 0.5) return null;
@@ -364,7 +390,7 @@ export const CATALOG: readonly CardDef[] = [
     }),
   },
   {
-    type: 'STORAGE_NEARLY_FULL', kinds: PRODUCERS, raised: true, opportunity: false, operating: false,
+    type: 'STORAGE_NEARLY_FULL', kinds: PRODUCERS, raised: true, operating: false,
     detect: ({ me }) => {
       const well = wellOf(me);
       return well && fillRatio(well) >= 0.9 ? { key: 'storage', data: { fill: pct(fillRatio(well)) } } : null;
@@ -382,7 +408,7 @@ export const CATALOG: readonly CardDef[] = [
     },
   },
   {
-    type: 'PRICES_RECOVERED', kinds: PRODUCERS, raised: true, opportunity: false, operating: true,
+    type: 'PRICES_RECOVERED', kinds: PRODUCERS, raised: true, operating: true,
     detect: ({ me }) => {
       const well = wellOf(me);
       if (!well || well.extractionRate >= 1 || well.breakevenStreak < 10) return null;
@@ -396,7 +422,7 @@ export const CATALOG: readonly CardDef[] = [
   {
     // The one card in the deck where the player names a price, and they name it by picking a level
     // rather than typing a number (G4.3, §12A.4). Nobody is told what is under the ground.
-    type: 'LEASE_AUCTION', kinds: PRODUCERS, raised: true, opportunity: false, operating: false,
+    type: 'LEASE_AUCTION', kinds: PRODUCERS, raised: true, operating: false,
     detect: ({ w, me }) => {
       const auction = w.auction;
       if (auction === null) return null;
@@ -425,7 +451,7 @@ export const CATALOG: readonly CardDef[] = [
     },
   },
   {
-    type: 'WELLS_DECLINING', kinds: PRODUCERS, raised: true, opportunity: false, operating: false,
+    type: 'WELLS_DECLINING', kinds: PRODUCERS, raised: true, operating: false,
     detect: ({ w, me }) => {
       const well = wellOf(me);
       if (!well || well.extractionCapacity >= 0.9 * well.peakCapacity || w.projects.some((p) => p.agentId === me.agentId && p.kind === 'DRILL')) return null;
@@ -453,7 +479,7 @@ export const CATALOG: readonly CardDef[] = [
     },
   },
   {
-    type: 'EXPORT_ROUTE_TROUBLE', kinds: PRODUCERS, raised: true, opportunity: false, operating: false,
+    type: 'EXPORT_ROUTE_TROUBLE', kinds: PRODUCERS, raised: true, operating: false,
     detect: ({ w, me, memory }) => {
       const sales = memory.recentSales.filter((s) => s.seller === me.agentId);
       for (const c of Object.keys(CHOKEPOINTS) as ChokepointName[]) {
@@ -488,7 +514,7 @@ export const CATALOG: readonly CardDef[] = [
     },
   },
   {
-    type: 'EXPORT_CLOSURE_RISK', kinds: PRODUCERS, raised: true, opportunity: false, operating: false,
+    type: 'EXPORT_CLOSURE_RISK', kinds: PRODUCERS, raised: true, operating: false,
     detect: ({ w, me }) => {
       const bypasses = w.graph.edges.filter((e) => e.capacity !== null && String(e.id).startsWith('bypass_') && (e.a === me.region || e.b === me.region));
       if (bypasses.length === 0) return null;
@@ -512,20 +538,15 @@ export const CATALOG: readonly CardDef[] = [
     },
   },
   {
-    type: 'EXPAND_STORAGE', kinds: PRODUCERS, raised: true, opportunity: true, operating: false,
+    type: 'EXPAND_STORAGE', kinds: PRODUCERS, raised: true, operating: false,
     // Raised once the tanks are more than half full with none being built, so a producer with crude
     // to store is asked rather than having to go looking (spec G4.7: the thinnest play type).
-    detect: ({ w, me }) => {
-      const well = wellOf(me);
-      if (!well) return null;
-      const building = w.projects.some((p) => p.agentId === me.agentId && p.kind === 'STORAGE');
-      if (building || fillRatio(well) < 0.5) return null;
-      return { key: 'expand-storage', data: { step: bbl(w.config.STORAGE_STEP), fill: pct(fillRatio(well)) } };
-    },
+    detect: (ctx) => (fillRatio(wellOf(ctx.me) ?? ({ storage: 0, storageCapacity: 1 } as never)) < 0.5 ? null : storageOffer(ctx)),
+    whenAsked: storageOffer,
     options: () => ({ yes: { actions: [{ kind: 'START_PROJECT', project: 'STORAGE', steps: 2 }] }, maybe: { actions: [{ kind: 'START_PROJECT', project: 'STORAGE', steps: 1 }] } }),
   },
   {
-    type: 'BUILD_REFINERY', kinds: ['PRODUCER'], raised: true, opportunity: true, operating: false,
+    type: 'BUILD_REFINERY', kinds: ['PRODUCER'], raised: true, operating: false,
     detect: ({ w, me, memory }) => {
       if (me.kind !== 'PRODUCER' || CLOSED_TO_NEW_REFINING.includes(me.region)) return null;
       if (!(REGIONS[me.region].roles as readonly string[]).includes('REFINING')) return null;
@@ -538,9 +559,9 @@ export const CATALOG: readonly CardDef[] = [
   },
 
   // ── Refiner ──
-  { type: 'SUPPLIER_OFFERS_DEAL', kinds: ['REFINER'], raised: true, opportunity: false, operating: false, detect: offerDetect, options: offerOptions },
+  { type: 'SUPPLIER_OFFERS_DEAL', kinds: ['REFINER'], raised: true, operating: false, detect: offerDetect, options: offerOptions },
   {
-    type: 'STOCK_LOW', kinds: PLANTS, raised: true, opportunity: false, operating: true,
+    type: 'STOCK_LOW', kinds: PLANTS, raised: true, operating: true,
     detect: ({ me }) => {
       const found = firstSite(me, (plant) => {
         const use = plant.processingCapacity * effectiveUtilization(plant);
@@ -568,7 +589,7 @@ export const CATALOG: readonly CardDef[] = [
     },
   },
   {
-    type: 'REFINING_LOSING', kinds: PLANTS, raised: true, opportunity: false, operating: true,
+    type: 'REFINING_LOSING', kinds: PLANTS, raised: true, operating: true,
     detect: ({ me }) => {
       const found = firstSite(me, (plant) => plant.lowMarginDays >= 5 && plant.utilizationCap > 0.5);
       return found ? { key: `losing:${found.site}`, data: { days: found.plant.lowMarginDays, site: found.site } } : null;
@@ -582,7 +603,7 @@ export const CATALOG: readonly CardDef[] = [
     },
   },
   {
-    type: 'MARGINS_STRONG', kinds: PLANTS, raised: true, opportunity: false, operating: true,
+    type: 'MARGINS_STRONG', kinds: PLANTS, raised: true, operating: true,
     detect: ({ w, me }) => {
       // Only while maintenance is coming due: an overdue plant is not offered another deferral.
       const found = firstSite(me, (plant) => plant.lastMargin > 2 * w.config.FIXED_COST_RATE.REFINER
@@ -600,7 +621,7 @@ export const CATALOG: readonly CardDef[] = [
     },
   },
   {
-    type: 'MAINTENANCE_DUE', kinds: PLANTS, raised: true, opportunity: false, operating: true,
+    type: 'MAINTENANCE_DUE', kinds: PLANTS, raised: true, operating: true,
     detect: ({ w, me }) => {
       const found = firstSite(me, (plant) => plant.daysSinceMaintenance >= w.config.MAINT_INTERVAL
         && plant.maintenanceTicksRemaining === 0 && plant.maintenanceAt === null && plant.maintenanceHoldUntil <= w.tick);
@@ -615,7 +636,7 @@ export const CATALOG: readonly CardDef[] = [
     },
   },
   {
-    type: 'BREAKDOWN', kinds: PLANTS, raised: true, opportunity: false, operating: true,
+    type: 'BREAKDOWN', kinds: PLANTS, raised: true, operating: true,
     detect: ({ me, memory }) => {
       if (memory.outageSeen[me.agentId] === true) return null;
       const found = firstSite(me, (plant) => plant.outageTicksRemaining > 0);
@@ -630,7 +651,7 @@ export const CATALOG: readonly CardDef[] = [
     },
   },
   {
-    type: 'CHEAP_HEAVY', kinds: PLANTS, raised: true, opportunity: false, operating: false,
+    type: 'CHEAP_HEAVY', kinds: PLANTS, raised: true, operating: false,
     detect: ({ w, me }) => {
       const plant = plantOf(me);
       if (!plant || plant.techTier < 3 || plant.crudePreference?.grade === 'HEAVY_SOUR') return null;
@@ -646,7 +667,7 @@ export const CATALOG: readonly CardDef[] = [
     }),
   },
   {
-    type: 'SUPPLY_ROUTE_TROUBLE', kinds: PLANTS, raised: true, opportunity: false, operating: false,
+    type: 'SUPPLY_ROUTE_TROUBLE', kinds: PLANTS, raised: true, operating: false,
     detect: ({ w, me }) => {
       for (const d of w.deals) {
         if (d.status !== 'ACTIVE' || d.buyerId !== me.agentId) continue;
@@ -668,7 +689,7 @@ export const CATALOG: readonly CardDef[] = [
     },
   },
   {
-    type: 'DEAL_CARGO_STUCK', kinds: PLANTS, raised: true, opportunity: false, operating: false,
+    type: 'DEAL_CARGO_STUCK', kinds: PLANTS, raised: true, operating: false,
     detect: ({ w, me, memory }) => {
       for (const c of w.cargo) {
         if (c.ownerId !== me.agentId || c.dealId === null || c.status !== 'HELD') continue;
@@ -690,7 +711,7 @@ export const CATALOG: readonly CardDef[] = [
     },
   },
   {
-    type: 'UPGRADE_TIER', kinds: PLANTS, raised: false, opportunity: true, operating: false,
+    type: 'UPGRADE_TIER', kinds: PLANTS, raised: false, operating: false,
     detect: ({ w, me }) => {
       if (w.projects.some((p) => p.agentId === me.agentId && p.kind === 'TIER')) return null;
       const site = plantsOf(me).findIndex((p) => p.techTier < 3);
@@ -710,18 +731,18 @@ export const CATALOG: readonly CardDef[] = [
     }),
   },
   {
-    type: 'ADD_UNIT', kinds: PLANTS, raised: false, opportunity: true, operating: false,
+    type: 'ADD_UNIT', kinds: PLANTS, raised: false, operating: false,
     detect: ({ w }) => ({ key: 'unit', data: { capacity: bbl(w.config.UNIT_CAPACITY), ticks: w.config.FACTORY_TICKS } }),
     options: () => ({ yes: { actions: [{ kind: 'START_PROJECT', project: 'UNIT', steps: 1 }] }, maybe: null }),
   },
   {
-    type: 'EXPAND_TANKS', kinds: PLANTS, raised: false, opportunity: true, operating: false,
+    type: 'EXPAND_TANKS', kinds: PLANTS, raised: false, operating: false,
     detect: ({ w, me }) => (wellOf(me) ? null : { key: 'tanks', data: { step: bbl(w.config.STORAGE_STEP) } }),
     options: () => ({ yes: { actions: [{ kind: 'START_PROJECT', project: 'STORAGE', steps: 2 }] }, maybe: { actions: [{ kind: 'START_PROJECT', project: 'STORAGE', steps: 1 }] } }),
   },
 
   {
-    type: 'SECOND_REFINERY', kinds: ['REFINER'], raised: false, opportunity: true, operating: false,
+    type: 'SECOND_REFINERY', kinds: ['REFINER'], raised: false, operating: false,
     // A refiner's late game (D34): a second plant in another refining region, sharing the wallet.
     detect: ({ w, me, memory }) => {
       if (me.kind !== 'REFINER' || me.second !== null) return null;
@@ -746,7 +767,7 @@ export const CATALOG: readonly CardDef[] = [
     // Freight is paid by whoever buys (settlement), so cargo belongs to the buyer. A producer only
     // sells: it would never carry anything, and the hire would run for nothing. Refiners, traders
     // and integrated companies ship what they buy.
-    type: 'CHARTER_TANKER', kinds: ['REFINER', 'INTEGRATED', 'TRADER'], raised: false, opportunity: true, operating: false,
+    type: 'CHARTER_TANKER', kinds: ['REFINER', 'INTEGRATED', 'TRADER'], raised: false, operating: false,
     detect: ({ w, me }) => {
       // One ship at a time is enough for a company this size; a second only burns hire.
       if (w.charters.some((ch) => ch.ownerId === me.agentId)) return null;
@@ -762,7 +783,7 @@ export const CATALOG: readonly CardDef[] = [
     }),
   },
   {
-    type: 'KEEP_AFLOAT', kinds: ALL, raised: true, opportunity: false, operating: false,
+    type: 'KEEP_AFLOAT', kinds: ALL, raised: true, operating: false,
     // Crude arriving on your own ship while its price is unusually low: the hire is already paid,
     // so leaving it aboard until prices recover costs nothing more (spec G4.4 "Keep cargo afloat").
     detect: ({ w, me }) => {
@@ -789,7 +810,7 @@ export const CATALOG: readonly CardDef[] = [
 
   // ── Trader ──
   {
-    type: 'BACK_TO_BACK', kinds: ['TRADER'], raised: true, opportunity: false, operating: false,
+    type: 'BACK_TO_BACK', kinds: ['TRADER'], raised: true, operating: false,
     detect: ({ w, me }) => {
       if (me.kind !== 'TRADER') return null;
       for (const office of me.offices) {
@@ -826,7 +847,7 @@ export const CATALOG: readonly CardDef[] = [
     },
   },
   {
-    type: 'DISTRESSED_CARGO', kinds: ['TRADER'], raised: true, opportunity: false, operating: false,
+    type: 'DISTRESSED_CARGO', kinds: ['TRADER'], raised: true, operating: false,
     detect: ({ w, me }) => {
       if (me.kind !== 'TRADER') return null;
       for (const p of w.agents) {
@@ -854,7 +875,7 @@ export const CATALOG: readonly CardDef[] = [
     },
   },
   {
-    type: 'PRICES_LOW', kinds: ['TRADER'], raised: true, opportunity: false, operating: false,
+    type: 'PRICES_LOW', kinds: ['TRADER'], raised: true, operating: false,
     detect: ({ w, me }) => {
       if (me.kind !== 'TRADER') return null;
       for (const node of ['NYMEX', 'NC', 'DME'] as NodeName[]) {
@@ -880,7 +901,7 @@ export const CATALOG: readonly CardDef[] = [
     },
   },
   {
-    type: 'PRICE_GAP', kinds: ['TRADER'], raised: true, opportunity: false, operating: false,
+    type: 'PRICE_GAP', kinds: ['TRADER'], raised: true, operating: false,
     detect: ({ w, me }) => {
       if (me.kind !== 'TRADER') return null;
       const ctx = { routes: new LaneRouteProvider(w.graph), tick: w.tick, config: w.config };
@@ -908,7 +929,7 @@ export const CATALOG: readonly CardDef[] = [
     },
   },
   {
-    type: 'POSITION_FALLING', kinds: ['TRADER'], raised: true, opportunity: false, operating: false,
+    type: 'POSITION_FALLING', kinds: ['TRADER'], raised: true, operating: false,
     detect: ({ w, me }) => {
       if (me.kind !== 'TRADER') return null;
       for (const node of ['NYMEX', 'NC', 'DME'] as NodeName[]) {
@@ -942,7 +963,7 @@ export const CATALOG: readonly CardDef[] = [
     },
   },
   {
-    type: 'CRISIS_BREWING', kinds: ['TRADER'], raised: true, opportunity: false, operating: false,
+    type: 'CRISIS_BREWING', kinds: ['TRADER'], raised: true, operating: false,
     detect: ({ w, me }) => {
       if (me.kind !== 'TRADER') return null;
       const c = (Object.keys(CHOKEPOINTS) as ChokepointName[]).find((k) => w.graph.chokepoints[k].status === 'TENSION');
@@ -963,7 +984,7 @@ export const CATALOG: readonly CardDef[] = [
     },
   },
   {
-    type: 'CARGO_STUCK', kinds: ['TRADER', 'PRODUCER'], raised: true, opportunity: false, operating: false,
+    type: 'CARGO_STUCK', kinds: ['TRADER', 'PRODUCER'], raised: true, operating: false,
     detect: ({ w, me, memory }) => {
       const held = w.cargo.filter((c) => c.ownerId === me.agentId && c.status === 'HELD' && !c.awaitingRoute && c.dealId === null);
       const days = Math.max(0, ...held.map((c) => w.tick - (memory.heldSince[String(c.cargoId)] ?? w.tick)));
@@ -972,7 +993,14 @@ export const CATALOG: readonly CardDef[] = [
     options: () => ({ yes: { actions: [{ kind: 'SELL_AT_SEA', share: 1 }] }, maybe: { actions: [{ kind: 'SELL_AT_SEA', share: 0.5 }] } }),
   },
   {
-    type: 'LEASE_STORAGE', kinds: ['TRADER'], raised: true, opportunity: true, operating: false,
+    type: 'LEASE_STORAGE', kinds: ['TRADER'], raised: true, operating: false,
+    // Asked for at any time, in any office where space can be rented; raised only when it is timely.
+    whenAsked: ({ w, me }) => {
+      if (me.kind !== 'TRADER') return null;
+      const region = me.offices.find((o) => leaseRegions().includes(o) && (me.hubs[o]?.capacity ?? 0) > 0);
+      return region === undefined ? null
+        : { key: 'lease', data: { region: REGIONS[region].displayName, regionId: region, rate: money(leaseRate(w, region)) } };
+    },
     // Raised when crude is cheap and the tanks are filling: the moment extra space is worth renting,
     // and the one lever the daily rules never pull for themselves (spec §6.4, G7.2 T2).
     detect: ({ w, me }) => {
@@ -998,16 +1026,11 @@ export const CATALOG: readonly CardDef[] = [
     }),
   },
   {
-    type: 'OPEN_OFFICE', kinds: ['TRADER'], raised: true, opportunity: true, operating: false,
-    // Raised when the office would leave a comfortable margin of cash, so spreading out is offered
-    // rather than having to be found; still openable from Opportunities at any time.
-    detect: ({ w, me }) => {
-      if (me.kind !== 'TRADER' || me.offices.length >= 3) return null;
-      if (me.cash - me.cashReserved < 2 * w.config.OFFICE_COST.OPEN) return null;
-      const candidates: RegionName[] = ['Coastal_Asia', 'South_Asia', 'US_Gulf_Coast', 'Southern_Europe', 'North_Sea', 'Middle_East', 'West_Africa'];
-      const region = candidates.find((r) => !me.offices.includes(r));
-      return region ? { key: 'office', data: { region: REGIONS[region].displayName, regionId: region, cost: money(w.config.OFFICE_COST.OPEN), daily: money(w.config.OFFICE_COST.PER_TICK), hub: OFFICE_HUB_CAPACITY } } : null;
-    },
+    type: 'OPEN_OFFICE', kinds: ['TRADER'], raised: true, operating: false,
+    // Raised only when the office would leave a comfortable margin of cash, so spreading out is
+    // offered rather than having to be found. Asked for at any time a trader can pay for it.
+    detect: (ctx) => (ctx.me.cash - ctx.me.cashReserved < 2 * ctx.w.config.OFFICE_COST.OPEN ? null : officeOffer(ctx)),
+    whenAsked: officeOffer,
     options: (_ctx, s) => ({ yes: { actions: [{ kind: 'OPEN_OFFICE', region: s.data.regionId as RegionName }] }, maybe: null }),
   },
 
@@ -1017,7 +1040,7 @@ export const CATALOG: readonly CardDef[] = [
   // always safe. Each card states what is certain and says plainly that the rest cannot be known.
   // What the corner saves is real and arrives at once. What it puts on the record is never shown.
   {
-    type: 'SERVICE_HOLD', kinds: PRODUCERS, raised: true, opportunity: false, operating: false,
+    type: 'SERVICE_HOLD', kinds: PRODUCERS, raised: true, operating: false,
     detect: ({ w, me }) => {
       const field = wellOf(me);
       if (field === undefined) return null;
@@ -1045,7 +1068,7 @@ export const CATALOG: readonly CardDef[] = [
   {
     // The owner's steer: the hunch is decided in secret and unconnected to the wells' true state,
     // so the board cannot be read for the answer. Nothing about it is ever resolved on screen.
-    type: 'MANAGER_HUNCH', kinds: PRODUCERS, raised: true, opportunity: false, operating: false,
+    type: 'MANAGER_HUNCH', kinds: PRODUCERS, raised: true, operating: false,
     detect: ({ w, me, roll }) => {
       const field = wellOf(me);
       const lease = field?.leases.find((l) => pumping(l).length >= 4);
@@ -1068,7 +1091,7 @@ export const CATALOG: readonly CardDef[] = [
     },
   },
   {
-    type: 'ORPHAN_WELLS', kinds: PRODUCERS, raised: true, opportunity: false, operating: false,
+    type: 'ORPHAN_WELLS', kinds: PRODUCERS, raised: true, operating: false,
     detect: ({ me }) => {
       // Ground bought at auction and not yet drilled: the window in which what came with it is
       // still somebody else's doing rather than yours.
@@ -1091,7 +1114,7 @@ export const CATALOG: readonly CardDef[] = [
     },
   },
   {
-    type: 'RESERVES_REPORT', kinds: PRODUCERS, raised: true, opportunity: false, operating: false,
+    type: 'RESERVES_REPORT', kinds: PRODUCERS, raised: true, operating: false,
     detect: ({ me, roll }) => {
       const lease = wellOf(me)?.leases[0];
       if (lease === undefined || me.creditLimit <= 0 || roll() >= REPORT_ODDS) return null;
@@ -1112,7 +1135,7 @@ export const CATALOG: readonly CardDef[] = [
     // "The strongest fit in the deck" (DILEMMAS.md, 22). The published survey is a reading, and
     // now and then it is a band out. A copy of the one a rival paid for is the only way to know
     // before bidding — and it is the block itself that answers for it if it wins you one.
-    type: 'BOUGHT_SURVEY', kinds: PRODUCERS, raised: true, opportunity: false, operating: false,
+    type: 'BOUGHT_SURVEY', kinds: PRODUCERS, raised: true, operating: false,
     detect: ({ w, me }) => {
       const auction = w.auction;
       const lot = auction?.lots.find((l) => mayWork(me, l) && !l.surveyed.includes(me.agentId));
@@ -1136,7 +1159,7 @@ export const CATALOG: readonly CardDef[] = [
     // The other side of the sealed round: every rival lodged its bid when the lots were published,
     // so there is a real number to be told. Yes wins the ground for less than a strong bid would
     // have cost, and the ground answers for it if it ever comes out (DILEMMAS.md, 23).
-    type: 'OVERHEARD_BID', kinds: PRODUCERS, raised: true, opportunity: false, operating: false,
+    type: 'OVERHEARD_BID', kinds: PRODUCERS, raised: true, operating: false,
     detect: ({ w, me, roll }) => {
       const auction = w.auction;
       if (auction === null || auction.tick - w.tick > OVERHEARD_WINDOW) return null;
@@ -1169,7 +1192,7 @@ export const CATALOG: readonly CardDef[] = [
   {
     // Worth answering only now that a producer can work a second region (stage 3b): before that a
     // licence bought nothing, which is why this card waited (DILEMMAS.md, 24).
-    type: 'MINISTRY_FEE', kinds: PRODUCERS, raised: true, opportunity: false, operating: false,
+    type: 'MINISTRY_FEE', kinds: PRODUCERS, raised: true, operating: false,
     detect: ({ w, me, roll }) => {
       const field = wellOf(me);
       if (field === undefined || roll() >= MINISTRY_ODDS) return null;

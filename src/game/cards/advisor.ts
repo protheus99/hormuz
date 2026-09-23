@@ -29,8 +29,6 @@ export interface AdvisorState {
   memory: AdvisorMemory;
   /** Open cards raised for human players. */
   cards: Card[];
-  /** Opportunities a player has opened and not yet answered or closed (spec G4.1). */
-  opened: { readonly agentId: string; readonly type: CardType }[];
   /** `${agentId}:${type}` → the first tick that card type may be raised again. */
   cooldowns: Partial<Record<string, number>>;
   seq: number;
@@ -44,7 +42,7 @@ const WORTH_KEPT = 30;
 export function createAdvisor(w: World): AdvisorState {
   const memory = emptyMemory();
   for (const a of w.agents) memory.startNetWorth[a.agentId] = netWorth(w, a);
-  return { memory, cards: [], opened: [], cooldowns: {}, seq: 0, resolved: [] };
+  return { memory, cards: [], cooldowns: {}, seq: 0, resolved: [] };
 }
 
 /** Whether a company is steered by a player (and so gets text and meters). */
@@ -126,7 +124,7 @@ const cooldownKey = (agentId: string, type: CardType) => `${agentId}:${type}`;
 function raiseFor(w: World, state: AdvisorState, me: Agent): Card[] {
   const ctx = context(w, state, me);
   const raised: Card[] = [];
-  const mine = () => state.cards.filter((c) => c.agentId === me.agentId && !c.opportunity);
+  const mine = () => state.cards.filter((c) => c.agentId === me.agentId);
   for (const def of prioritized()) {
     if (!def.raised || !def.kinds.includes(me.kind)) continue;
     if (mine().length >= w.config.CARD_MAX_OPEN) break;
@@ -176,12 +174,11 @@ function buildCard(w: World, state: AdvisorState, me: Agent, def: CardDef, s: Si
   if (def.raised && ordersOnly && impacts.slice(0, -1).every((i) => sameImpact(i, none))) return null;
   const text = cardText(def.type, s.data);
   const options: CardOption[] = specs.map(([choice, o], i) => option(w, me, state, choice, choice === 'YES' ? text.yes : choice === 'MAYBE' ? text.maybe : text.no, o, impacts[i] ?? null));
-  const opportunity = !def.raised;
   return {
-    id: id ?? (opportunity ? `opp:${me.agentId}:${def.type}` : `c${String(state.seq++)}`),
+    id: id ?? `c${String(state.seq++)}`,
     type: def.type, agentId: me.agentId, key: s.key, title: text.title, situation: text.situation,
     details: details(s), options, raisedTick: w.tick,
-    deadline: opportunity ? null : w.tick + w.config.CARD_DEADLINE, opportunity,
+    deadline: w.tick + w.config.CARD_DEADLINE,
   };
 }
 
@@ -229,8 +226,7 @@ function expire(w: World, state: AdvisorState): void {
 
 function resolve(w: World, state: AdvisorState, card: Card, choice: Choice, expired: boolean): void {
   state.cards = state.cards.filter((c) => c.id !== card.id);
-  state.opened = state.opened.filter((o) => !(o.agentId === card.agentId && o.type === card.type));
-  if (!card.opportunity) state.cooldowns[cooldownKey(card.agentId, card.type)] = w.tick + w.config.CARD_COOLDOWN;
+  state.cooldowns[cooldownKey(card.agentId, card.type)] = w.tick + w.config.CARD_COOLDOWN;
   state.resolved.push({ type: card.type, agentId: card.agentId, raisedTick: card.raisedTick, tick: w.tick, choice, expired });
 }
 
@@ -299,7 +295,7 @@ export function takeOffer(w: World, state: AdvisorState, me: Agent, type: CardTy
   const def = CARD_DEFS.get(type);
   if (def === undefined || !def.kinds.includes(me.kind)) return [`${me.name} cannot do that`];
   const ctx = context(w, state, me);
-  const s = def.detect(ctx);
+  const s = (def.whenAsked ?? def.detect)(ctx);
   if (s === null) return ['That is no longer on offer'];
   const { yes, maybe } = def.options(ctx, s);
   const spec = choice === 'MAYBE' ? maybe : yes;
@@ -314,49 +310,9 @@ export function grantReport(w: World, state: AdvisorState, agentId: AgentId): vo
   effect(w, state, agentId, { report: true });
 }
 
-// ─── Opportunities ───────────────────────────────────────────────────────────────────────────
-
-/** Opportunities a company could open today (spec G4.1). */
-export function availableOpportunities(w: World, state: AdvisorState, me: Agent): CardType[] {
-  const ctx = context(w, state, me);
-  return CATALOG.filter((d) => d.opportunity && d.kinds.includes(me.kind) && d.detect(ctx) !== null).map((d) => d.type);
-}
-
-/** Opens an Opportunity as a card. It has no deadline and stays until answered or closed. */
-export function openOpportunity(w: World, state: AdvisorState, me: Agent, type: CardType): Card | null {
-  const def = CARD_DEFS.get(type);
-  if (!def || !def.opportunity || !def.kinds.includes(me.kind)) return null;
-  const ctx = context(w, state, me);
-  const s = def.detect(ctx);
-  if (s === null) return null;
-  const card = buildCard(w, state, me, def, s, ctx, null);
-  if (card === null) return null;
-  state.cards = state.cards.filter((c) => c.id !== card.id);
-  state.cards.push(card);
-  if (!state.opened.some((o) => o.agentId === me.agentId && o.type === type)) state.opened.push({ agentId: me.agentId, type });
-  return card;
-}
-
-/** Closes an open Opportunity without acting. */
-export function closeOpportunity(state: AdvisorState, agentId: AgentId, cardId: string): void {
-  state.cards = state.cards.filter((c) => !(c.id === cardId && c.agentId === agentId && c.opportunity));
-  state.opened = state.opened.filter((o) => `opp:${o.agentId}:${o.type}` !== cardId);
-}
-
-/** Refreshes open Opportunities each day, so their meters follow the world. */
-export function refreshOpportunities(w: World, state: AdvisorState): void {
-  for (const o of [...state.opened]) {
-    const me = w.agents.find((a) => a.agentId === o.agentId);
-    if (!me || openOpportunity(w, state, me, o.type) === null) {
-      state.opened = state.opened.filter((x) => x !== o);
-      state.cards = state.cards.filter((c) => c.id !== `opp:${o.agentId}:${o.type}`);
-    }
-  }
-}
-
 // ─── AI companies ────────────────────────────────────────────────────────────────────────────
 
-/** How often an AI company considers each growth Opportunity (the GROWTH odds are per look). */
+/** How often an AI company considers a standing action it is not prompted into (per look). */
 const AI_GROWTH_INTERVAL = 30;
 
 /**

@@ -16,13 +16,12 @@ import { bidAmount, leasableRegions, mayBid, mayWork } from '../engine/auction';
 import { REGIONS } from '../data/regions';
 import type { FeeKind } from '../engine/enums';
 import type { Alert } from './alerts';
-import type { Card, CardType } from './cards/types';
+import type { Card } from './cards/types';
 import type { CampaignView } from './campaign';
 
 /** What the view needs from the advisor: this player's cards, Opportunities and reports. */
 export interface CardsView {
   readonly cards: readonly Card[];
-  readonly opportunities: readonly { readonly type: CardType; readonly title: string }[];
   /** Standing actions, shown in the panel the thing lives in (§12A.5). */
   readonly offers: readonly Offer[];
   readonly reports: readonly { readonly tick: number; readonly asOf: number; readonly byRegion: Readonly<Partial<Record<string, number>>> }[];
@@ -208,8 +207,6 @@ export interface PlayerView {
   readonly alerts: readonly Alert[];
   /** Open decision cards, raised and opened (spec G4.1). */
   readonly cards: readonly Card[];
-  /** Opportunities the player could open today. */
-  readonly opportunities: CardsView['opportunities'];
   /** What the company can do today, wherever it would go looking for it (§12A.5). */
   readonly offers: readonly Offer[];
   /** Market reports bought (spec G5). */
@@ -297,7 +294,6 @@ export function buildPlayerView(
     rivals: w.agents.filter((a) => a.agentId !== playerId).map((a) => ({ name: a.name, kind: a.kind, region: a.region })),
     alerts: [...alerts],
     cards: [...cards.cards],
-    opportunities: [...cards.opportunities],
     offers: [...cards.offers],
     reports: [...cards.reports],
     news: [...cards.news],

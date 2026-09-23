@@ -14,10 +14,8 @@ import { nameGround } from '../data/leasenames';
 import type { Lease, WellState } from '../engine/model';
 import type { Grade } from '../engine/enums';
 import { DEFAULT_CONFIG, type Config } from '../engine/config';
-import {
-  advise, availableOpportunities, closeOpportunity, createAdvisor, openOpportunity, refreshOpportunities, type AdvisorState,
-} from './cards/advisor';
-import type { Card, CardType } from './cards/types';
+import { advise, createAdvisor, type AdvisorState } from './cards/advisor';
+import type { Card } from './cards/types';
 import { createDeck, deckDay, priceNews, pushNews, type DeckState, type ScriptedEvent } from './events';
 import { createHints, daysLeft, hintDay, type HintState } from './hints';
 import { offersFor } from './offers';
@@ -25,7 +23,6 @@ import { rungOf } from '../engine/exposure';
 import { epilogueFor, reckoningText } from '../content/hints';
 import { money } from '../content/cards';
 import { applySetup, campaignDay, campaignView, createCampaign, scenario, scriptedActions, scriptFor, type CampaignState } from './campaign';
-import { cardText } from '../content/cards';
 import { detectAlerts, pausesAt, rememberForAlerts, type Alert, type AlertMemory, type Severity } from './alerts';
 import { applyCommand, rejectReason, type Command, type CommandResult, type LoggedCommand } from './commands';
 import { newGameWorld, PLAYER_ID, type GameSettings } from './newgame';
@@ -203,7 +200,6 @@ export class GameSession {
     const me = s.world.agents.find((a) => a.agentId === playerId);
     const cards = {
       cards: s.advisor.cards.filter((c) => c.agentId === playerId),
-      opportunities: (me ? availableOpportunities(s.world, s.advisor, me) : []).map((type) => ({ type, title: cardText(type, {}).title })),
       offers: me ? offersFor(s.world, s.advisor.memory, me) : [],
       reports: s.advisor.memory.reports.filter((r) => r.agentId === playerId),
       news: [...s.deck.news].reverse(),
@@ -212,20 +208,6 @@ export class GameSession {
     return structuredClone(buildPlayerView(s.world, playerId, s.history, s.days, s.alerts, s.settings.lengthDays ?? null, cards, s.sizes[0] ?? {}));
   }
 
-  /**
-   * Opens an Opportunity as a card at once (spec G4.1). Opening changes nothing in the world, so it
-   * is not a command; answering it is.
-   */
-  async openOpportunity(playerId: AgentId, type: CardType): Promise<Card | null> {
-    const me = this.state.world.agents.find((a) => a.agentId === playerId);
-    if (!me || me.controller !== 'HUMAN') return null;
-    return structuredClone(openOpportunity(this.state.world, this.state.advisor, me, type));
-  }
-
-  /** Closes an open Opportunity without acting. */
-  async closeOpportunity(playerId: AgentId, cardId: string): Promise<void> {
-    closeOpportunity(this.state.advisor, playerId, cardId);
-  }
 
   /** Validates a command and queues it for the start of the next tick (spec G3, G9 rule 2). */
   async submit(playerId: AgentId, command: Command): Promise<CommandResult> {
@@ -287,7 +269,6 @@ export class GameSession {
     s.sizes.push(worthNow(s.world));
     if (s.sizes.length > 31) s.sizes.splice(0, s.sizes.length - 31);
     const cards = advise(s.world, s.advisor, report.fills);
-    refreshOpportunities(s.world, s.advisor);
     s.history.push(dailyPrices(s.world));
     priceNews(s.deck, s.history);
     const decided = s.campaign?.result ?? null;

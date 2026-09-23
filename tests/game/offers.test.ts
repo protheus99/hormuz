@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import { PLAYER_ID } from '../../src/game/newgame';
 import { GameSession } from '../../src/game/session';
-import { OFFER_PLACES, OFFER_TYPES } from '../../src/game/offers';
+import { OFFER_PLACES, OFFER_TYPES, PURCHASE_TYPES } from '../../src/game/offers';
 import { CARD_DEFS } from '../../src/game/cards/catalog';
 
 const game = (over: Record<string, unknown> = {}) => GameSession.newGame({
@@ -15,7 +15,7 @@ const game = (over: Record<string, unknown> = {}) => GameSession.newGame({
 
 describe('what is on offer', () => {
   it('is the eleven purchases, each with a panel to live in', () => {
-    expect(OFFER_TYPES).toHaveLength(11);
+    expect(PURCHASE_TYPES).toHaveLength(11);
     for (const type of OFFER_TYPES) {
       expect(CARD_DEFS.get(type), type).toBeDefined();
       expect(OFFER_PLACES[type], type).toBeDefined();
@@ -82,4 +82,23 @@ describe('the rivals still grow (G4.6)', () => {
     const ever = new Set(rivals.map((p) => `${p.agentId}:${p.kind}`));
     expect(ever.size + w.agents.filter((a) => a.agentId !== PLAYER_ID && a.kind === 'TRADER' && a.offices.length > 1).length).toBeGreaterThan(0);
   }, 120_000);
+});
+
+describe('the escapes are standing actions too (§12A.6)', () => {
+  it('offers nothing to a clean company, and puts the way out under the news once there is one', async () => {
+    const s = await game({ playType: 'PRODUCER', region: 'US_Permian' });
+    expect((await s.getView()).offers.some((o) => o.where === 'RECORD')).toBe(false);
+
+    // A corner cut is the only thing that puts anything there, and it is still never shown.
+    const save = await s.save();
+    const me = save.world.agents.find((a) => a.agentId === PLAYER_ID)!;
+    me.record.push({ amount: 2_000_000, saved: 500_000, tick: save.world.tick as never, target: { kind: 'CASH' } });
+    const loaded = await GameSession.load(save);
+    const offers = (await loaded.getView()).offers.filter((o) => o.where === 'RECORD');
+    expect(offers.map((o) => o.type)).toContain('PUT_IT_RIGHT');
+    for (const o of offers) {
+      expect(`${o.title} ${o.what}`).not.toMatch(/exposure|record|2,000,000/i);
+      expect(o.choices.every((c) => c.cost > 0)).toBe(true);
+    }
+  });
 });

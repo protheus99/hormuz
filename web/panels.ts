@@ -1,11 +1,33 @@
 // The game screen's panels: the map, the company, markets, deals and cargo, and news.
 
-import { mapLayout, regionName, type Counterparty, type DailyPrices, type DayLog, type LeaseView, type PlayerView, type Point } from '../src/game';
+import { mapLayout, regionName, type Counterparty, type DailyPrices, type DayLog, type LeaseView, type OfferPlace, type PlayerView, type Point } from '../src/game';
 import { bbl, bblShort, dateOf, html, money, pct, raw, signed, words, type Html } from './dom';
 
 const pts = (s: readonly Point[]) => s.map((p) => p.join(',')).join(' ');
 
 const STRAIT_WORDS: Readonly<Record<string, string>> = { TENSION: 'tense', DELAYED: 'congested', CLOSED: 'closed' };
+
+
+/**
+ * The standing actions that belong in this panel (§12A.5, D54). No deadline and no meters — these
+ * are purchases, not decisions, so what a player needs is what it is and what it costs. They sit
+ * beside the thing they buy: tanks under the tanks, a charter under the cargo.
+ */
+export function offerBlock(view: PlayerView, where: OfferPlace, heading: string): Html {
+  const offers = view.offers.filter((o) => o.where === where);
+  if (offers.length === 0) return html``;
+  return html`
+    <h3 style="margin-top:14px">${heading}</h3>
+    ${offers.map((o) => html`
+      <div class="offer">
+        <div class="small"><strong>${o.title}</strong> · <span class="muted">${o.what}</span></div>
+        <div class="seg offers">${o.choices.map((c) => html`
+          <button data-offer="${o.type}" data-choice="${c.choice}" ${c.affordable ? '' : 'disabled'}
+            title="${c.affordable ? '' : 'More than your cash and credit line'}">
+            ${c.label.replace(/[.]$/, '')}${c.cost > 0 ? html` · <span class="muted">${money(c.cost)}</span>` : ''}
+          </button>`)}</div>
+      </div>`)}`;
+}
 
 /** The world map: land, routes, regions and straits coloured by status (spec G10). */
 export function mapPanel(view: PlayerView): Html {
@@ -101,6 +123,9 @@ export function companyPanel(view: PlayerView): Html {
         return fact(`${regionName(h.region)} office`, html`${bbl(held)} of ${bbl(h.capacity)} bbl <span class="muted">(${pct(held / Math.max(1, h.capacity))} full)</span>${bar(held / Math.max(1, h.capacity))}`);
       })}
     </div>
+    ${offerBlock(view, 'TANKS', 'Storage')}
+    ${offerBlock(view, 'PLANT', c.sites.length > 0 ? 'Your refinery' : 'Refining')}
+    ${offerBlock(view, 'OFFICES', 'Offices')}
     ${w ? w.leases.map((l) => leaseBlock(l)) : ''}
     ${c.projects.length > 0 ? html`
       <h3 style="margin-top:14px">Building</h3>
@@ -223,8 +248,9 @@ export function dealsPanel(view: PlayerView): Html {
         <td class="num">${m.trades > 0 ? m.trades : '—'}</td>
         <td class="num">${m.trades > 0 ? `${money(m.low)}–${money(m.high)}` : '—'}</td></tr>`)}
     </table>
+    ${offerBlock(view, 'DEALS', 'Looking for a deal')}
     <h3 style="margin-top:14px">Deals</h3>
-    ${deals.length === 0 ? html`<p class="muted">No deals. Offers arrive as cards, or open “Find a deal”.</p>` : html`
+    ${deals.length === 0 ? html`<p class="muted">No deals. Offers arrive as cards, or ask for them above.</p>` : html`
       <table><tr><th>With</th><th></th><th>Crude</th><th class="num">bbl/day</th><th class="num">Price</th><th class="num">vs market</th><th>Runs until</th></tr>
       ${deals.map((d) => {
         // A deal is worth judging against the price of the same crude today: that gap, times the
@@ -238,6 +264,7 @@ export function dealsPanel(view: PlayerView): Html {
           <td>${dateOf(d.endTick)} <span class="muted">(${left} days)</span></td></tr>`;
       })}
       </table>`}
+    ${offerBlock(view, 'CARGO', 'Shipping')}
     <h3 style="margin-top:14px">Your crude at sea</h3>
     ${view.cargo.length === 0 ? html`<p class="muted">None.</p>` : html`
       <p class="small muted">Crude is paid for when it is loaded, not when it lands: this is money
@@ -421,7 +448,8 @@ export function leaderboardPanel(view: PlayerView, board: BoardKind): Html {
         <td class="num small muted">${bbl(r.size)}</td>
         <td class="num small muted" title="${r.blocks === 1 ? 'one lease held' : `${r.blocks} leases held`}">${r.blocks > 0 ? r.blocks : ''}</td>
       </tr>`)}
-    </table>`}`;
+    </table>`}
+    ${offerBlock(view, 'RIVALS', 'Finding out more')}`;
 }
 
 /** News and alerts, newest first. */
@@ -429,6 +457,7 @@ export function newsPanel(view: PlayerView): Html {
   const alerts = [...view.alerts].reverse().slice(0, 20);
   const troubled = view.chokepoints.filter((c) => c.status !== 'OPEN');
   return html`
+    ${offerBlock(view, 'RECORD', 'Putting things right')}
     <details class="how">
       <summary>How the news moves prices</summary>
       <p>No headline sets a price. Prices are whatever crude actually sold for today, and the news

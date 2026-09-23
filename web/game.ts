@@ -4,7 +4,7 @@
 
 import { GameSession, msPerDay, PLAYER_ID, type CardType, type PlayerView, type SaveData, type Speed } from '../src/game';
 import { dateOf, html, money, mount } from './dom';
-import { inboxPanel, missionPanel, opportunitiesPanel } from './inbox';
+import { inboxPanel, missionPanel } from './inbox';
 import { companyPanel, activityPanel, dealsPanel, leaderboardPanel, leasesPanel, mapPanel, newsPanel, type BoardKind } from './panels';
 import { saveGame } from './storage';
 
@@ -37,7 +37,7 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
   let board: BoardKind = view.company.kind === 'REFINER' ? 'REFINER' : view.company.kind === 'TRADER' ? 'TRADER' : 'PRODUCER';
   let busy = false;
   /** Which sheet is open over the game, and whether the clock stopped for an unseen decision. */
-  let sheet: 'mission' | 'opportunities' | null = null;
+  let sheet: 'mission' | null = null;
   let attention = false;
   /** The speed the clock was running at when a decision stopped it, to offer back as Continue. */
   let resume: number | null = null;
@@ -74,7 +74,7 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
 
   const renderTop = () => {
     const c = view.company;
-    const waiting = view.cards.filter((card) => !card.opportunity && !answered.has(card.id)).length;
+    const waiting = view.cards.filter((card) => !answered.has(card.id)).length;
     mount($('top'), html`
       <span class="brand">HORMUZ</span>
       <div class="stat"><span class="label">${c.name}</span><span class="value">${dateOf(view.tick)}${view.lengthDays !== null ? html` <span class="small muted">· ${daysLeft(Math.max(0, view.lengthDays - view.tick))}</span>` : ''}</span></div>
@@ -87,7 +87,6 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
         <button class="btn" data-next title="Run until the next decision or alert">Next ▸▸</button>
       </div>
       <div class="menu">
-        <button class="btn" data-sheet="opportunities">Opportunities</button>
         ${view.campaign ? html`<button class="btn ${view.campaign.result ? 'primary' : ''}" data-sheet="mission">Mission</button>` : ''}
         <button class="btn" data-save>Save</button>
         <button class="btn" data-quit>Menu</button>
@@ -116,8 +115,7 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
     box.scrollTop = scroll;
   };
 
-  const renderSheet = () => mount($('mission'), sheet === null ? html``
-    : html`<div class="overlay">${sheet === 'mission' ? missionPanel(view) : opportunitiesPanel(view)}</div>`);
+  const renderSheet = () => mount($('mission'), sheet === null ? html`` : html`<div class="overlay">${missionPanel(view)}</div>`);
 
   const render = () => {
     renderTop();
@@ -158,7 +156,7 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
     const r = await session.advance(due);
     busy = false;
     const stopping = r.pausedBy !== null || r.newCards.length > 0 || r.ended;
-    if (stopping && r.newCards.some((c) => !c.opportunity) && !r.ended) { attention = true; resume = speed; }
+    if (stopping && r.newCards.length > 0 && !r.ended) { attention = true; resume = speed; }
     await refresh();
     if (r.ended) toast('The game has ended.');
     if (stopping) setSpeed(0);
@@ -172,7 +170,7 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
     if (d.speed !== undefined) setSpeed(Number(d.speed) as Speed);
     // Answering is the end of the interruption: the clock picks up where it left off.
     else if (d.continue !== undefined) setSpeed((resume === 0 ? 1 : resume ?? 1) as Speed);
-    else if (d.sheet !== undefined) { sheet = sheet === d.sheet ? null : (d.sheet as 'mission' | 'opportunities'); renderSheet(); }
+    else if (d.sheet !== undefined) { sheet = sheet === d.sheet ? null : (d.sheet as 'mission'); renderSheet(); }
     else if (d.sheetClose !== undefined) { sheet = null; renderSheet(); }
     else if (d.next !== undefined && !busy) {
       setSpeed(0);
@@ -181,7 +179,7 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
         busy = false;
         // "Next" runs until something needs the player: say so, or the stop looks like a glitch.
         // It was not running at a speed, so Continue offers the slowest one.
-        if (r.newCards.some((c) => !c.opportunity) && !r.ended) { attention = true; resume = 1; }
+        if (r.newCards.length > 0 && !r.ended) { attention = true; resume = 1; }
         await refresh();
       });
     } else if (d.tab !== undefined) { tab = d.tab as Tab; renderTabs(); }
@@ -192,7 +190,7 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
       void session.submit(PLAYER_ID, { kind: 'ANSWER_CARD', cardId, choice }).then((r) => {
         if (r.ok) answered.set(cardId, choice);
         else toast(r.reason);
-        attention = view.cards.some((c) => !c.opportunity && !answered.has(c.id));
+        attention = view.cards.some((c) => !answered.has(c.id));
         renderInbox();
         renderTop();
       });
@@ -202,12 +200,14 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
         toast(r.ok ? (level === 'NONE' ? 'Bid withdrawn.' : 'Bid placed — sealed until the sale.') : r.reason);
         await refresh();
       });
-    } else if (d.opp !== undefined) {
-      // The card lands in the decisions column, so the sheet gets out of the way.
-      sheet = null;
-      void session.openOpportunity(PLAYER_ID, d.opp as CardType).then(refresh);
-    } else if (d.close !== undefined) {
-      void session.closeOpportunity(PLAYER_ID, d.close).then(refresh);
+    } else if (d.offer !== undefined && d.choice !== undefined) {
+      // A standing action (§12A.5): no card, no deadline. It applies tomorrow like any command.
+      const label = t.textContent?.trim().split(' · ')[0] ?? 'Done';
+      void session.submit(PLAYER_ID, { kind: 'TAKE_OFFER', offer: d.offer as CardType, choice: d.choice as 'YES' | 'MAYBE' })
+        .then(async (r) => {
+          toast(r.ok ? `${label} — from tomorrow.` : r.reason);
+          await refresh();
+        });
     } else if (d.setting !== undefined && d.value !== undefined) {
       void session.submit(PLAYER_ID, { kind: 'SET_SETTING', setting: d.setting as never, value: d.value }).then((r) => toast(r.ok ? 'Setting changes tomorrow.' : r.reason));
     } else if (d.save !== undefined) {

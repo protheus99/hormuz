@@ -27,14 +27,13 @@ Recommendations are marked **R**.
   The owner wants the dilemmas in quantity, so the deck is worth laying out before any of it is
   written.
 
-- **Stage 5 is bigger than it looks: the AI grows through those same cards.** Moving the eleven
-  purchases into panels was scoped as an interface change, but rivals buy their storage, units,
-  tiers and offices by answering the very Opportunity cards that would be removed (G4.6, and
-  `tests/game/growth.test.ts` holds it). Converting them to player-only panel actions would quietly
-  stop every rival growing and take the campaign with it. Either the definitions stay for the AI
-  while the player's route moves into panels, or the AI gets a growth rule of its own that calls the
-  same actions. Worth choosing deliberately rather than discovering halfway through. Found
-  2026-09-22.
+- ~~**Stage 5 is bigger than it looks: the AI grows through those same cards.**~~ **Answered
+  2026-09-23: it was not.** `answerAsAi` reads `CARD_DEFS` directly and never checked the
+  `opportunity` flag, so the sheet was only ever the player's route. The definitions stay in the
+  catalog as the one rulebook and both routes read it; no AI growth rule was needed. What the stage
+  did turn up instead: the detectors were answering two questions at once (when to raise, and
+  whether a thing can be done at all), and the escapes would have been stranded when the sheet went.
+  Both handled — see §12A.7 step 5. Found 2026-09-22, answered 2026-09-23.
 
 - **The finale's measure works against growth.** It ranks on profit per barrel of capacity, and
   capacity is now something you buy at auction. A company that takes new ground and drills it ranks

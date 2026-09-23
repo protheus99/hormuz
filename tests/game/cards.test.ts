@@ -157,7 +157,7 @@ describe('card rules (spec G4.1)', () => {
     setCash(w, me, 0);
     advise(w, advisor, []);
     advise(w, advisor, []);
-    const open = advisor.cards.filter((c) => c.agentId === PLAYER_ID && !c.opportunity);
+    const open = advisor.cards.filter((c) => c.agentId === PLAYER_ID);
     expect(open.length).toBeLessThanOrEqual(w.config.CARD_MAX_OPEN);
     expect(new Set(open.map((c) => c.key)).size).toBe(open.length);
   });
@@ -236,7 +236,7 @@ describe('who may hire a tanker', () => {
 });
 
 describe('cards in a game (spec G3, G9)', () => {
-  it('answers a card and an Opportunity, and replays the game exactly', async () => {
+  it('answers a card, takes a standing action, and replays the game exactly', async () => {
     const s = await GameSession.newGame(refiner);
     let answered = 0;
     while ((await s.save()).world.tick < 90) {
@@ -247,11 +247,10 @@ describe('cards in a game (spec G3, G9)', () => {
         answered++;
       }
       if (r.tick === 30) {
+        // And a standing action, taken from a panel rather than raised as a card (§12A.5).
         const view = await s.getView();
-        expect(view.opportunities.map((o) => o.type)).toContain('ADD_UNIT');
-        const card = await s.openOpportunity(PLAYER_ID, 'ADD_UNIT');
-        expect(card?.deadline).toBeNull();
-        await s.submit(PLAYER_ID, { kind: 'ANSWER_CARD', cardId: card?.id ?? '', choice: 'YES' });
+        expect(view.offers.map((o) => o.type)).toContain('ADD_UNIT');
+        expect(await s.submit(PLAYER_ID, { kind: 'TAKE_OFFER', offer: 'ADD_UNIT', choice: 'YES' })).toMatchObject({ ok: true });
       }
     }
     expect(answered).toBeGreaterThan(0);

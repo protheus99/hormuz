@@ -8,7 +8,7 @@ import {
 import type { AgentId, CompanySettings } from '../engine/model';
 import type { World } from '../engine/world';
 import { bidAmount, mayWork, placeBid, type BidLevel } from '../engine/auction';
-import { answer, answerProblem, openOpportunity, takeOffer, type AdvisorState } from './cards/advisor';
+import { answer, answerProblem, takeOffer, type AdvisorState } from './cards/advisor';
 import { offerOf } from './offers';
 import type { CardType, Choice } from './cards/types';
 
@@ -103,12 +103,7 @@ export function applyCommand(w: World, entry: LoggedCommand, advisor: AdvisorSta
     }
     case 'TAKE_OFFER':
       return takeOffer(w, advisor, company, command.offer, command.choice);
-    case 'ANSWER_CARD': {
-      // An Opportunity is rebuilt from the world as it stands, so a replay (which never opened it)
-      // answers exactly the card the player saw.
-      const opp = /^opp:[^:]+:(\w+)$/.exec(command.cardId);
-      if (opp) openOpportunity(w, advisor, company, opp[1] as Parameters<typeof openOpportunity>[3]);
+    case 'ANSWER_CARD':
       return answer(w, advisor, entry.playerId, command.cardId, command.choice);
-    }
   }
 }

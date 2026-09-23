@@ -1,5 +1,6 @@
 // The decision inbox (spec G4.1): each card's situation, its options with the four meters, the
-// deadline, affordability and a Details expander; and the Opportunities list.
+// deadline, affordability and a Details expander. Standing actions are not cards and live in the
+// panels the things they buy live in (§12A.5, web/panels.ts).
 
 import type { Card, CardOption, PlayerView } from '../src/game';
 import { dateOf, html, money, signed, type Html } from './dom';
@@ -69,7 +70,7 @@ function option(card: Card, o: CardOption, answered: string | undefined): Html {
 function card(c: Card, answered: string | undefined, open: boolean): Html {
   const reasons = c.options.map((o) => o.impact?.riskReason).filter((r) => r && r !== 'NONE');
   return html`
-    <article class="card ${c.opportunity ? 'opportunity' : ''}">
+    <article class="card">
       <div class="head"><h3>${c.title}</h3>
         ${c.deadline !== null ? html`<span class="deadline">Decide by ${dateOf(c.deadline)}</span>` : html`<button class="btn small" data-close="${c.id}">Close</button>`}</div>
       <p class="situation">${c.situation}</p>
@@ -105,8 +106,7 @@ export function missionPanel(view: PlayerView): Html {
  * Continue button once everything waiting has been answered.
  */
 export function inboxPanel(view: PlayerView, answered: ReadonlyMap<string, string>, openDetails: ReadonlySet<string>, attention = false, resume: number | null = null): Html {
-  const raised = view.cards.filter((c) => !c.opportunity);
-  const opened = view.cards.filter((c) => c.opportunity);
+  const raised = view.cards;
   const waiting = raised.filter((c) => !answered.has(c.id)).length;
   return html`
     ${priceStrip(view)}
@@ -131,26 +131,7 @@ export function inboxPanel(view: PlayerView, answered: ReadonlyMap<string, strin
       </details>
       ${raised.map((c) => card(c, answered.get(c.id), openDetails.has(c.id)))}
       ${waiting === 0 && resume !== null ? html`<button class="btn primary continue" data-continue>Continue ▸${resume > 1 ? ` (×${resume})` : ''}</button>` : ''}
-    </section>` : ''}
-    ${opened.length > 0 ? html`<section class="panel">
-      <h2>Opportunities you opened</h2>
-      ${opened.map((c) => card(c, answered.get(c.id), openDetails.has(c.id)))}
     </section>` : ''}`;
 }
 
-/** The Opportunities sheet: what the company could do today, whenever the player goes looking. */
-export function opportunitiesPanel(view: PlayerView): Html {
-  const opened = view.cards.filter((c) => c.opportunity);
-  return html`
-    <div class="sheet">
-      <h2>Opportunities<button class="btn small" data-sheet-close>Close</button></h2>
-      <p class="small muted">These are open to you any day. Picking one puts it in the decisions
-        column as a card, with the same four numbers as any other decision.</p>
-      <div class="opps">${view.opportunities.map((o) => {
-        const card = opened.find((x) => x.type === o.type);
-        return card
-          ? html`<button class="btn active" data-close="${card.id}" title="Close this one">${o.title} ✓</button>`
-          : html`<button class="btn" data-opp="${o.type}">${o.title}</button>`;
-      })}</div>
-    </div>`;
-}
+

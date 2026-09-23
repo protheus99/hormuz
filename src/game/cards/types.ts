@@ -69,9 +69,8 @@ export interface Card {
   readonly details: string;
   readonly options: readonly CardOption[];
   readonly raisedTick: number;
-  /** The tick it resolves as No if unanswered; null for Opportunities (spec G4.1). */
+  /** The tick it resolves as No if unanswered (spec G4.1). Every card the game raises has one. */
   readonly deadline: number | null;
-  readonly opportunity: boolean;
 }
 
 /**
