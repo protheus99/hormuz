@@ -140,6 +140,7 @@ export const FeeKind = {
   WORKOVER: 'WORKOVER',
   EXPOSURE: 'EXPOSURE',
   SETTLEMENT: 'SETTLEMENT',
+  ESCAPE: 'ESCAPE',
 } as const;
 export type FeeKind = (typeof FeeKind)[keyof typeof FeeKind];
 export const FEE_KINDS: readonly FeeKind[] = Object.values(FeeKind);

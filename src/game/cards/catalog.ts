@@ -16,6 +16,7 @@ import type { Grade } from '../../engine/enums';
 import type { Agent, AgentId, Deal, PlantState, Producer, Tick } from '../../engine/model';
 import { refinerQuote, type MarketView } from '../../engine/rules';
 import { bidAmount, mayWork } from '../../engine/auction';
+import { describe as describeEntry, escapeCost, escapeOffered, nextEntry, rungOf, type EscapeKind } from '../../engine/exposure';
 import { bestLeaseToDrill } from '../../engine/leases';
 import { avoidFor, findRoute, LaneRouteProvider } from '../../engine/transport';
 import { netWorth, type World } from '../../engine/world';
@@ -245,6 +246,38 @@ const ALL: Agent['kind'][] = ['PRODUCER', 'REFINER', 'INTEGRATED', 'TRADER'];
 
 /** How a survey's band reads on a card. */
 const BAND_WORDS: Readonly<Record<string, string>> = { LOW: 'small', MEDIUM: 'fair-sized', HIGH: 'large' };
+
+/** How long this world has left to run: part of how hard a reckoning presses (§12A.6). */
+const horizonDays = (w: World) => (w.horizon === null ? null : w.horizon - w.tick);
+
+/**
+ * One of the three ways out. Each is an Opportunity rather than a card the game raises, because a
+ * player decides to deal with what they did; the world's part is the hints, which arrive on their
+ * own. The price comes from the engine, so a card and the action it applies can never disagree.
+ */
+function escape(type: CardType, kind: EscapeKind): CardDef {
+  return {
+    type, kinds: ALL, raised: false, opportunity: true, operating: false,
+    detect: ({ w, me }) => {
+      const left = horizonDays(w);
+      if (!escapeOffered(me, kind, w.config, w.tick, left)) return null;
+      const item = nextEntry(me);
+      if (item === null) return null;
+      const cost = escapeCost(me, kind, w.config, w.tick, left);
+      const stops = kind === 'PUT_RIGHT' && item.target.kind === 'LEASE';
+      return {
+        key: `escape-${kind}`,
+        data: {
+          what: describeEntry(me, item),
+          cost: money(cost),
+          downtime: stops ? ` The ground stops for ${String(w.config.ESCAPE.PUT_RIGHT_SHUT)} days while the work is done.` : '',
+          rung: rungOf(me, w.config, w.tick, left),
+        },
+      };
+    },
+    options: () => ({ yes: { actions: [{ kind: 'ESCAPE', escape: kind }] }, maybe: null }),
+  };
+}
 
 export const CATALOG: readonly CardDef[] = [
   // ── Shared ──
@@ -934,6 +967,13 @@ export const CATALOG: readonly CardDef[] = [
     },
     options: (_ctx, s) => ({ yes: { actions: [{ kind: 'OPEN_OFFICE', region: s.data.regionId as RegionName }] }, maybe: null }),
   },
+
+  // ── The escapes (§12A.6) ──
+  // A way out from under the record, at a price that rises the longer it is left. The card shows
+  // what it costs and what it is about; it never shows the record, the odds or how much is on it.
+  escape('PUT_IT_RIGHT', 'PUT_RIGHT'),
+  escape('TELL_THEM_FIRST', 'DISCLOSE'),
+  escape('RETAIN_COUNSEL', 'COUNSEL'),
 ];
 
 export const CARD_DEFS: ReadonlyMap<CardType, CardDef> = new Map(CATALOG.map((d) => [d.type, d]));

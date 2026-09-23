@@ -8,29 +8,18 @@
 // It reads the record but never shows it, it draws from its own stream so it cannot shift anyone's
 // luck, and it changes nothing in the world: a hint is weather, not an event.
 
-import { reckoningChance } from '../engine/exposure';
+import { rungOf as pressureRung, type Rung } from '../engine/exposure';
 import type { Agent } from '../engine/model';
 import { nextFloat, rngFor, type Rng } from '../engine/rng';
 import type { World } from '../engine/world';
-import { HINTS, type HintLine, type Rung } from '../content/hints';
+import { HINTS, type HintLine } from '../content/hints';
 import type { Severity } from './alerts';
-
-/** Where each rung starts, as a share of the worst daily odds the game allows. */
-const RUNGS: readonly { readonly rung: Rung; readonly at: number }[] = [
-  { rung: 4, at: 0.60 },
-  { rung: 3, at: 0.35 },
-  { rung: 2, at: 0.15 },
-  { rung: 1, at: 0.05 },
-];
 
 /** Roughly how many days pass between hints at each rung: the higher you are, the less quiet it is. */
 const EVERY: Readonly<Record<Exclude<Rung, 0>, number>> = { 1: 30, 2: 20, 3: 12, 4: 7 };
 
 /** How loud each rung is. A file being opened is worth stopping the clock for. */
 const LOUDNESS: Readonly<Record<Exclude<Rung, 0>, Severity>> = { 1: 'INFO', 2: 'INFO', 3: 'MEDIUM', 4: 'HIGH' };
-
-/** Days a corner must have stood before anybody writes about it. Nothing follows the same afternoon. */
-const GRACE = 15;
 
 /** The shortest gap between two hints, unless the ladder has just been climbed. */
 const MIN_GAP = 6;
@@ -53,14 +42,12 @@ export function createHints(seed: string): HintState {
  * decide what is still on offer, and the ladder uses it to decide what the post brings.
  */
 export function rungOf(w: World, me: Agent): Rung {
-  if (me.record.length === 0) return 0;
-  let oldest = Infinity;
-  for (const x of me.record) oldest = Math.min(oldest, x.tick);
-  // Nothing follows the same afternoon: a corner has to stand a while before anybody writes about it.
-  if (w.tick - oldest < GRACE) return 0;
-  const daysLeft = w.horizon === null ? null : w.horizon - w.tick;
-  const pressure = reckoningChance(me, w.config, daysLeft) / w.config.EXPOSURE.MAX_CHANCE;
-  return RUNGS.find((r) => pressure >= r.at)?.rung ?? 0;
+  return pressureRung(me, w.config, w.tick, daysLeft(w));
+}
+
+/** How long this world has left to run, which is part of how hard a reckoning presses (§12A.6). */
+export function daysLeft(w: World): number | null {
+  return w.horizon === null ? null : w.horizon - w.tick;
 }
 
 export interface Hint {

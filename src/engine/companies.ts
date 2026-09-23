@@ -314,6 +314,7 @@ function base(s: CompanySpec) {
     settings: { ...presetSettings(personality), ...s.settings },
     cash: s.cash,
     record: [],
+    counsel: false,
     cashReserved: 0,
     creditLimit: 0,
     creditDrawn: 0,

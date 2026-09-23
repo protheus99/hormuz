@@ -77,6 +77,114 @@ export function reckoningChance(company: Agent, cfg: Config, daysLeft: number | 
   return Math.min(cfg.EXPOSURE.MAX_CHANCE, base);
 }
 
+/**
+ * How loudly the world is asking about you, from nothing to a file with your name on it. The hint
+ * ladder says it in letters and visits (game/hints.ts); the escapes read it to decide what is still
+ * on offer and what it costs. It is never shown as a number and never given a name on screen.
+ */
+export type Rung = 0 | 1 | 2 | 3 | 4;
+
+export function rungOf(company: Agent, cfg: Config, tick: Tick, daysLeft: number | null = null): Rung {
+  if (company.record.length === 0) return 0;
+  let oldest = Infinity;
+  for (const x of company.record) oldest = Math.min(oldest, x.tick);
+  // Nothing follows the same afternoon: a corner has to stand a while before anybody notices it.
+  if (tick - oldest < cfg.EXPOSURE.GRACE) return 0;
+  const pressure = reckoningChance(company, cfg, daysLeft) / cfg.EXPOSURE.MAX_CHANCE;
+  const rungs = cfg.EXPOSURE.RUNGS;
+  for (let i = rungs.length - 1; i >= 0; i--) if (pressure >= (rungs[i] as number)) return (i + 1) as Rung;
+  return 0;
+}
+
+/** The entry that would answer for itself next, which is the one an escape addresses. */
+export function nextEntry(company: Agent): ExposureItem | null {
+  if (company.record.length === 0) return null;
+  return company.record.reduce((first, x) => (x.tick < first.tick ? x : first), company.record[0] as ExposureItem);
+}
+
+/**
+ * The three ways out (§12A.6). Put it right while it is small, tell them before they find out, or
+ * — once a file is open and nothing else is on offer — retain counsel to soften what is taken.
+ */
+export type EscapeKind = 'PUT_RIGHT' | 'DISCLOSE' | 'COUNSEL';
+
+/** Whether this way out is still open. The window closes as the ladder is climbed. */
+export function escapeOffered(company: Agent, kind: EscapeKind, cfg: Config, tick: Tick, daysLeft: number | null = null): boolean {
+  if (nextEntry(company) === null) return false;
+  const rung = rungOf(company, cfg, tick, daysLeft);
+  if (kind === 'COUNSEL') return rung === 4 && !company.counsel;
+  return rung < 4;
+}
+
+/**
+ * What it costs, as a multiple of what the corner saved rather than a margin over it — otherwise
+ * cutting corners *planning* to clean up would pay, which is exactly the plan this pricing is meant
+ * to lose (§12A.6, rule 1). It gets dearer the longer it is left, which is the whole decision.
+ */
+export function escapeCost(company: Agent, kind: EscapeKind, cfg: Config, tick: Tick, daysLeft: number | null = null): number {
+  const item = nextEntry(company);
+  if (item === null) return 0;
+  const rung = rungOf(company, cfg, tick, daysLeft);
+  const e = cfg.ESCAPE;
+  if (kind === 'COUNSEL') return item.saved * e.LATE;
+  const base = item.saved * (rung === 0 ? e.EARLY : e.OPEN);
+  return kind === 'DISCLOSE' ? base * e.DISCLOSE_EXTRA : base;
+}
+
+/** What an escape did, for the telling. */
+export interface Escape {
+  readonly kind: EscapeKind;
+  readonly cost: number;
+  /** The thing it dealt with, in the same words a reckoning would have used. */
+  readonly what: string;
+  /** Days the ground stops while the work is done; zero for the rest. */
+  readonly shutTicks: number;
+}
+
+/**
+ * Takes the way out. Something always remains: an escape turns a reckoning in kind into a cost in
+ * money and leaves a residue on the record, so it never returns a company to clean.
+ */
+export function takeEscape(company: Agent, kind: EscapeKind, cfg: Config, tick: Tick, daysLeft: number | null = null): Escape | null {
+  if (!escapeOffered(company, kind, cfg, tick, daysLeft)) return null;
+  const item = nextEntry(company);
+  if (item === null) return null;
+  const cost = escapeCost(company, kind, cfg, tick, daysLeft);
+  if (kind === 'COUNSEL') {
+    company.counsel = true;
+    return { kind, cost, what: describe(company, item), shutTicks: 0 };
+  }
+  company.record = company.record.filter((x) => x !== item);
+  const share = kind === 'DISCLOSE' ? cfg.ESCAPE.DISCLOSE_RESIDUE : cfg.ESCAPE.RESIDUE;
+  addExposure(company, { amount: item.amount * share, saved: item.saved * share, tick, target: item.target });
+  // Putting a thing right means stopping to do it; telling them first does not.
+  let shutTicks = 0;
+  if (kind === 'PUT_RIGHT' && item.target.kind === 'LEASE') {
+    const lease = wellOf(company)?.leases.find((l) => l.leaseId === (item.target as { leaseId: LeaseId }).leaseId);
+    if (lease !== undefined) {
+      shutTicks = cfg.ESCAPE.PUT_RIGHT_SHUT;
+      lease.shutUntil = Math.max(lease.shutUntil, tick) + shutTicks;
+    }
+  }
+  return { kind, cost, what: describe(company, item), shutTicks };
+}
+
+/** What an entry was protecting, in plain words, for a card or a headline. */
+export function describe(company: Agent, item: ExposureItem): string {
+  switch (item.target.kind) {
+    case 'LEASE': {
+      const id = item.target.leaseId;
+      return wellOf(company)?.leases.find((l) => l.leaseId === id)?.name ?? 'ground you no longer hold';
+    }
+    case 'LICENCE':
+      return `your licence for ${String(item.target.region)}`;
+    case 'CREDIT':
+      return 'your credit line';
+    case 'CASH':
+      return 'the matter';
+  }
+}
+
 export type Severity = 'FINE' | 'SHUT' | 'FORFEIT' | 'REVOKE' | 'WITHDRAW';
 
 export interface Reckoning {
@@ -126,27 +234,34 @@ export function exposureDay(
  */
 function take(company: Agent, item: ExposureItem, cfg: Config): { severity: Severity; what: string } {
   const field = wellOf(company);
+  // Counsel retained (escape E6) is spent on whatever arrives next: it does not make the file go
+  // away, it argues down what is taken. Once.
+  const counsel = company.counsel;
+  company.counsel = false;
   switch (item.target.kind) {
     case 'LEASE': {
       const id = item.target.leaseId;
       const lease = field?.leases.find((l) => l.leaseId === id);
       if (lease === undefined) return { severity: 'FINE', what: 'ground you no longer hold' };
-      if (item.amount >= cfg.EXPOSURE.FORFEIT_ABOVE) {
+      if (item.amount >= cfg.EXPOSURE.FORFEIT_ABOVE && !counsel) {
         field!.leases = field!.leases.filter((l) => l !== lease);
         return { severity: 'FORFEIT', what: lease.name };
       }
-      lease.shutUntil = (lease.shutUntil > 0 ? lease.shutUntil : 0) + cfg.EXPOSURE.SHUT_TICKS;
+      // A forfeiture argued down is still a long shutdown: counsel buys the ground back, not the year.
+      const days = item.amount >= cfg.EXPOSURE.FORFEIT_ABOVE ? 2 * cfg.EXPOSURE.SHUT_TICKS : cfg.EXPOSURE.SHUT_TICKS;
+      lease.shutUntil = (lease.shutUntil > 0 ? lease.shutUntil : 0) + days;
       return { severity: 'SHUT', what: lease.name };
     }
     case 'LICENCE': {
       const region = item.target.region;
       if (field === undefined || !field.licences.includes(region)) return { severity: 'FINE', what: 'a licence you do not hold' };
+      if (counsel) return { severity: 'FINE', what: `your licence for ${String(region)}, which you keep` };
       field.licences = field.licences.filter((r) => r !== region);
       return { severity: 'REVOKE', what: String(region) };
     }
     case 'CREDIT':
-      company.creditLimit = 0;
-      return { severity: 'WITHDRAW', what: 'your credit line' };
+      company.creditLimit = counsel ? Math.round(company.creditLimit / 2) : 0;
+      return { severity: counsel ? 'FINE' : 'WITHDRAW', what: 'your credit line' };
     case 'CASH':
       return { severity: 'FINE', what: 'a penalty' };
   }

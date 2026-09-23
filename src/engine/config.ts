@@ -72,6 +72,17 @@ export interface Config {
       readonly CLOSING: number;            // and as a scenario runs out
       readonly CLOSING_DAYS: number;
     };
+    readonly GRACE: number;                // days a corner stands before anybody asks about it
+    readonly RUNGS: readonly number[];     // where each rung of the hint ladder starts, worst odds = 1
+  };
+  readonly ESCAPE: {                       // getting out from under it, at a price (§12A.6)
+    readonly EARLY: number;                // multiple of what the corner saved, before any hint
+    readonly OPEN: number;                 // once the questions start: the real decision
+    readonly LATE: number;                 // once a file is open, and counsel is all that is left
+    readonly RESIDUE: number;              // the share that goes back on the record: never clean again
+    readonly DISCLOSE_EXTRA: number;       // telling them costs more than quietly putting it right
+    readonly DISCLOSE_RESIDUE: number;     // and leaves less behind, because you told them
+    readonly PUT_RIGHT_SHUT: number;       // days a lease stops while the work is actually done
   };
   readonly WELL: {                         // what goes wrong down a hole (§12A.3)
     readonly MAINT_INTERVAL: number;       // ticks between services
@@ -221,6 +232,14 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
     DRAG: 0.0001, CHANCE_PER_DOLLAR: 1e-9, MAX_CHANCE: 0.01, PENALTY: 2.0,
     FORFEIT_ABOVE: 3_000_000, SHUT_TICKS: 40,
     TROUBLE: { CASH: 3, CLOSING: 2, CLOSING_DAYS: 120 },
+    GRACE: 15, RUNGS: [0.05, 0.15, 0.35, 0.60],
+  },
+  // Priced so that cutting corners *planning* to clean up loses, and loses obviously: at a two in
+  // three chance of being warned in time, the wait-and-clean plan costs about 2.3x what it saved,
+  // against 1x for simply doing the job properly (§12A.6, the escapes).
+  ESCAPE: {
+    EARLY: 1.2, OPEN: 2.5, LATE: 5.0,
+    RESIDUE: 0.2, DISCLOSE_EXTRA: 1.5, DISCLOSE_RESIDUE: 0.1, PUT_RIGHT_SHUT: 5,
   },
   WELL: {
     MAINT_INTERVAL: 240, MAINT_TICKS: 3, MAINT_COST: 30,

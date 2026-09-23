@@ -6,13 +6,15 @@
 // Four rungs, and they are meant to read as four different kinds of day: routine paperwork, someone
 // taking a closer look, people talking about you, and a file with your name on it.
 
+import type { Rung } from '../engine/exposure';
+
+export type { Rung };
+
 export interface HintLine {
   readonly id: string;
   readonly headline: string;
   readonly body: string;
 }
-
-export type Rung = 0 | 1 | 2 | 3 | 4;
 
 /** What each rung feels like, for the log and for anything that wants to say where you stand. */
 export const RUNG_WORDS: Readonly<Record<Rung, string>> = {

@@ -6,6 +6,7 @@
 import { internalTransfer, refreshCapacity, startMaintenance } from './agents';
 import { bestLeaseToDrill, drillWell } from './leases';
 import { mayWork, placeBid } from './auction';
+import { addExposure, escapeCost, takeEscape, type EscapeKind, type ExposureTarget } from './exposure';
 import { charterCost, newCharter } from './charters';
 import {
   acceptedGrades, averageCost, CLOSED_TO_NEW_REFINING, integrate, integrationPlant, plantAt, plantCost, plantOf, plantsOf, secondPlant, secondPlantSpec, total, wellOf,
@@ -92,6 +93,8 @@ export type Action =
   | { readonly kind: 'CHARTER'; readonly size: CharterSize; readonly days: number }
   | { readonly kind: 'KEEP_AFLOAT'; readonly days: number }
   | { readonly kind: 'BID_LEASE'; readonly lotId: string; readonly amount: number }
+  | { readonly kind: 'ESCAPE'; readonly escape: EscapeKind }
+  | { readonly kind: 'CUT_CORNER'; readonly amount: number; readonly saved: number; readonly target: ExposureTarget }
   | { readonly kind: 'PAY'; readonly amount: number; readonly what: 'REPORT' };
 
 export type ActionKind = Action['kind'];
@@ -142,6 +145,10 @@ export function actionCost(w: World, agentId: AgentId, action: Action): { readon
     case 'BID_LEASE':
       // Nothing leaves until the lot is awarded, and only if this bid is the one that takes it.
       return { now: 0, total: action.amount };
+    case 'ESCAPE': {
+      const cost = escapeCost(a, action.escape, cfg, (w.tick + 1) as Tick, w.horizon === null ? null : w.horizon - w.tick);
+      return { now: cost, total: cost };
+    }
     case 'PAY':
       return { now: action.amount, total: action.amount };
     case 'STANDING_ORDER':
@@ -345,6 +352,19 @@ export function applyAction(w: World, agentId: AgentId, action: Action): void {
       w.charters.push(newCharter(cfg, agentId, action.size, action.days, tick, w.charterSeq));
       return;
     }
+    case 'ESCAPE': {
+      // Getting out from under it (§12A.6). The price was fixed when the card was shown; taking it
+      // a day later at a higher rung costs what it costs today, which is the point of the window.
+      const escape = takeEscape(a, action.escape, cfg, tick, w.horizon === null ? null : w.horizon - tick);
+      if (escape === null) throw new Error(`${a.name} has nothing to answer for`);
+      charge(w, a, escape.cost, FeeKind.ESCAPE, tick);
+      return;
+    }
+    case 'CUT_CORNER':
+      // What a dilemma's Yes does: the saving is already banked elsewhere, and this is the part
+      // nobody sees (§12A.6). Nothing here is ever shown to a player.
+      addExposure(a, { amount: action.amount, saved: action.saved, tick, target: action.target });
+      return;
     case 'BID_LEASE': {
       // A sealed bid: it is recorded and nothing more happens until the lot is awarded (§12A.4).
       const lot = w.auction?.lots.find((l) => l.lotId === action.lotId);

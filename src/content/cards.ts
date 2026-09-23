@@ -51,6 +51,24 @@ const TEXT: Readonly<Record<string, CardText>> = {
       + 'wells; each takes {ticks} days to drill, and not every one finds oil.',
     yes: 'Drill {steps} new wells.', maybe: 'Drill half as many.', no: 'Leave the fields as they are.',
   },
+  PUT_IT_RIGHT: {
+    title: 'Put it right',
+    situation: 'You can still go back and do properly what you did not do about {what}. It costs {cost}.{downtime} '
+      + 'It does not undo the fact that you left it, and it never will.',
+    yes: 'Do the work, {cost}.', maybe: '', no: 'Leave it.',
+  },
+  TELL_THEM_FIRST: {
+    title: 'Tell them first',
+    situation: 'You can disclose {what} before anybody finds it. A known penalty of {cost}, paid now, and what it '
+      + 'was protecting stays yours. This is only on offer while nobody has opened a file.',
+    yes: 'Disclose it, {cost}.', maybe: '', no: 'Say nothing.',
+  },
+  RETAIN_COUNSEL: {
+    title: 'Retain counsel',
+    situation: 'A file has been opened on {what}. Lawyers can usually turn a forfeiture into a shutdown and a '
+      + 'revocation into a warning. It costs {cost}, and it does not make the file go away.',
+    yes: 'Retain them, {cost}.', maybe: '', no: 'Take what comes.',
+  },
   LEASE_AUCTION: {
     title: 'Ground is coming up for auction',
     situation: '{lot} is on offer: the survey calls it {band}, with room for {slots} wells. '

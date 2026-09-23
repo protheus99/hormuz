@@ -166,6 +166,11 @@ interface CompanyBase {
    * rather than merely charge for it — a fine is a line item at any size.
    */
   record: ExposureItem[];
+  /**
+   * Counsel retained against the next reckoning (§12A.6, escape E6). It does not make a file go
+   * away; it turns a forfeiture into a shutdown and a revocation into a warning, once.
+   */
+  counsel: boolean;
 }
 
 /** Wells and their storage (spec §4.8). */
