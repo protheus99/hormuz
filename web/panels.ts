@@ -1,7 +1,7 @@
 // The game screen's panels: the map, the company, markets, deals and cargo, and news.
 
-import { mapLayout, regionName, type Counterparty, type DailyPrices, type DayLog, type LeaseView, type OfferPlace, type PlayerView, type Point } from '../src/game';
-import { bbl, bblShort, dateOf, html, money, pct, raw, signed, words, type Html } from './dom';
+import { mapLayout, regionName, type Counterparty, type DayLog, type LeaseView, type OfferPlace, type PlayerView, type Point } from '../src/game';
+import { bbl, bblShort, dateOf, html, money, pct, signed, words, type Html } from './dom';
 
 const pts = (s: readonly Point[]) => s.map((p) => p.join(',')).join(' ');
 
@@ -166,69 +166,7 @@ const PROJECT_NAMES: Readonly<Record<string, string>> = {
   DRILL: 'New wells', STORAGE: 'More storage', TIER: 'Refinery upgrade', UNIT: 'New processing unit', REFINERY: 'Your own refinery',
 };
 
-export function sparkline(values: readonly number[]): Html {
-  if (values.length < 2) return raw('');
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const span = max - min || 1;
-  const d = values.map((v, i) => `${i === 0 ? 'M' : 'L'}${((i / (values.length - 1)) * 140).toFixed(1)},${(30 - ((v - min) / span) * 28).toFixed(1)}`).join('');
-  return html`<svg class="spark" viewBox="0 0 140 32"><path d="${d}"></path></svg>`;
-}
-
 const GRADE_NAMES: Readonly<Record<string, string>> = { LIGHT_SWEET: 'Light crude', MEDIUM: 'Medium crude', HEAVY_SOUR: 'Heavy crude' };
-
-/** Where a price was `days` ago, or the oldest day recorded if the game is younger than that. */
-function before(view: PlayerView, days: number): DailyPrices | undefined {
-  return view.history[Math.max(0, view.history.length - 1 - days)];
-}
-
-const arrow = (change: number, price: number) =>
-  Math.abs(change) < price * 0.005 ? html`<span class="flat">steady</span>`
-    : html`<span class="${change > 0 ? 'good' : 'bad'}">${change > 0 ? '▲' : '▼'} ${money(Math.abs(change))}</span>`;
-
-/**
- * Today's prices next to the decisions (G5). A deal is only good or bad against the market it is
- * priced off, and against which way that market has been moving, so both belong on the same screen
- * as the answer — not a tab away.
- */
-export function priceStrip(view: PlayerView): Html {
-  const week = before(view, 7);
-  const spark = view.history.slice(-30);
-  const home = view.company.region;
-  // Cards quote the price crude fetched where it comes out of the ground, which is the world price
-  // less the freight to reach a buyer. Showing only the world price would leave the two disagreeing.
-  const anyLocal = view.markets.some((m) => m.closes[home] !== undefined);
-  return html`
-    <section class="panel prices">
-      <h2>Today's prices <span class="small muted">and the last week</span></h2>
-      <table>
-        <tr><th></th><th class="num">World</th>${anyLocal ? html`<th class="num">Here</th>` : ''}<th class="num">7 days</th><th></th></tr>
-        ${view.markets.map((m) => {
-          const then = week?.markers[m.node] ?? m.marker;
-          const local = m.closes[home];
-          return html`<tr><td>${GRADE_NAMES[m.grade] ?? m.grade}</td>
-            <td class="num strong">${money(m.marker)}</td>
-            ${anyLocal ? html`<td class="num strong">${local === undefined ? '—' : money(local)}</td>` : ''}
-            <td class="num">${arrow(m.marker - then, m.marker)}</td>
-            <td class="sparkcell">${sparkline(spark.map((d) => d.markers[m.node]))}</td></tr>`;
-        })}
-        ${Object.entries(view.products).map(([name, price]) => {
-          const then = (week?.products as Record<string, number> | undefined)?.[name] ?? price;
-          return html`<tr class="fuel"><td>${words(name)}</td>
-            <td class="num strong">${money(price)}</td>
-            ${anyLocal ? html`<td></td>` : ''}
-            <td class="num">${arrow(price - then, price)}</td>
-            <td class="sparkcell">${sparkline(spark.map((d) => (d.products as Record<string, number>)[name] ?? price))}</td></tr>`;
-        })}
-      </table>
-      <p class="small muted">${anyLocal ? html`<strong>World</strong> is what that crude fetched
-        wherever it traded today; <strong>Here</strong> is what it fetched coming out of
-        ${regionName(home)} — the world price, less the cost of shipping it to a buyer. An offer is
-        worth judging against <strong>Here</strong>.` : html`A price is what crude actually changed
-        hands for today. Judge an offer against the price of that crude, and against which way the
-        arrow points.`}</p>
-    </section>`;
-}
 
 /** The open market, deals and crude at sea. */
 export function dealsPanel(view: PlayerView): Html {

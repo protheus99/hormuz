@@ -4,7 +4,7 @@
 
 import type { Card, CardOption, PlayerView } from '../src/game';
 import { bbl, dateOf, html, money, signed, type Html } from './dom';
-import { priceStrip } from './panels';
+
 
 const RISK_WORDS = { LOW: 'Low', MEDIUM: 'Medium', HIGH: 'High' } as const;
 const RISK_REASONS = { ROUTES: 'shipping routes through troubled straits', BREAKDOWN: 'a refinery breakdown', CASH: 'running short of cash', NONE: '' } as const;
@@ -126,7 +126,6 @@ export function inboxPanel(view: PlayerView, answered: ReadonlyMap<string, strin
   const raised = view.cards;
   const waiting = raised.filter((c) => !answered.has(c.id)).length;
   return html`
-    ${priceStrip(view)}
     ${raised.length > 0 ? html`<section class="panel ${attention && waiting > 0 ? 'attention' : ''}">
       ${attention && waiting > 0 ? html`<div class="stopped">The clock stopped: ${waiting === 1 ? 'a decision is' : `${waiting} decisions are`} waiting for you.</div>` : ''}
       <h2>Decisions ${waiting > 0 ? html`<span class="badge" aria-label="${waiting} waiting for an answer">${waiting}</span>` : html`<span class="small muted">none waiting</span>`}</h2>

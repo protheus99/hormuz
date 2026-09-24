@@ -97,7 +97,10 @@ h3 { font-size: 14px; }
 /* ── Game shell ── */
 /* The screen is one viewport tall: the map is capped, and the panels take what is left, so
    nothing below the fold. The floor is low enough for a laptop screen. */
-.game { display: grid; grid-template-rows: auto auto 1fr; height: 100vh; min-height: 620px; }
+/* One column that cannot be widened by what is in it. Without `minmax(0, …)` the news strip's
+   crawl — one long line that never wraps — sized the column to itself and took the whole screen
+   out to 4,042px with it (found 2026-09-24). */
+.game { display: grid; grid-template-rows: auto auto 1fr; grid-template-columns: minmax(0, 1fr); height: 100vh; min-height: 620px; }
 .topbar {
   display: flex; align-items: center; gap: 20px; padding: 8px 16px; background: var(--panel);
   border-bottom: 1px solid var(--line);
@@ -114,7 +117,9 @@ h3 { font-size: 14px; }
    One piece of furniture, three states. Calm: it crawls. Yours: an item is pinned still at the
    front until it is read. Breaking: the crawl halts, the band grows and turns, and the game is
    waiting on an answer. The motion stopping is the signal. */
-.strip { display: flex; align-items: stretch; overflow: hidden; background: var(--text); color: var(--bg); height: 32px; }
+/* `min-width: 0` on the strip and its middle, so a crawl longer than the window is clipped rather
+   than pushing the window out. */
+.strip { display: flex; align-items: stretch; overflow: hidden; min-width: 0; background: var(--text); color: var(--bg); height: 32px; }
 .strip .tag {
   display: flex; align-items: center; padding: 0 12px; background: #3d4349; color: #fff;
   font-size: 12px; font-weight: 700; letter-spacing: 0.08em; white-space: nowrap;
@@ -206,14 +211,6 @@ h3 { font-size: 14px; }
 }
 .tab.active .count { background: var(--accent); color: #fff; }
 
-/* Today's prices, beside the decisions they should be judged against. */
-.prices table { width: 100%; }
-.prices td { padding: 2px 4px; }
-.prices .strong { font-weight: 600; }
-.prices .flat { color: var(--text-2); }
-.prices .fuel td:first-child { color: var(--text-2); }
-.prices .sparkcell { width: 80px; }
-.prices .spark { width: 80px; height: 20px; }
 .straits td { padding: 2px 6px 2px 0; }
 .lower { display: flex; flex-direction: column; overflow: hidden; }
 
@@ -234,8 +231,6 @@ td.num, th.num { text-align: right; }
 .seg button { border: 0; background: var(--panel); padding: 5px 10px; border-right: 1px solid var(--line); }
 .seg button:last-child { border-right: 0; }
 .seg button.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
-.spark { width: 140px; height: 32px; }
-.spark path { fill: none; stroke: var(--accent); stroke-width: 1.5; }
 
 /* ── Cards ── */
 .inbox-empty { color: var(--text-2); padding: 8px 0; }
