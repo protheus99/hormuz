@@ -29,7 +29,20 @@ export type ExposureTarget =
   | { readonly kind: 'CREDIT' }
   | { readonly kind: 'CASH' };
 
-/** One entry on the record. Engine-only: no part of this ever reaches a player. */
+/**
+ * Which corner this was. The engine carries the key and never the words: a reckoning has to be able
+ * to say what it is for, or the ground goes and the player is never told why (found 2026-09-24).
+ */
+export type CornerKind =
+  | 'SERVICES_HELD'       // well services put off while the price was good
+  | 'HUNCH_IGNORED'       // wells left running that the maintenance manager wanted pulled
+  | 'WELLS_UNPLUGGED'     // old wells that came with the ground, left as they were
+  | 'RESERVES_RESTATED'   // last year's reserves figure published again over the engineer's
+  | 'LICENCE_FEE'         // a consultancy fee that moved a licence to the front of the queue
+  | 'SURVEY_BOUGHT'       // a copy of a survey shot for somebody else
+  | 'BID_OVERHEARD';      // a sealed bid nobody was meant to repeat
+
+/** One entry on the record. Engine-only: no part of this ever reaches a player until it lands. */
 export interface ExposureItem {
   readonly amount: number;
   readonly target: ExposureTarget;
@@ -37,6 +50,8 @@ export interface ExposureItem {
   readonly tick: Tick;
   /** What the corner saved, which is what an escape is priced against (§12A.6). */
   readonly saved: number;
+  /** What was done. Older saves have none, and a reckoning then says only what it takes. */
+  readonly because?: CornerKind;
 }
 
 /** Everything a company has coming to it. */
@@ -158,7 +173,7 @@ export function takeEscape(company: Agent, kind: EscapeKind, cfg: Config, tick: 
   }
   company.record = company.record.filter((x) => x !== item);
   const share = kind === 'DISCLOSE' ? cfg.ESCAPE.DISCLOSE_RESIDUE : cfg.ESCAPE.RESIDUE;
-  addExposure(company, { amount: item.amount * share, saved: item.saved * share, tick, target: item.target });
+  addExposure(company, { amount: item.amount * share, saved: item.saved * share, tick, target: item.target, ...(item.because ? { because: item.because } : {}) });
   // Putting a thing right means stopping to do it; telling them first does not.
   let shutTicks = 0;
   if (kind === 'PUT_RIGHT' && item.target.kind === 'LEASE') {

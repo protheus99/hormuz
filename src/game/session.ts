@@ -337,7 +337,7 @@ export class GameSession {
       alerts.push({ tick, severity: hint.severity, message: `${hint.line.headline}.` });
     }
     for (const r of report.reckonings.filter((x) => x.agentId === PLAYER_ID)) {
-      const text = reckoningText(r.severity, r.what, money(r.cost));
+      const text = reckoningText(r.severity, r.what, money(r.cost), r.item.because);
       pushNews(s.deck, { tick, ...text });
       alerts.push({ tick, severity: 'CRITICAL', message: `${text.headline}. ${text.body}` });
     }

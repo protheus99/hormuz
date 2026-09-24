@@ -16,7 +16,7 @@ import type { Grade } from '../../engine/enums';
 import type { Agent, AgentId, Deal, Lease, LeaseId, PlantState, Producer, Tick } from '../../engine/model';
 import { refinerQuote, type MarketView } from '../../engine/rules';
 import { bandFor, bidAmount, leasableRegions, mayWork, topRivalBid, worthTo } from '../../engine/auction';
-import { describe as describeEntry, escapeCost, escapeOffered, nextEntry, rungOf, type EscapeKind, type ExposureTarget } from '../../engine/exposure';
+import { describe as describeEntry, escapeCost, escapeOffered, nextEntry, rungOf, type CornerKind, type EscapeKind, type ExposureTarget } from '../../engine/exposure';
 import { bestLeaseToDrill } from '../../engine/leases';
 import { avoidFor, findRoute, LaneRouteProvider } from '../../engine/transport';
 import { netWorth, type World } from '../../engine/world';
@@ -300,8 +300,8 @@ const RESTATE_WORTH = 0.2;
  * What a corner puts on the record (§12A.6). The saving is what the card told the player they were
  * getting; the amount is what it will cost if it ever catches up, and no card ever shows it.
  */
-function corner(w: World, saved: number, target: ExposureTarget): Action {
-  return { kind: 'CUT_CORNER', amount: saved * w.config.EXPOSURE.PER_SAVED, saved, target };
+function corner(w: World, saved: number, target: ExposureTarget, because: CornerKind): Action {
+  return { kind: 'CUT_CORNER', amount: saved * w.config.EXPOSURE.PER_SAVED, saved, target, because };
 }
 
 /** How long this world has left to run: part of how hard a reckoning presses (§12A.6). */
@@ -1068,8 +1068,8 @@ export const CATALOG: readonly CardDef[] = [
       const saved = Number(s.data.savedNum);
       const target = { kind: 'LEASE', leaseId: s.data.leaseId as LeaseId } as const;
       return {
-        yes: { actions: [{ kind: 'HOLD_SERVICES', days: 60 }, corner(w, saved, target)] },
-        maybe: { actions: [{ kind: 'HOLD_SERVICES', days: 30 }, corner(w, saved / 2, target)] },
+        yes: { actions: [{ kind: 'HOLD_SERVICES', days: 60 }, corner(w, saved, target, 'SERVICES_HELD')] },
+        maybe: { actions: [{ kind: 'HOLD_SERVICES', days: 30 }, corner(w, saved / 2, target, 'SERVICES_HELD')] },
       };
     },
   },
@@ -1092,8 +1092,8 @@ export const CATALOG: readonly CardDef[] = [
       const saved = Number(s.data.savedNum);
       const target = { kind: 'LEASE', leaseId: s.data.leaseId as LeaseId } as const;
       return {
-        yes: { actions: [corner(w, saved, target)] },
-        maybe: { actions: [{ kind: 'SERVICE_WELLS', count: 2 }, corner(w, saved / 2, target)] },
+        yes: { actions: [corner(w, saved, target, 'HUNCH_IGNORED')] },
+        maybe: { actions: [{ kind: 'SERVICE_WELLS', count: 2 }, corner(w, saved / 2, target, 'HUNCH_IGNORED')] },
         no: { actions: [{ kind: 'SERVICE_WELLS', count: 4 }] },
       };
     },
@@ -1116,8 +1116,8 @@ export const CATALOG: readonly CardDef[] = [
       const target = { kind: 'LEASE', leaseId: s.data.leaseId as LeaseId } as const;
       return {
         yes: { actions: [{ kind: 'PAY', amount: cost, what: 'CLEANUP' }] },
-        maybe: { actions: [{ kind: 'PAY', amount: cost / 3, what: 'CLEANUP' }, corner(w, (2 * cost) / 3, target)] },
-        no: { actions: [corner(w, cost, target)] },
+        maybe: { actions: [{ kind: 'PAY', amount: cost / 3, what: 'CLEANUP' }, corner(w, (2 * cost) / 3, target, 'WELLS_UNPLUGGED')] },
+        no: { actions: [corner(w, cost, target, 'WELLS_UNPLUGGED')] },
       };
     },
   },
@@ -1133,8 +1133,8 @@ export const CATALOG: readonly CardDef[] = [
       const uplift = Number(s.data.upliftNum);
       const target = { kind: 'CREDIT' } as const;
       return {
-        yes: { actions: [{ kind: 'RESTATE_RESERVES', uplift }, corner(w, RESTATE_WORTH * uplift, target)] },
-        maybe: { actions: [{ kind: 'RESTATE_RESERVES', uplift: uplift / 2 }, corner(w, (RESTATE_WORTH * uplift) / 2, target)] },
+        yes: { actions: [{ kind: 'RESTATE_RESERVES', uplift }, corner(w, RESTATE_WORTH * uplift, target, 'RESERVES_RESTATED')] },
+        maybe: { actions: [{ kind: 'RESTATE_RESERVES', uplift: uplift / 2 }, corner(w, (RESTATE_WORTH * uplift) / 2, target, 'RESERVES_RESTATED')] },
       };
     },
   },
@@ -1221,7 +1221,7 @@ export const CATALOG: readonly CardDef[] = [
           actions: [
             { kind: 'PAY', amount: cost, what: 'FAVOUR' },
             { kind: 'GRANT_LICENCE', region },
-            corner(w, cost, { kind: 'LICENCE', region }),
+            corner(w, cost, { kind: 'LICENCE', region }, 'LICENCE_FEE'),
           ],
         },
         maybe: null,

@@ -6,7 +6,7 @@
 import { internalTransfer, refreshCapacity, startMaintenance } from './agents';
 import { bestLeaseToDrill, drawFrom, drillWell, tankOf } from './leases';
 import { buySurvey, mayWork, placeBid, taintLot } from './auction';
-import { addExposure, escapeCost, takeEscape, type EscapeKind, type ExposureTarget } from './exposure';
+import { addExposure, escapeCost, takeEscape, type CornerKind, type EscapeKind, type ExposureTarget } from './exposure';
 import { charterCost, newCharter } from './charters';
 import {
   acceptedGrades, averageCost, CLOSED_TO_NEW_REFINING, integrate, integrationPlant, plantAt, plantCost, plantOf, plantsOf, secondPlant, secondPlantSpec, total, wellOf,
@@ -100,7 +100,7 @@ export type Action =
   | { readonly kind: 'GRANT_LICENCE'; readonly region: RegionName }
   | { readonly kind: 'BUY_SURVEY'; readonly lotId: string; readonly price: number; readonly saved: number }
   | { readonly kind: 'TAINTED_BID'; readonly lotId: string; readonly amount: number; readonly saved: number }
-  | { readonly kind: 'CUT_CORNER'; readonly amount: number; readonly saved: number; readonly target: ExposureTarget }
+  | { readonly kind: 'CUT_CORNER'; readonly amount: number; readonly saved: number; readonly target: ExposureTarget; readonly because: CornerKind }
   | { readonly kind: 'PAY'; readonly amount: number; readonly what: 'REPORT' | 'CLEANUP' | 'FAVOUR' };
 
 export type ActionKind = Action['kind'];
@@ -414,7 +414,7 @@ export function applyAction(w: World, agentId: AgentId, action: Action): void {
       const agent = w.agents.find((x) => x.agentId === agentId);
       if (lot === undefined || agent === undefined || !mayWork(agent, lot)) return;
       placeBid(lot, agentId, action.amount);
-      taintLot(lot, agentId, action.saved);
+      taintLot(lot, agentId, action.saved, 'BID_OVERHEARD');
       return;
     }
     case 'BUY_SURVEY': {
@@ -438,7 +438,7 @@ export function applyAction(w: World, agentId: AgentId, action: Action): void {
     case 'CUT_CORNER':
       // What a dilemma's Yes does: the saving is already banked elsewhere, and this is the part
       // nobody sees (§12A.6). Nothing here is ever shown to a player.
-      addExposure(a, { amount: action.amount, saved: action.saved, tick, target: action.target });
+      addExposure(a, { amount: action.amount, saved: action.saved, tick, target: action.target, because: action.because });
       return;
     case 'BID_LEASE': {
       // A sealed bid: it is recorded and nothing more happens until the lot is awarded (§12A.4).

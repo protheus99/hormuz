@@ -12,6 +12,8 @@ import type { Agent, Tick } from '../../src/engine/model';
 import { createWorld, type World } from '../../src/engine/world';
 import { CARD_DEFS } from '../../src/game/cards/catalog';
 import { cardText } from '../../src/content/cards';
+import { reckoningText } from '../../src/content/hints';
+import type { CornerKind } from '../../src/engine/exposure';
 import type { CardType } from '../../src/game/cards/types';
 
 const DILEMMAS: CardType[] = ['SERVICE_HOLD', 'MANAGER_HUNCH', 'ORPHAN_WELLS', 'RESERVES_REPORT', 'MINISTRY_FEE'];
@@ -64,7 +66,7 @@ describe('what a corner costs', () => {
     const w = world();
     const me = producer(w);
     const lease = wellOf(me)!.leases[0]!;
-    applyAction(w, me.agentId, { kind: 'CUT_CORNER', amount: 400_000, saved: 100_000, target: { kind: 'LEASE', leaseId: lease.leaseId } });
+    applyAction(w, me.agentId, { kind: 'CUT_CORNER', because: 'SERVICES_HELD', amount: 400_000, saved: 100_000, target: { kind: 'LEASE', leaseId: lease.leaseId } });
     expect(exposureTotal(me)).toBe(400_000);
     expect(DEFAULT_CONFIG.EXPOSURE.PER_SAVED).toBe(4);
   });
@@ -85,5 +87,44 @@ describe('what a corner costs', () => {
     const me = producer(w);
     applyAction(w, me.agentId, { kind: 'HOLD_SERVICES', days: 60 });
     for (const l of wellOf(me)!.leases) expect(l.serviceHoldUntil).toBe((w.tick + 1 + 60) as Tick);
+  });
+});
+
+describe('what a reckoning says (spec §12A.6)', () => {
+  const KINDS: CornerKind[] = [
+    'SERVICES_HELD', 'HUNCH_IGNORED', 'WELLS_UNPLUGGED', 'RESERVES_RESTATED',
+    'LICENCE_FEE', 'SURVEY_BOUGHT', 'BID_OVERHEARD',
+  ];
+
+  /** What the notice says when nothing is known about why, which is the consequence on its own. */
+  const bare = reckoningText('FORFEIT', 'Quail Draw', '$12.6M').body;
+
+  it.each(KINDS)('opens with what was found, then says what is taken, for %s', (because) => {
+    const body = reckoningText('FORFEIT', 'Quail Draw', '$12.6M', because).body;
+    // The thing found comes first and the consequence follows it unchanged: a player told only that
+    // the ground has gone learns nothing from it, which is what a real game turned up (2026-09-24).
+    expect(body.endsWith(bare)).toBe(true);
+    const reason = body.slice(0, body.length - bare.length).trim();
+    expect(reason.length).toBeGreaterThan(20);
+    expect(reason.endsWith('.')).toBe(true);
+  });
+
+  it('never repeats itself: every corner reads differently', () => {
+    const openers = KINDS.map((k) => reckoningText('SHUT', 'Quail Draw', '$1M', k).body.split('. ')[0]);
+    expect(new Set(openers).size).toBe(KINDS.length);
+  });
+
+  it('says only what it takes when the record has no reason, as older saves do', () => {
+    const t = reckoningText('SHUT', 'Quail Draw', '$1M');
+    expect(t.body).toBe('Nothing comes out of it until the order is lifted, and a settlement of $1M is payable.');
+  });
+
+  it('keeps the wording rules: no digits in the reason, and nothing violent anywhere', () => {
+    for (const k of KINDS) {
+      const t = reckoningText('SHUT', 'Quail Draw', '$1M', k);
+      const reason = t.body.split('. ')[0] ?? '';
+      expect(reason, k).not.toMatch(/[0-9]/);
+      expect(t.body, k).not.toMatch(/attack|missile|war|kill/i);
+    }
   });
 });

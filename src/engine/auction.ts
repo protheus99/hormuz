@@ -13,7 +13,7 @@ import { Grade } from './enums';
 import { BAND_YEARS, newLease } from './leases';
 import { LeaseBand, type Agent, type AgentId, type Lease, type Tick } from './model';
 import { nextFloat, type Rng } from './rng';
-import { addExposure } from './exposure';
+import { addExposure, type CornerKind } from './exposure';
 import { nameGround } from '../data/leasenames';
 
 /** One lot in an auction: ground as the survey describes it, and the bids it has drawn. */
@@ -44,7 +44,7 @@ export interface LeaseLot {
    * nothing until the ground is won: what a corner buys only becomes something you hold when it
    * wins you the lot, and that is what a reckoning takes back.
    */
-  tainted: { readonly agentId: AgentId; readonly saved: number }[];
+  tainted: { readonly agentId: AgentId; readonly saved: number; readonly because: CornerKind }[];
 }
 
 export interface Auction {
@@ -164,12 +164,12 @@ export function bandFor(lot: LeaseLot, agent: Agent): LeaseBand {
 /** Puts a copy of somebody else's survey in a bidder's hands, and marks what it cost them. */
 export function buySurvey(lot: LeaseLot, agentId: AgentId, saved: number): void {
   if (!lot.surveyed.includes(agentId)) lot.surveyed.push(agentId);
-  taintLot(lot, agentId, saved);
+  taintLot(lot, agentId, saved, 'SURVEY_BOUGHT');
 }
 
 /** Marks a bidder as having come by something they should not have, and what it was worth. */
-export function taintLot(lot: LeaseLot, agentId: AgentId, saved: number): void {
-  if (!lot.tainted.some((t) => t.agentId === agentId)) lot.tainted.push({ agentId, saved });
+export function taintLot(lot: LeaseLot, agentId: AgentId, saved: number, because: CornerKind = 'SURVEY_BOUGHT'): void {
+  if (!lot.tainted.some((t) => t.agentId === agentId)) lot.tainted.push({ agentId, saved, because });
 }
 
 /** The best anybody else has lodged for this lot, and who lodged it. Engine-only. */
@@ -266,7 +266,7 @@ export function award(
     if (taint !== undefined) {
       addExposure(best.agent, {
         amount: taint.saved * cfg.EXPOSURE.PER_SAVED, saved: taint.saved, tick,
-        target: { kind: 'LEASE', leaseId: lease.leaseId },
+        target: { kind: 'LEASE', leaseId: lease.leaseId }, because: taint.because,
       });
     }
     won.push({ lot, winner: best.agent, price: best.amount, lease });

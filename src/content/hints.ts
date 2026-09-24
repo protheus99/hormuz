@@ -6,7 +6,7 @@
 // Four rungs, and they are meant to read as four different kinds of day: routine paperwork, someone
 // taking a closer look, people talking about you, and a file with your name on it.
 
-import type { Rung } from '../engine/exposure';
+import type { CornerKind, Rung } from '../engine/exposure';
 
 export type { Rung };
 
@@ -97,30 +97,57 @@ export const HINTS: Readonly<Record<Exclude<Rung, 0>, readonly HintLine[]>> = {
 };
 
 /** What a reckoning reads like when it lands. Plain, and it names the thing that was taken. */
-export function reckoningText(severity: string, what: string, cost: string): { readonly headline: string; readonly body: string } {
+/**
+ * What was found, one clause, in the words the card used when the player chose it. A reckoning that
+ * names only what it takes leaves the player with the ground gone and no idea what for — which is
+ * exactly what happened the first time one landed in a real game (2026-09-24).
+ */
+const FOUND: Readonly<Record<CornerKind, string>> = {
+  SERVICES_HELD: 'An audit of the maintenance records has turned up the well services you held over.',
+  HUNCH_IGNORED: 'An inspector has been over the wells you kept running after your maintenance manager asked for them.',
+  WELLS_UNPLUGGED: 'An inspection has found the old wells you left in the ground unplugged.',
+  RESERVES_RESTATED: 'The reserves figure you published over your own engineer’s has been gone through.',
+  LICENCE_FEE: 'The fee you paid to move a licence up the queue has come out.',
+  SURVEY_BOUGHT: 'It has come out that you bought a copy of a survey shot for somebody else.',
+  BID_OVERHEARD: 'It has come out that you were told a sealed bid, and bid against it.',
+};
+
+/**
+ * What a reckoning says. It opens with the thing that was found, because that is the sentence that
+ * makes the rest of it make sense, and a player who cannot connect the two learns nothing from it.
+ */
+export function reckoningText(
+  severity: string, what: string, cost: string, because?: CornerKind,
+): { readonly headline: string; readonly body: string } {
+  // A save written before the record carried a reason has none; the notice then says only what it
+  // takes, as it always did.
+  const opener = because === undefined ? '' : `${FOUND[because]} `;
   switch (severity) {
     case 'FORFEIT':
       return {
         headline: `${what} has been taken back`,
-        body: `The licence to work it is cancelled and the oil under it goes with the ground. A settlement of ${cost} is payable on top.`,
+        body: `${opener}The licence to work it is cancelled and the oil under it goes with the ground. A settlement of ${cost} is payable on top.`,
       };
     case 'SHUT':
       return {
         headline: `${what} has been ordered shut`,
-        body: `Nothing comes out of it until the order is lifted, and a settlement of ${cost} is payable.`,
+        body: `${opener}Nothing comes out of it until the order is lifted, and a settlement of ${cost} is payable.`,
       };
     case 'REVOKE':
       return {
         headline: `Your licence for ${what} has been revoked`,
-        body: `You may not bid there or work there, and there is no second application. A settlement of ${cost} is payable.`,
+        body: `${opener}You may not bid there or work there, and there is no second application. A settlement of ${cost} is payable.`,
       };
     case 'WITHDRAW':
       return {
         headline: 'Your credit line has been withdrawn',
-        body: `The bank has closed the facility outright. A settlement of ${cost} is payable, from cash.`,
+        body: `${opener}The bank has closed the facility outright. A settlement of ${cost} is payable, from cash.`,
       };
     default:
-      return { headline: 'A penalty has been imposed', body: `${cost}, payable at once, and the matter is closed.` };
+      return {
+        headline: 'A penalty has been imposed',
+        body: `${opener}${cost}, payable at once, and the matter is closed.`,
+      };
   }
 }
 
