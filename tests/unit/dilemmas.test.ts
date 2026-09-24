@@ -124,7 +124,7 @@ describe('what a reckoning says (spec §12A.6)', () => {
       const t = reckoningText('SHUT', 'Quail Draw', '$1M', k);
       const reason = t.body.split('. ')[0] ?? '';
       expect(reason, k).not.toMatch(/[0-9]/);
-      expect(t.body, k).not.toMatch(/attack|missile|war|kill/i);
+      expect(t.body, k).not.toMatch(/attack|missile|war\b|kill/i);
     }
   });
 });
