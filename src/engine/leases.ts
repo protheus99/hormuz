@@ -40,13 +40,17 @@ export interface LeaseSpec {
 
 /**
  * A lease with its wells already drilled, each making an equal share of the day's capacity and
- * holding an equal share of the ground. Reserves follow the band: a HIGH lease holds ten years of
- * its own output.
+ * holding oil of its own. Reserves follow the band: a HIGH lease holds ten years of the output of a
+ * *fully drilled* block, which is what its free slots are — oil nothing is yet reaching.
  */
 export function newLease(spec: LeaseSpec): Lease {
   const count = Math.max(0, Math.round(spec.wells));
-  const reserves = spec.capacity * 365 * BAND_YEARS[spec.band];
   const maxWells = Math.max(count, spec.maxWells, 1);
+  // What one slot on this block makes. An auction lot is described by what it would make fully
+  // drilled (`notionalCapacity` is `maxWells × DRILL_STEP`); a field already pumping is described by
+  // what the wells on it make today. Both come to the same thing per slot.
+  const perSlot = count > 0 ? spec.capacity / count : spec.capacity / maxWells;
+  const reserves = perSlot * maxWells * 365 * BAND_YEARS[spec.band];
   const lease: Lease = {
     leaseId: asLeaseId(spec.id),
     name: spec.name,
@@ -70,15 +74,16 @@ export function newLease(spec: LeaseSpec): Lease {
     acquiredFor: spec.acquiredFor,
     wells: [],
   };
-  // The wells share the whole lease between them, so the band means what it says: a LOW lease is
-  // five years of its own output, however many wells are drawing on it.
+  // Each well holds years of its own output, which is what the band means: a LOW well is five
+  // years of what it first made. Oil under a slot nothing has been sunk into yet is in `reserves`
+  // and reached by nobody — that is what a free slot is worth, and what drilling one buys.
   for (let i = 0; i < count; i++) {
     lease.wells.push({
       wellId: asWellId(`${lease.leaseId}#${i + 1}`),
-      initialRate: spec.capacity / count,
-      rate: spec.capacity / count,
+      initialRate: perSlot,
+      rate: perSlot,
       cumulative: 0,
-      recoverable: reserves / count,
+      recoverable: perSlot * 365 * BAND_YEARS[spec.band],
       status: WellStatus.PUMPING,
       ticksRemaining: 0,
       daysSinceMaintenance: 0,
@@ -88,15 +93,19 @@ export function newLease(spec: LeaseSpec): Lease {
 }
 
 /**
- * Shares what is left of a lease equally between the wells on it. Wells draw on one reservoir, so
- * sinking another does not find more oil — it takes the same oil out faster, and every well's own
- * share, and with it its rate, gets smaller. That is the bargain infill drilling really offers.
+ * Oil under this block that no well reaches yet: what is left, less what the live wells still hold
+ * between them. A new well draws on this and on nothing else, which is why sinking one finds oil
+ * rather than sharing out what the others were already drawing (2026-09-24).
+ *
+ * It was the other way round until then — one pot divided equally among however many wells — and
+ * the arithmetic of that is fatal: a programme cost $5.63M, added rate, added no barrels, and made
+ * every well already there decline faster. Drilling could not pay, and the payback meter said it
+ * could. Three scenario targets could not be set while that was true.
  */
-function reshare(lease: Lease): void {
-  const live = lease.wells.filter((w) => w.status !== WellStatus.SPENT);
-  if (live.length === 0) return;
-  const each = lease.reserves / live.length;
-  for (const w of live) w.recoverable = w.cumulative + each;
+export function unreached(lease: Lease): number {
+  let held = 0;
+  for (const w of lease.wells) if (w.status !== WellStatus.SPENT) held += Math.max(0, w.recoverable - w.cumulative);
+  return Math.max(0, lease.reserves - held);
 }
 
 /**
@@ -138,9 +147,12 @@ export function capacityOf(leases: readonly Lease[]): number {
  */
 export function bestLeaseToDrill(leases: readonly Lease[]): Lease | undefined {
   let best: Lease | undefined;
+  let most = 0;
   for (const lease of leases) {
-    if (lease.wells.length >= lease.maxWells || lease.reserves <= 0) continue;
-    if (best === undefined || lease.reserves > best.reserves) best = lease;
+    if (lease.wells.length >= lease.maxWells) continue;
+    const room = unreached(lease);
+    if (room <= 0) continue;
+    if (best === undefined || room > most) { best = lease; most = room; }
   }
   return best;
 }
@@ -174,7 +186,8 @@ export function liftFrom(lease: Lease, barrels: number): number {
  * what it cost and leaves the ground as it was.
  */
 export function drillWell(lease: Lease, rate: number, cfg: Config, rng: Rng): Well | null {
-  if (lease.wells.length >= lease.maxWells || lease.reserves <= 0) return null;
+  const room = unreached(lease);
+  if (lease.wells.length >= lease.maxWells || room <= 0) return null;
   const chance = Math.max(cfg.DRY_HOLE.FLOOR, cfg.DRY_HOLE.FIRST - cfg.DRY_HOLE.PER_ATTEMPT * lease.attempts);
   lease.attempts += 1;
   if (nextFloat(rng) >= chance) return null;
@@ -183,13 +196,14 @@ export function drillWell(lease: Lease, rate: number, cfg: Config, rng: Rng): We
     initialRate: rate,
     rate,
     cumulative: 0,
-    recoverable: 0,
+    // Years of its own output, as the band says — but never more oil than the block still has
+    // nobody reaching, so the last slots on a picked-over lease are worth less than the first.
+    recoverable: Math.min(rate * 365 * BAND_YEARS[lease.band], room),
     status: WellStatus.PUMPING,
     ticksRemaining: 0,
     daysSinceMaintenance: 0,
   };
   lease.wells.push(well);
-  reshare(lease);
   return well;
 }
 

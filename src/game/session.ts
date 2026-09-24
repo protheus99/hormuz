@@ -8,7 +8,7 @@
 import type { AgentId } from '../engine/model';
 import { step, type TickReport, type World } from '../engine/world';
 import { rngFor, type Rng } from '../engine/rng';
-import { fillTanks, leaseShapeFor, newLease } from '../engine/leases';
+import { BAND_YEARS, fillTanks, leaseShapeFor, newLease } from '../engine/leases';
 import { wellOf } from '../engine/companies';
 import { nameGround } from '../data/leasenames';
 import type { Lease, WellState } from '../engine/model';
@@ -141,6 +141,31 @@ export class GameSession {
   }
 
   /** Restores a saved game exactly. */
+  /**
+   * A save written before a well held oil of its own (2026-09-24) has one pot shared equally among
+   * however many wells were on the block, and nothing at all under its free slots. This brings it to
+   * the rule the game plays by now: every well keeps years of what it first made, and the block
+   * holds as much again for each slot nothing has been sunk into. Idempotent, so a save already
+   * written under the new rule goes through it untouched.
+   */
+  private static rebaseReserves(lease: Lease): void {
+    const live = lease.wells.filter((w) => w.status !== 'SPENT');
+    if (live.length === 0) return;
+    const years = 365 * BAND_YEARS[lease.band];
+    // What one slot on this block is worth, and so what the whole block holds once every slot is
+    // drilled. `originalReserves` is the stable thing to test against: it never moves with
+    // production, where `reserves` does. A save on the old rule is short by the factor
+    // maxWells / wells-drilled, which is 1.2 or more, so a margin keeps rounding out of it.
+    const perSlot = live.reduce((t, w) => t + w.initialRate, 0) / live.length;
+    const whole = perSlot * lease.maxWells * years;
+    if (lease.originalReserves >= 0.95 * whole) return;             // already on the new rule
+    for (const w of live) w.recoverable = Math.max(w.cumulative, w.initialRate * years);
+    // The extra was always down there; nothing on the old rule could reach it. Reserves come back
+    // from the conservation invariant rather than being added up again, so the books still close.
+    (lease as { originalReserves: number }).originalReserves = whole;
+    lease.reserves = whole - lease.produced - lease.lost;
+  }
+
   static async load(data: SaveData): Promise<GameSession> {
     if (data.version !== 2) throw new Error(`This save is version ${String(data.version)}; this game reads version 2`);
     // A save carries the world's settings as they were. A later version may have added one the save
@@ -167,6 +192,7 @@ export class GameSession {
           for (const l of field.leases) { l.storage = 0; l.storageEscrow = 0; }
           fillTanks(field as unknown as WellState, field.storage + field.storageEscrow);
         }
+        for (const l of field.leases) GameSession.rebaseReserves(l);
         return;
       }
       const shape = leaseShapeFor(field.extractionCapacity);

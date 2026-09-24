@@ -287,9 +287,10 @@ export interface Well {
   /** Barrels this well has lifted in its life. */
   cumulative: number;
   /**
-   * Engine-only. The share of the lease this well can reach. Its rate falls in step with what it
-   * has taken, so a well that has lifted its share is spent (§12A.3). Drilling another well on the
-   * lease shares the same oil out again, which is why this is not fixed for life.
+   * Engine-only. The oil this well can reach, fixed when it is sunk: years of what it first made,
+   * as the lease's band says. Its rate falls in step with what it has taken, so a well that has
+   * lifted its share is spent (§12A.3). Another well on the same lease draws on oil nothing was
+   * reaching before, so this never changes once set.
    */
   recoverable: number;
   status: WellStatus;

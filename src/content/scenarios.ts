@@ -101,8 +101,11 @@ export const SCENARIOS: readonly ScenarioData[] = [
       ] },
       { tick: 90, engine: { tick: 90, kind: 'PRODUCT_SHOCK', product: 'GASOLINE', pct: -0.12, persistent: true }, news: { headline: 'Gasoline prices slide on weak demand', body: 'Refiners pay less for light crude.' } },
     ],
-    goalText: 'End the year with 3.15 times the net worth you started with.',
-    goal: [{ kind: 'NET_WORTH', times: 3.15 }],
+    goalText: 'End the year 15% above the net worth you started with.',
+    // Six seeds each: a producer who answers nothing ends between ×1.04 and ×1.12 — a glut still
+    // pays, it just does not pay well — and one who answers by the meters between ×1.00 and ×1.19.
+    // ×3.15 was from before capital cost anything; nothing in a year of this world comes near it.
+    goal: [{ kind: 'NET_WORTH', times: 1.15 }],
     milestones: [
       { label: 'Lock in a deal before day 90', condition: { kind: 'OWN', what: 'DEAL', atLeast: 1, by: 90 }, reward: { cash: 500_000 } },
       { label: 'Stay solvent all year', condition: { kind: 'SOLVENT' }, reward: { report: true } },

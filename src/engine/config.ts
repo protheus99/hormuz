@@ -272,11 +272,13 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
   // The best prospects are drilled first, so the last slots on a lease are a gamble (§12A.3).
   DRY_HOLE: { FIRST: 0.85, PER_ATTEMPT: 0.04, FLOOR: 0.45 },
   DRILL_STEP: 500,
-  // A barrel of a well's life costs this much to put on the books: $15,000 a bbl/day of capacity,
-  // over the barrels a well delivers with dry holes counted, is about $9 a barrel against shale's
+  // A barrel of a well's life costs this much to put on the books: $20,000 a bbl/day of capacity,
+  // over the barrels a well delivers with dry holes counted, is $8.60 a barrel against shale's
   // $8–15. It was $0.73, which is why growth was nearly free and why nothing in this world could
-  // ever lose money (§12A.8, A). A well pays back in 28 months on the card the player reads.
-  DRILL_COST: 15_000,
+  // ever lose money (§12A.8, A). It was then 15,000, until a well started holding oil of its own
+  // (6e) and so delivering more barrels for the same money: $6.45 a barrel, below the band. A well
+  // pays back in 668 days, in the middle of the industry's 1.5–3 years.
+  DRILL_COST: 20_000,
   DRILL_TICKS: 45,
   STORAGE_STEP: 5_000,
   STORAGE_COST: 15,

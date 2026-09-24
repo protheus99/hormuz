@@ -284,33 +284,22 @@ nothing in this economy is near enough to its cost — and both belong to the st
 owner already asked for ("there seems to be little chance of losing money at current high prices").
 Halts (70–72), utilisation (76–78%) and insolvencies (none) are all where they should be.
 
-## Drilling cannot pay, and the payback meter says it can (2026-09-24, blocks the retune)
+## ~~Drilling cannot pay~~ — built as 6e (2026-09-24)
 
-Found while retuning the scenario targets. A lease's reserves are fixed when it is created —
-`capacity × 365 × BAND_YEARS` — and `reshare` divides that fixed pot equally among its live wells.
-Drilling therefore buys rate and no oil at all:
+Each well now carries `initialRate × 365 × BAND_YEARS[band]` of its own oil, a block holds as much
+again for every slot nothing has been sunk into, and `reshare` is gone. `DRILL_COST` went 15,000 →
+20,000 with it, because a well delivering its own full share brought capital per barrel to $6.45,
+under the $8–15 band; it is $8.60 now and a well pays back in 668 days.
 
-```
-six wells    reserves 5,475,000   rate 3,000 bbl/day   each well holds 912,500 bbl
-nine wells   reserves 5,475,000   rate 4,500 bbl/day   each well holds 608,333 bbl
-```
+On P2 the meter-led bot went from ×1.00 against the idle bot's ×1.15 to ×1.09–1.16 against
+×1.08–1.10, and P2's target is set. In the finale it went from 18th, 18th and 13th of 20 to 11th,
+14th and 6th.
 
-$16.9M for the same block pumped half as fast again — and every well already there now declines
-faster, because its own share of the pot just shrank. The stage 6a payback meter values the new well
-at 500 bbl/day of *new* barrels and reports 22 months, which is true of nothing.
-
-What it costs: in the finale the meter-led bot spent $45.23M on eight drilling programmes and
-finished on $21.09M of net worth against the idle bot's $73.04M — ranks 18, 18 and 13 of 20 against
-6, 7 and 6. On P2 the idle bot ends at ×1.15 of its starting net worth and the meter bot at ×1.00.
-P2, P3 and the finale cannot be tuned honestly until this is settled, and it also answers the older
-question below about the AI: rivals buy ground on fixed odds and do better, because not drilling is
-the right answer.
-
-**The fix, if you want it.** `newLease`'s own comment already states the rule — "a HIGH lease holds
-ten years of its own output". Give each well `initialRate × 365 × BAND_YEARS` of recoverable oil of
-its own, let `maxWells` cap how much a block can hold, and `reshare` is not needed. Reserves then
-grow when you drill, which is what you are paying for. It moves every production number in the world
-— the golden replay, the calibration, the markers — so it is a decision, not a retune. Do it?
+A bot bug fell out of it, and it is worth knowing about because the bot stands for a competent
+player in the D44 band: its rule was "never buy what will not pay for itself", and that was the
+comment rather than the code. When neither answer paid back inside two years both scored Infinity,
+the tie went to whichever looked less risky, and it bid $35M on ground its own card said would take
+56 months. Fixed.
 
 ## Two things the economics package raised, for the owner (2026-09-24)
 

@@ -20,8 +20,9 @@ const RISK_RANK = { LOW: 0, MEDIUM: 1, HIGH: 2 } as const;
 interface BotOption {
   readonly choice: 'YES' | 'NO' | 'MAYBE';
   readonly affordable: boolean;
+  readonly totalCost: number;
   readonly impact: { readonly profit: number; readonly risk: 'LOW' | 'MEDIUM' | 'HIGH'; readonly supply: { readonly value: number; readonly unit: 'days' | 'fill' | '$' } } | null;
-  readonly payback?: { readonly months: number | null } | null;
+  readonly payback?: { readonly months: number | null; readonly barrels: number } | null;
 }
 
 /** Days of crude below which keeping the plant fed outranks the profit on offer. */
@@ -44,18 +45,29 @@ export function answerFor(card: { readonly options: readonly BotOption[] }, poli
       // payback that decides: the sooner it comes back the better, and never buy what will not.
       const wa = worth(a);
       const wb = worth(b);
-      if (wa !== wb) return wb < wa ? b : a;
+      // Never buy what the meter says will not pay for itself. This used to be the comment and not
+      // the code: both options came back Infinity, the tie went to whichever looked less risky, and
+      // the bot bid $35M on ground its own card said would take 56 months (found 2026-09-24).
+      if ((wa === Infinity) !== (wb === Infinity)) return wa === Infinity ? b : a;
+      if (wa !== null && wb !== null && wa !== wb) return wb < wa ? b : a;
+      // Both are hopeless: take the cheaper, and doing nothing is the cheapest of all.
+      if (wa === Infinity && a.totalCost !== b.totalCost) return b.totalCost < a.totalCost ? b : a;
       return RISK_RANK[b.impact?.risk ?? 'LOW'] < RISK_RANK[a.impact?.risk ?? 'LOW'] ? b : a;
     }
     return pb > pa ? b : a;
-  }, usable[0] ?? { choice: 'NO' as const, affordable: true, impact: null });
+  }, usable[0] ?? { choice: 'NO' as const, affordable: true, totalCost: 0, impact: null });
   return best.choice;
 }
 
-/** Months to pay for itself: Infinity for anything that will not, and for buying nothing at all. */
-function worth(o: BotOption): number {
-  const months = o.payback?.months ?? null;
-  return months === null || months > WORTH_BUYING_MONTHS ? Infinity : months;
+/**
+ * Months to pay for itself: a number where the meter can say, Infinity where it says the thing will
+ * never pay for itself, and null where it does not apply — buying nothing at all, or buying tanks
+ * and tier upgrades, which earn no barrels of their own and so cannot be judged this way.
+ */
+function worth(o: BotOption): number | null {
+  const p = o.payback;
+  if (p === undefined || p === null || p.barrels <= 0) return null;
+  return p.months === null || p.months > WORTH_BUYING_MONTHS ? Infinity : p.months;
 }
 
 export interface BotResult {

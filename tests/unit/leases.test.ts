@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { GLOBAL_PORTFOLIO } from '../../src/data/portfolios';
 import { wellOf } from '../../src/engine/companies';
-import { emptyTanks, fillTanks, advanceWells, capacityOf, depleteWells, drillWell, liftFrom, newLease, refreshStorage, reservesOf, roomAt, tankOf, BAND_YEARS } from '../../src/engine/leases';
+import { emptyTanks, fillTanks, advanceWells, capacityOf, depleteWells, drillWell, liftFrom, newLease, refreshStorage, reservesOf, roomAt, tankOf, unreached, BAND_YEARS } from '../../src/engine/leases';
 import type { Lease } from '../../src/engine/model';
 
 const leaseCapacityOf = (l: Lease) => capacityOf([l]);
@@ -29,12 +29,16 @@ const lease = (capacity: number, wells: number) => newLease({
 });
 
 describe('a lease and its wells', () => {
-  it('shares the field between its wells, and they add back up to it', () => {
+  it('gives every well years of its own output, and keeps the free slots’ oil for them', () => {
     const l = lease(6_000, 8);
     expect(l.wells).toHaveLength(8);
     expect(capacityOf([l])).toBeCloseTo(6_000, 6);
-    expect(l.reserves).toBeCloseTo(6_000 * 365 * BAND_YEARS.MEDIUM, 6);
+    // Each of the eight makes 750 a day and holds seven years of it; the block holds as much again
+    // for the four slots nothing has been sunk into yet.
+    for (const w of l.wells) expect(w.recoverable).toBeCloseTo(750 * 365 * BAND_YEARS.MEDIUM, 6);
+    expect(l.reserves).toBeCloseTo(750 * l.maxWells * 365 * BAND_YEARS.MEDIUM, 6);
     expect(l.originalReserves).toBe(l.reserves);
+    expect(unreached(l)).toBeCloseTo(750 * (l.maxWells - 8) * 365 * BAND_YEARS.MEDIUM, 6);
   });
 
   it('lifts oil out of the ground and never mints a barrel', () => {
@@ -56,17 +60,36 @@ describe('a lease and its wells', () => {
     expect(liftFrom(l, 5_000)).toBe(0);
   });
 
-  it('shares the same oil out again when another well is sunk, rather than finding more', () => {
+  it('finds oil when another well is sunk, and takes it from nobody', () => {
     const l = lease(6_000, 8);
+    const held = l.wells.map((w) => w.recoverable);
+    const room = unreached(l);
     const rng = rngFor('hit', 'wells');
     let drilled = null;
     while (drilled === null && l.wells.length < l.maxWells) drilled = drillWell(l, 500, DEFAULT_CONFIG, rng);
     expect(drilled).not.toBeNull();
     expect(capacityOf([l])).toBeCloseTo(6_500, 6);
-    // Nine wells now draw on the oil eight used to, so each holds a ninth of what is left.
+    // The new well holds five hundred a day for seven years, out of the slot oil nobody reached.
+    expect(drilled?.recoverable).toBeCloseTo(500 * 365 * BAND_YEARS.MEDIUM, 6);
+    expect(unreached(l)).toBeCloseTo(room - 500 * 365 * BAND_YEARS.MEDIUM, 6);
+    // Nothing was taken from the wells already there, and no oil was minted to pay for it.
+    expect(l.wells.slice(0, 8).map((w) => w.recoverable)).toEqual(held);
     expect(l.reserves).toBe(l.originalReserves);
-    for (const w of l.wells) expect(w.recoverable).toBeCloseTo(l.reserves / l.wells.length, 6);
-    expect(l.wells.reduce((t, w) => t + w.recoverable - w.cumulative, 0)).toBeCloseTo(l.reserves, 6);
+  });
+
+  it('gives the last slots on a picked-over block less than the first', () => {
+    const l = lease(6_000, 8);
+    const rng = rngFor('full', 'wells');
+    const room = unreached(l);
+    // A 4,000 bbl/day well wants more oil than this block has left unreached, so the one that comes
+    // in takes all of it and there is nothing under the slots after it.
+    for (let i = 0; i < 200 && l.wells.length < l.maxWells; i++) drillWell(l, 4_000, DEFAULT_CONFIG, rng);
+    expect(l.wells.length).toBeGreaterThan(8);
+    expect(l.wells.length).toBeLessThan(l.maxWells);
+    expect(unreached(l)).toBeCloseTo(0, 6);
+    expect(l.wells.at(-1)?.recoverable).toBeCloseTo(room, 6);
+    expect(l.wells.at(-1)?.recoverable).toBeLessThan(4_000 * 365 * BAND_YEARS.MEDIUM);
+    expect(l.reserves).toBe(l.originalReserves);
   });
 
   it('misses sometimes, and misses more often the more holes have been sunk', () => {

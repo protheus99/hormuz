@@ -1609,7 +1609,8 @@ it is that good and bad decisions both make money. Losses must stay avoidable by
       | P1, R1, T1 (tutorials) | | unchanged | 3/3 | 0/3 |
       | R2 last-quarter profit | $1.0M | **$3.0M** | 3/3 | 0/3 |
       | R3 net worth | ×1.0 | **×1.15** | 2/3 | 0/3 |
-      | T2 profit | $1.0M | **$0.9M** | 2/3 | 0/3 |
+      | T2 profit | $1.0M | **$0.9M** | 1/3 | 0/3 |
+      | P2 net worth (after e) | ×3.15 | **×1.15** | 3/6 | 0/6 |
 
       R3's old target was free — the idle bot managed ×1.00, ×1.02 and ×1.03 without answering a
       card, so only the stockout condition was ever doing any work.
@@ -1629,18 +1630,46 @@ it is that good and bad decisions both make money. Losses must stay avoidable by
       bot spent $45.23M on eight programmes and finished on $21.09M of net worth against the idle
       bot's $73.04M — ranks 18, 18 and 13 against 6, 7 and 6.
 
-      That leaves **P2** (net worth × a multiple in one year, where the idle bot beats the meter bot
-      ×1.15 to ×1.00), **P3** (1/3 for the meter bot, and its profit condition carries the same
-      drilling cost), and the **finale** untunable until it is settled. **T3** is blocked on f.
+      **P2 was unblocked by e and is now set.** **P3** and the **finale** are not: the meter-led bot
+      finishes the finale 6th to 14th of 20 where the bot that answers nothing finishes 7th to 8th,
+      which is the open AI question in QUESTIONS.md rather than a number to move. **T3** is blocked
+      on f.
+   e. ✅ **A well holds oil of its own.** A lease's reserves were fixed when it was created and
+      `reshare` divided that one pot equally among however many wells were on it, so a drilling
+      programme bought rate and no barrels: $16.9M for the same block pumped half as fast again,
+      with every well already there declining faster because its own share had just shrunk. Drilling
+      could not pay, and the 6a payback meter said it could.
 
-      The rule `newLease` already states — "a HIGH lease holds ten years of its own output" — is the
-      fix if the owner wants it: a well carries `initialRate × 365 × BAND_YEARS` of its own, `maxWells`
-      caps how much a block can hold, and `reshare` goes. It moves every production number in the
-      world, so it is the owner's call, not a retune.
-   e. Company failure and replacement, which is new machinery rather than tuning. A failed company's
+      Now each well carries `initialRate × 365 × BAND_YEARS[band]` of its own — the rule `newLease`'s
+      comment already stated — and a block holds as much again for every slot nothing has been sunk
+      into. `unreached` is what a free slot is worth; a well is capped by it, so the last slots on a
+      picked-over block are worth less than the first, and `reshare` is gone. Nothing is minted: the
+      conservation invariant is untouched and a block still holds exactly what it holds.
+
+      | | before | after |
+      |---|---|---|
+      | P2, meter bot against the idle bot | ×1.00 vs ×1.15 | **×1.09–1.16 vs ×1.08–1.10** |
+      | The finale, meter bot | 18th, 18th, 13th of 20 | **11th, 14th, 6th** |
+      | Well pays back in | 501 days | **668 days** (industry 1.5–3 years) |
+      | Capital per barrel | $6.45 | **$8.60** (shale $8–15) |
+      | Companies that shrank, of 31 | 1.3 | **2.3** |
+
+      `DRILL_COST` went 15,000 → 20,000 with it: a well now delivers its own full share rather than a
+      diminishing slice, so the same price per bbl/day of capacity came to $6.45 a barrel, under the
+      band. The golden replay's totals are untouched by the reserves change alone — fills, barrels
+      refined and fees to the last decimal — because nothing in its thirty days drills.
+
+      **And a bug in the bot that stands for a competent player.** Its rule was "never buy what will
+      not pay for itself", and that was the comment rather than the code: when neither answer paid
+      back inside two years both scored Infinity, the tie went to whichever looked less risky, and
+      the bot bid $35M on ground its own card said would take 56 months. Twice it drilled a company
+      to negative net worth. An option the meter prices as never paying for itself now loses to any
+      cheaper one, and where the meter does not apply at all — tanks, a tier upgrade, which earn no
+      barrels of their own — it stays out of the comparison instead of condemning the purchase.
+   f. Company failure and replacement, which is new machinery rather than tuning. A failed company's
       acreage goes under the hammer at a discount to new ground — but not below what a producer keeps
       in the bank, because it should still have to be bought on the line (owner, 2026-09-24).
-   f. **A trader's profit must need decisions.** Over six seeds on T3 the meter-led bot ends on
+   g. **A trader's profit must need decisions.** Over six seeds on T3 the meter-led bot ends on
       $-1.18M to $1.18M and the bot that answers nothing on $-1.11M to $1.03M — the same spread.
       Profit comes from holding crude while the price drifts, which takes no decision at all. It is
       §12A.8's complaint again, unfixed for traders, and no scenario bar can separate a competent
