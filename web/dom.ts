@@ -55,6 +55,18 @@ export function bblShort(x: number): string {
 }
 export const pct = (x: number) => `${Math.round(x * 100)}%`;
 
+/**
+ * What each economic climate means for a company, in one line. Demand and wages move together, so
+ * a boom is not simply good news: it is the dearest time there is to build anything.
+ */
+export const WEATHER_MEANS: Readonly<Record<string, string>> = {
+  PANIC: 'Fuel is fetching far less than usual. Wages and contractors are cheaper, but nothing like as much cheaper.',
+  RECESSION: 'Buyers are taking less and paying less. Work costs a little less than it did.',
+  NORMAL: 'An ordinary market: demand and wages both where they usually sit.',
+  PROSPEROUS: 'Buyers are paying more — and so are you, for anything you build.',
+  BOOM: 'Fuel is fetching what it has not in years. So is everyone you would need to hire.',
+};
+
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 

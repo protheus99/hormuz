@@ -24,10 +24,24 @@ describe('DEFAULT_CONFIG (spec §7.4)', () => {
   });
 
   it('holds only finite, non-negative numbers', () => {
+    // Every number here is a price, a rate or a count, and none of those can be negative. The one
+    // exception is the economic climate's scale, which runs from a panic below zero to a boom above
+    // it: it is a signed index, not a quantity of anything (§12A.8, B).
+    const signed = (path: string) => path.startsWith('CLIMATE.BANDS.');
     for (const [path, n] of numbers(c)) {
       expect(Number.isFinite(n), path).toBe(true);
-      expect(n, path).toBeGreaterThanOrEqual(0);
+      if (!signed(path)) expect(n, path).toBeGreaterThanOrEqual(0);
     }
+  });
+
+  it('puts the climate’s five bands in order, from panic to boom', () => {
+    const b = c.CLIMATE.BANDS;
+    expect(b.PANIC).toBeLessThan(b.RECESSION);
+    expect(b.RECESSION).toBeLessThan(b.PROSPEROUS);
+    expect(b.PROSPEROUS).toBeLessThan(b.BOOM);
+    // And the whole scale has to fit inside what the climate can actually reach.
+    expect(Math.abs(b.PANIC)).toBeLessThan(c.CLIMATE.MAX);
+    expect(b.BOOM).toBeLessThan(c.CLIMATE.MAX);
   });
 
   it('keeps every share and rate written as a fraction between 0 and 1', () => {

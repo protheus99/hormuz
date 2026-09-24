@@ -3,7 +3,7 @@
 // engine keeps no card logic — detectors, text and projections live in the game layer — only what
 // each action does to the world and what it costs.
 
-import { internalTransfer, refreshCapacity, startMaintenance } from './agents';
+import { internalTransfer, refreshCapacity, startMaintenance, wages } from './agents';
 import { bestLeaseToDrill, drawFrom, drillWell, tankOf } from './leases';
 import { buySurvey, mayWork, placeBid, taintLot } from './auction';
 import { addExposure, escapeCost, takeEscape, type CornerKind, type EscapeKind, type ExposureTarget } from './exposure';
@@ -125,7 +125,7 @@ function dueForService(a: Agent, count: number): { wells: Well[]; cost: number }
 export function actionCost(w: World, agentId: AgentId, action: Action): { readonly now: number; readonly total: number } {
   const a = find(w, agentId);
   const cfg = w.config;
-  const labor = REGIONS[a.region].laborCostIndex;
+  const labor = wages(a.region, w.sink.climate, cfg);
   switch (action.kind) {
     case 'START_PROJECT': {
       const total = projectCost(w, a, action.project, action.steps);
@@ -345,7 +345,7 @@ export function applyAction(w: World, agentId: AgentId, action: Action): void {
       return;
     }
     case 'RESERVE_PIPELINE': {
-      const labor = REGIONS[a.region].laborCostIndex;
+      const labor = wages(a.region, w.sink.climate, cfg);
       charge(w, a, cfg.RESERVATION_COST * action.qty * labor, FeeKind.RESERVATION, tick);
       setReservation(w.graph, asEdgeId(action.edgeId), agentId, action.qty, cfg);
       w.reservations = w.reservations.filter((r) => !(r.agentId === agentId && r.edgeId === action.edgeId));
@@ -535,7 +535,8 @@ export function leaseRate(w: World, region: RegionName): number {
 
 export function projectCost(w: World, a: Agent, kind: ProjectKind, steps: number): number {
   const cfg = w.config;
-  const labor = REGIONS[a.region].laborCostIndex;
+  // Building in a boom costs boom wages, which is the whole point of a boom not being a free ride.
+  const labor = wages(a.region, w.sink.climate, cfg);
   const plant = plantOf(a);
   switch (kind) {
     case 'DRILL': return cfg.DRILL_COST * cfg.DRILL_STEP * steps * labor;

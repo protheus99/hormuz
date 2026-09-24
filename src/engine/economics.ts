@@ -8,7 +8,7 @@
 import type { Config, ProductPriceConfig } from './config';
 import { PRODUCTS, type FeeKind, type Grade, type Product } from './enums';
 import type { AgentId, Tick } from './model';
-import { cholesky, correlatedNormals, rngFor, type Rng } from './rng';
+import { cholesky, correlatedNormals, nextFloat, normal, rngFor, type Rng } from './rng';
 
 export interface FeeEntry {
   readonly tick: Tick;
@@ -74,6 +74,14 @@ export interface RetailSink {
   expectedPrices: Record<Product, number>;
   /** The anchor prices. Start at the config's BASE; persistent shocks move them. */
   bases: Record<Product, number>;
+  /**
+   * The economic climate: about −1 in the worst of a panic, 0 in an ordinary market, about +1 at the
+   * top of a boom. It multiplies the anchor, so the whole band a price may wander in moves with it
+   * rather than the price pushing against a fixed floor (§12A.8, B).
+   */
+  climate: number;
+  /** What it is being called. Kept, because what it is called depends on what it was called. */
+  weather: Weather;
   /** Barrels refined in each of the last SUPPLY_WINDOW finished ticks, oldest first. */
   outputHistory: number[];
   /** Barrels refined so far in the current tick. */
@@ -93,6 +101,8 @@ export function createRetailSink(seed: string, config: Config): RetailSink {
     deviations: perProduct(() => 0),
     expectedPrices: { ...fairValues },
     bases,
+    climate: 0,
+    weather: 'NORMAL',
     outputHistory: [],
     outputToday: 0,
     rng: rngFor(seed, 'products'),
@@ -104,6 +114,77 @@ export function createRetailSink(seed: string, config: Config): RetailSink {
  * history first, so prices respond only to finished ticks and never to refining in the same tick.
  * `baselineOutput` is Σ processing capacity × BASE_UTILIZATION across all refineries.
  */
+/**
+ * The weather, in a word: the five Capitalism 2 names, which is all a player is ever told about the
+ * number behind them (owner, 2026-09-24).
+ */
+export const WEATHERS = ['PANIC', 'RECESSION', 'NORMAL', 'PROSPEROUS', 'BOOM'] as const;
+export type Weather = (typeof WEATHERS)[number];
+
+/** The edges between the five, in order: edge i divides WEATHERS[i] from WEATHERS[i + 1]. */
+const edgesOf = (config: Config) => {
+  const b = config.CLIMATE.BANDS;
+  return [b.PANIC, b.RECESSION, b.PROSPEROUS, b.BOOM];
+};
+
+/**
+ * What to call this climate. Given what it was called yesterday the answer is sticky: every edge
+ * moves away from the weather you are already in, so the drift has to mean it before the market
+ * gets a new name.
+ */
+export function weatherOf(climate: number, config: Config, was?: Weather): Weather {
+  const edges = edgesOf(config);
+  const shifted = was === undefined ? edges
+    : edges.map((e, k) => (k >= WEATHERS.indexOf(was) ? e + config.CLIMATE.STICK : e - config.CLIMATE.STICK));
+  let i = 0;
+  while (i < shifted.length && climate >= (shifted[i] as number)) i += 1;
+  return WEATHERS[i] as Weather;
+}
+
+/**
+ * What the climate does to wages today. Everything a company pays for work — lifting a barrel,
+ * keeping a field running, building anything — is dearer in a boom and cheaper in a panic. It never
+ * goes below `1 - LABOUR`, so a cost can never turn into a payment.
+ */
+export function labourFactor(climate: number, config: Config): number {
+  return Math.max(0.1, 1 + config.CLIMATE.LABOUR * climate);
+}
+
+/**
+ * One day of the climate (§12A.8, B). Ornstein–Uhlenbeck with a compound-Poisson jump term: it
+ * drifts gently and works its way back towards an ordinary market, and now and then it turns
+ * outright. That is what makes a bust something a company has to survive for a year or two rather
+ * than a bad fortnight — the decay is what ends it, and the decay is slow.
+ *
+ * Returns what the weather was called before and after, so the day can say when it turned.
+ */
+export function advanceClimate(
+  sink: RetailSink, rng: Rng, config: Config, day: number,
+): { readonly was: Weather; readonly now: Weather } {
+  const cfg = config.CLIMATE;
+  const was = sink.weather;
+  const decay = Math.log(2) / cfg.HALF_LIFE;
+  let c = (1 - decay) * sink.climate + cfg.SIGMA * normal(rng);
+  // A jump is drawn every day so the stream advances at the same rate whether or not one lands;
+  // a climate whose randomness depended on its own history would be far harder to reason about.
+  const roll = nextFloat(rng);
+  const size = cfg.JUMP.MIN + nextFloat(rng) * (cfg.JUMP.MAX - cfg.JUMP.MIN);
+  const up = nextFloat(rng) < 0.5;
+  if (roll < cfg.JUMP_RATE && day >= cfg.CALM_DAYS) c += up ? size : -size;
+  sink.climate = quantize(clamp(c, -cfg.MAX, cfg.MAX));
+  sink.weather = weatherOf(sink.climate, config, was);
+  return { was, now: sink.weather };
+}
+
+/**
+ * What the climate does to each anchor today. A panic takes them down and a boom lifts them, but
+ * not equally: what people cannot do without moves least (the necessity index, above).
+ */
+function anchors(sink: RetailSink, config: Config): ProductPrices {
+  const cfg = config.CLIMATE;
+  return perProduct((p) => roundPrice(sink.bases[p] * Math.max(0.1, 1 + cfg.DEPTH * cfg.NECESSITY[p] * sink.climate)));
+}
+
 export function updatePrices(sink: RetailSink, baselineOutput: number, config: Config): void {
   const cfg = config.PRODUCT_PRICES;
   sink.outputHistory.push(sink.outputToday);
@@ -113,10 +194,13 @@ export function updatePrices(sink: RetailSink, baselineOutput: number, config: C
 
   const supply = supplyFactor(sink.outputHistory, baselineOutput, cfg);
   const shocks = correlatedNormals(sink.rng, cholesky(correlationMatrix(cfg)));
+  // The climate moves the anchor, and the floor and ceiling move with it: within a given climate a
+  // price wanders the same band it always did, and the climate carries the band.
+  const anchor = anchors(sink, config);
   PRODUCTS.forEach((p, i) => {
     const x = quantize((1 - cfg.THETA) * sink.deviations[p] + cfg.SIGMA[p] * (shocks[i] ?? 0));
-    const fair = fairValue(p, sink.tick, sink.bases, supply, cfg);
-    const base = sink.bases[p];
+    const fair = fairValue(p, sink.tick, anchor, supply, cfg);
+    const base = anchor[p];
     sink.deviations[p] = x;
     sink.fairValues[p] = fair;
     sink.prices[p] = roundPrice(clamp(fair * Math.exp(x), cfg.PRICE_FLOOR * base, cfg.PRICE_CEILING * base));

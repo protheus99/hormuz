@@ -115,17 +115,37 @@ export function strait(chokepoint: string, name: string, stage: Stage | 'CLEARED
  * refiners pay less for crude because their product is worth less, and everybody's margin goes with
  * it. It is a deep cut that fades over months rather than an event that is over in a fortnight.
  */
-export const RECESSION = {
-  /** Chance a day. About once in six years: a career sees one or two, a tutorial almost never. */
-  rate: 1 / (6 * 365),
-  /** How far fuel demand falls, as a share. It fades back at THETA, which is now a 69-day half-life. */
-  depth: 0.25,
-} as const;
-
-export const RECESSION_NEWS: NewsText = {
-  headline: 'Fuel demand falls as the economy turns',
-  body: 'Refiners are cutting runs, and what they will pay for crude is going with it. Nobody expects '
-    + 'this back within the quarter.',
+/**
+ * What the news says when the economic climate turns (§12A.8, B). The five names are Capitalism 2's,
+ * and each carries the same two facts: what people are buying, and what work costs. There is no
+ * number here — a player reads the weather and their own books, not an index.
+ */
+export const WEATHER_NEWS: Readonly<Record<string, NewsText>> = {
+  PANIC: {
+    headline: 'The economy is in a panic',
+    body: 'Demand for fuel has fallen away and refiners are cutting runs hard. Wages and rig rates are '
+      + 'coming down with it, but nothing like as fast as the price of a barrel.',
+  },
+  RECESSION: {
+    headline: 'The economy has turned down',
+    body: 'Buyers are taking less and paying less for it. Work is cheaper to get done than it was, '
+      + 'which is the only comfort in it.',
+  },
+  NORMAL: {
+    headline: 'The economy is back on an even keel',
+    body: 'Demand and wages are both where they usually sit. An ordinary market, and the best time to '
+      + 'judge anything on its own merits.',
+  },
+  PROSPEROUS: {
+    headline: 'The economy is picking up',
+    body: 'Buyers are taking more and paying more for it. Crews and contractors are asking more too, '
+      + 'so anything you build now costs more to build.',
+  },
+  BOOM: {
+    headline: 'The economy is booming',
+    body: 'Fuel is fetching what it has not fetched in years. So are rigs, crews and everyone you would '
+      + 'need to hire — a boom is the dearest time there is to build anything.',
+  },
 };
 
 /** News when a crude price moves sharply. */

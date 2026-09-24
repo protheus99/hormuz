@@ -5,7 +5,7 @@ import { acceptedGrades, total, wellOf } from './companies';
 import type { Config } from './config';
 import { REGIONS } from '../data/regions';
 import { FeeKind, GRADES, type Grade } from './enums';
-import { productValue, recordFee, sellToSink, YIELDS, type FeeLedger, type RetailSink } from './economics';
+import { labourFactor, productValue, recordFee, sellToSink, YIELDS, type FeeLedger, type RetailSink } from './economics';
 import type { IntegratedMajor, PlantState, Producer, Refiner, RegionName, Tick, WellState } from './model';
 import { nextFloat, type Rng } from './rng';
 import { capacityOf, costAt, depleteWells, drawFrom, heldIn, leaseCapacity, liftFrom, refreshStorage, roomAt, tanksFor } from './leases';
@@ -96,6 +96,17 @@ export interface ExtractResult {
 /** The region's wage level, as every cost that touches labour reads it. */
 export const labor = (region: RegionName): number => REGIONS[region].laborCostIndex;
 
+/**
+ * What an hour of work costs today: the region's own wage level, times what the economic climate is
+ * doing to wages everywhere. Every cost a company actually *pays* for labour goes through this —
+ * lifting a barrel, keeping a field running, building anything. What a company's steel is *worth*
+ * does not: a valuation that swung with the weather would move credit lines and lease prices about
+ * for no reason (§12A.8, B).
+ */
+export function wages(region: RegionName, climate: number, config: Config): number {
+  return REGIONS[region].laborCostIndex * labourFactor(climate, config);
+}
+
 /** A producer's cash cost per barrel at home (spec §4.8); ground elsewhere costs what it costs there. */
 export function actualCost(company: Producer | IntegratedMajor): number {
   return (wellOf(company) as WellState).baseExtractionCost * labor(company.region);
@@ -130,7 +141,10 @@ export function fillRatio(well: WellState): number {
  *
  * `rng` draws the day's swing; a projection passes a config with no spread, so its days are level.
  */
-export function extract(company: Producer | IntegratedMajor, ledger: FeeLedger, tick: Tick, config: Config, rng: Rng): ExtractResult {
+export function extract(
+  company: Producer | IntegratedMajor, ledger: FeeLedger, tick: Tick, config: Config, rng: Rng, climate = 0,
+): ExtractResult {
+  const paid = (region: RegionName) => wages(region, climate, config);
   const well = wellOf(company) as WellState;
   if (well.shutIn) return { barrels: 0, cost: 0 };
   let ramp = 1;
@@ -160,7 +174,7 @@ export function extract(company: Producer | IntegratedMajor, ledger: FeeLedger, 
     free -= lifted;
     barrels += lifted;
     // Ground elsewhere costs what it costs there: its own base cost, at its own region's wages.
-    cost += lifted * costAt(lease, labor);
+    cost += lifted * costAt(lease, paid);
   }
   refreshStorage(well);
   company.cash -= cost;

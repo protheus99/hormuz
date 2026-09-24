@@ -1673,9 +1673,55 @@ it is that good and bad decisions both make money. Losses must stay avoidable by
       to negative net worth. An option the meter prices as never paying for itself now loses to any
       cheaper one, and where the meter does not apply at all — tanks, a tier upgrade, which earn no
       barrels of their own — it stays out of the comparison instead of condemning the purchase.
-   f. Company failure and replacement, which is new machinery rather than tuning. A failed company's
-      acreage goes under the hammer at a discount to new ground — but not below what a producer keeps
-      in the bank, because it should still have to be bought on the line (owner, 2026-09-24).
+   f. ◑ **The economic climate, and then company failure.** Measured before building: nothing in this
+      world could fail. Three years × three seeds gave **0 distressed company-days and 0 insolvencies**,
+      and the lowest buying power anyone reached was $15M. Adding the borrowing-base redetermination
+      the spec itself defers changed nothing — ten years × two seeds, lines cut by up to $12M, and
+      **1 distressed company-day** — because nobody is borrowed when it bites. Winding-up machinery
+      would have been dead code.
+
+      So the climate came first, to the owner's design (2026-09-24) and Capitalism 2's shape: one
+      index behind five words — **Panic, Recession, Normal, Prosperous, Boom** — moving both what
+      fuel fetches *and* what work costs, because a boom is not a free ride.
+
+      Mathematically it is Ornstein–Uhlenbeck with a compound-Poisson jump term, which is what
+      "steady, with a few jumps" means:
+
+      ```
+      c ← (1 − κ)·c + σ·z        every day        κ = ln2 / 540 days
+      c ← c ± J                  on a day that jumps   J ∈ [0.35, 0.75], about one in 900 days
+      ```
+
+      Drift alone has a standing deviation of about 0.20, so it is a *jump* that starts a bust or a
+      boom and the *decay* that ends one. The weather is sticky — an edge moves away from the band
+      you are in — or the drift walks back and forth across a line and a two-year recession reads as
+      forty days. A first year never jumps, so nobody is lost to weather before they have played one.
+
+      | | before | after |
+      |---|---|---|
+      | Weather, over 20 years × 3 seeds | — | panic 5.7%, recession 12.0%, normal 63.7%, prosperous 16.1%, boom 2.5% |
+      | Average spell | — | panic 210 days, recession 175, normal 634 |
+      | Refining underwater, 5 years | 0 days | **212 of 1,825** |
+      | Companies that shrank, of 31 | 1.0–2.3 | **5.7** |
+      | Companies ever insolvent, 20 years | 0 of 31 | **8 of 31** |
+
+      The climate moves the *anchor*, not the price against a fixed floor — the ±30% band moves with
+      it, which is what lets a bust be a bust. Each fuel takes a different share of it (Capitalism 2's
+      necessity index): petrol is stickiest, fuel oil most cyclical. Wages move a quarter where
+      prices move four tenths, so the gap between them is the margin and a panic closes it. Every
+      cost a company *pays* for labour goes through `wages()`; what its steel is *worth* does not, or
+      credit lines and lease prices would swing with the weather for no reason.
+
+      **Still to do here:** winding up a company that has run out of road, the entrant that replaces
+      it — fully capitalised but not fully formed — and its acreage under the hammer at a discount to
+      new ground but not below what a producer keeps in the bank, so it still has to be bought on the
+      line (owner, 2026-09-24). All three now have something to act on.
+
+      **Not taken from Capitalism 2:** a climate per region. Its cities are separate consumer
+      markets; this world has one retail sink and a global crude price, so a per-region climate would
+      need per-region demand the model does not have. Its feedback loop — startups lifting a city's
+      economy, closures dragging it down — is worth having and pairs exactly with the winding-up
+      above, so it waits for it.
    g. **A trader's profit must need decisions.** Over six seeds on T3 the meter-led bot ends on
       $-1.18M to $1.18M and the bot that answers nothing on $-1.11M to $1.03M — the same spread.
       Profit comes from holding crude while the price drifts, which takes no decision at all. It is

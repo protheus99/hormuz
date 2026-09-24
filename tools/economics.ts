@@ -45,6 +45,10 @@ interface Row {
   shockHalfLife: number;
   /** Producer-days where the netback at the home marker was below cash cost. */
   underwaterShare: number;
+  /** The same, on the days the market was called a recession or a panic. */
+  underwaterInBust: number;
+  /** Days the economic climate spent at each of its five names, as a share of the run. */
+  weather: Record<string, number>;
   /** Days at least one refinery's gross margin was negative. */
   refiningUnderwater: number;
   /** The biggest and smallest change in net worth across the cast, as a multiple of where it began. */
@@ -61,6 +65,9 @@ function measure(seed: string): Row {
   let producerRevenue = 0;
   let producerFixed = 0;
   let underwaterDays = 0;
+  let bustDays = 0;
+  let underwaterInBust = 0;
+  const weather: Record<string, number> = { PANIC: 0, RECESSION: 0, NORMAL: 0, PROSPEROUS: 0, BOOM: 0 };
   let producerDays = 0;
   let refiningUnderwater = 0;
   let marginSum = 0;
@@ -70,6 +77,8 @@ function measure(seed: string): Row {
 
   for (let d = 0; d < ticks; d++) {
     step(w);
+    weather[w.sink.weather] = (weather[w.sink.weather] ?? 0) + 1 / ticks;
+    const bust = w.sink.weather === 'PANIC' || w.sink.weather === 'RECESSION';
     for (const a of w.agents) {
       const well = wellOf(a);
       if (well !== undefined) {
@@ -80,6 +89,7 @@ function measure(seed: string): Row {
         const cost = actualCost(a as never);
         producerRevenue += well.extractionCapacity * well.extractionRate * netback;
         if (netback < cost) underwaterDays += 1;
+        if (bust) { bustDays += 1; if (netback < cost) underwaterInBust += 1; }
         // Net of the fixed costs that stand whether it pumps or not: a barrel's contribution to
         // paying for the hole it came out of is what is left after everything, not before.
         marginSum += netback - cost - cfg.FIXED_COST_RATE.PRODUCER;
@@ -126,6 +136,8 @@ function measure(seed: string): Row {
     fixedShare: producerRevenue > 0 ? producerFixed / producerRevenue : 0,
     shockHalfLife: Math.log(2) / cfg.PRODUCT_PRICES.THETA,
     underwaterShare: producerDays > 0 ? underwaterDays / producerDays : 0,
+    underwaterInBust: bustDays > 0 ? underwaterInBust / bustDays : 0,
+    weather,
     refiningUnderwater,
     bestGrowth: Math.max(...growth),
     worstGrowth: Math.min(...growth),
@@ -147,6 +159,10 @@ console.log(`  Margin, refining        $${mean((r) => r.meanRefining).toFixed(2)
 console.log(`  Producer fixed costs    ${pct(mean((r) => r.fixedShare)).padEnd(12)} of revenue (industry: 15–30%)`);
 console.log(`  Price shock half-life   ${days(mean((r) => r.shockHalfLife)).padEnd(12)} (busts run 2–3 years)`);
 console.log(`  Producer-days underwater ${pct(mean((r) => r.underwaterShare)).padEnd(11)} (2015–16: years)`);
+console.log(`   … of those, in a bust ${pct(mean((r) => r.underwaterInBust)).padEnd(11)} (what a downturn is for)`);
+const climate = ['PANIC', 'RECESSION', 'NORMAL', 'PROSPEROUS', 'BOOM']
+  .map((k) => `${k.toLowerCase()} ${pct(mean((r) => r.weather[k] ?? 0))}`).join(', ');
+console.log(`  Weather in the sample   ${climate}`);
 console.log(`  Refining underwater     ${Math.round(mean((r) => r.refiningUnderwater))} days of ${ticks} (routine in life)`);
 console.log(`  Net worth, best         ×${mean((r) => r.bestGrowth).toFixed(2)}`);
 console.log(`  Net worth, worst        ×${mean((r) => r.worstGrowth).toFixed(2)}`);

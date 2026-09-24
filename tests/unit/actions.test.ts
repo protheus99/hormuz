@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { GLOBAL_PORTFOLIO } from '../../src/data/portfolios';
-import { REGIONS } from '../../src/data/regions';
+import { wages } from '../../src/engine/agents';
 import { actionCost, applyAction, projectCost, type Action } from '../../src/engine/actions';
 import { plantOf, wellOf } from '../../src/engine/companies';
 import { DEFAULT_CONFIG } from '../../src/engine/config';
@@ -28,7 +28,8 @@ describe('capital projects (spec G4.4)', () => {
     run(control, 5);
     const qasr = get(w, 'Qasr_Petroleum');
     const cost = projectCost(w, qasr, 'DRILL', 1);
-    expect(cost).toBeCloseTo(cfg.DRILL_COST * cfg.DRILL_STEP * REGIONS.Middle_East.laborCostIndex, 6);
+    // At today's wages, which the economic climate moves: building in a boom costs boom rates.
+    expect(cost).toBeCloseTo(cfg.DRILL_COST * cfg.DRILL_STEP * wages('Middle_East', w.sink.climate, cfg), 6);
     expect(actionCost(w, qasr.agentId, { kind: 'START_PROJECT', project: 'DRILL', steps: 1 })).toEqual({ now: 0, total: cost });
     act(w, 'Qasr_Petroleum', { kind: 'START_PROJECT', project: 'DRILL', steps: 1 });
     let paid = 0;

@@ -15,6 +15,7 @@ import { leaseCapacity } from '../engine/leases';
 import { bidAmount, leasableRegions, mayBid, mayWork } from '../engine/auction';
 import { REGIONS } from '../data/regions';
 import type { FeeKind } from '../engine/enums';
+import type { Weather } from '../engine/economics';
 import type { Alert } from './alerts';
 import type { Card } from './cards/types';
 import type { CampaignView } from './campaign';
@@ -182,6 +183,8 @@ export interface PlayerView {
   readonly company: OwnCompanyView;
   readonly markets: readonly MarketView[];
   readonly products: Readonly<Record<Product, number>>;
+  /** The economic climate, in the one word a player is ever shown (§12A.8, B). */
+  readonly weather: Weather;
   readonly history: readonly DailyPrices[];
   /** The player's own recent days, newest last (spec G5). */
   readonly days: readonly DayLog[];
@@ -266,6 +269,7 @@ export function buildPlayerView(
       };
     }),
     products: { ...w.sink.prices },
+    weather: w.sink.weather,
     history,
     days,
     register: leaseRegister(w, playerId),

@@ -22,6 +22,8 @@ import { offersFor } from './offers';
 import { rungOf } from '../engine/exposure';
 import { epilogueFor, reckoningText } from '../content/hints';
 import { money } from '../content/cards';
+import { WEATHER_NEWS } from '../content/events';
+import { WEATHERS } from '../engine/economics';
 import { applySetup, campaignDay, campaignView, createCampaign, scenario, scriptedActions, scriptFor, type CampaignState } from './campaign';
 import { detectAlerts, pausesAt, rememberForAlerts, type Alert, type AlertMemory, type Severity } from './alerts';
 import { applyCommand, rejectReason, type Command, type CommandResult, type LoggedCommand } from './commands';
@@ -171,11 +173,17 @@ export class GameSession {
     // A save carries the world's settings as they were. A later version may have added one the save
     // has no value for — and a missing number quietly turns every sum that touches it into NaN — so
     // anything absent takes today's default, which is what the game would have used in any case.
-    const world = data.world as { config: Config; rng: { wells?: Rng } };
+    const world = data.world as { config: Config; rng: { wells?: Rng; climate?: Rng } };
     world.config = { ...DEFAULT_CONFIG, ...world.config };
     // The daily swing in what fields pump draws from its own stream, seeded from the game's seed,
     // so a save written before it existed carries on the same way every time it is loaded.
     if (world.rng.wells === undefined) world.rng.wells = rngFor(data.settings.seed, 'wells');
+    // A save written before the economic climate existed starts it on an ordinary market, with its
+    // own stream seeded from the game's seed so it runs the same way every time it is loaded.
+    if (world.rng.climate === undefined) world.rng.climate = rngFor(data.settings.seed, 'climate');
+    const sink = data.world.sink as { climate?: number; weather?: string };
+    sink.climate ??= 0;
+    sink.weather ??= 'NORMAL';
     // A save written before producers held leases has a field but no ground under it (§12A): give
     // it the lease that field would have been drilled on, at the size it is pumping today.
     const named = new Set<string>();
@@ -305,6 +313,15 @@ export class GameSession {
     if (s.campaign) campaignDay(s.world, s.campaign, s.advisor, report.fills, report.deliveries);
     const alerts = detectAlerts(s.world, PLAYER_ID, s.memory);
     alerts.push(...this.exposureNews(report));
+    if (report.weather !== null) {
+      const text = WEATHER_NEWS[report.weather.now];
+      if (text !== undefined) {
+        pushNews(s.deck, { tick: s.world.tick, ...text });
+        // Falling into a recession or a panic stops the clock; climbing out of one does not need to.
+        const worse = WEATHERS.indexOf(report.weather.now) < WEATHERS.indexOf(report.weather.was);
+        alerts.push({ tick: s.world.tick, severity: worse ? 'HIGH' : 'MEDIUM', message: `${text.headline}.` });
+      }
+    }
     for (const p of problems) alerts.push({ tick: s.world.tick, severity: 'MEDIUM', message: `Part of your decision could not be carried out: ${p}` });
     for (const c of cards) if (c.agentId === PLAYER_ID) alerts.push({ tick: s.world.tick, severity: 'INFO', message: `New decision: ${c.title}` });
     s.memory = rememberForAlerts(s.world, PLAYER_ID);

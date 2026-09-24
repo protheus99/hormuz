@@ -29,7 +29,7 @@ export interface ProductPriceConfig {
   readonly BASE_UTILIZATION: number;                       // output treated as normal
   readonly SUPPLY_MIN: number;                             // bounds on the supply factor
   readonly SUPPLY_MAX: number;
-  readonly PRICE_FLOOR: number;                            // hard bounds, as multiples of base
+  readonly PRICE_FLOOR: number;                            // hard bounds, as multiples of the anchor
   readonly PRICE_CEILING: number;
   readonly LAMBDA: number;                                 // expectation smoothing
   readonly START_DAY_OF_YEAR: number;                      // 0 = tick 0 falls on January 1
@@ -174,6 +174,22 @@ export interface Config {
   readonly DEAL_OFFER_INTERVAL: number;    // ticks between AI offers
 
   // Finance and intelligence (spec G6)
+  /** The economic climate: how a bust or a boom arrives, how deep it goes and how long it lasts. */
+  readonly CLIMATE: {
+    readonly HALF_LIFE: number;            // days for a swing to work half its way back to normal
+    readonly SIGMA: number;                // the daily drift between jumps
+    readonly JUMP_RATE: number;            // chance a day that the weather turns outright
+    readonly JUMP: { readonly MIN: number; readonly MAX: number };
+    readonly DEPTH: number;                // how far the anchor moves at c = ±1
+    readonly NECESSITY: Readonly<Record<'GASOLINE' | 'DIESEL' | 'FUEL_OIL', number>>;
+    readonly LABOUR: number;               // and how far wages move with it
+    readonly BANDS: {
+      readonly PANIC: number; readonly RECESSION: number; readonly PROSPEROUS: number; readonly BOOM: number;
+    };
+    readonly STICK: number;                // how far past an edge the climate must go to change the word
+    readonly CALM_DAYS: number;            // no jump lands before this, so a first year is ordinary
+    readonly MAX: number;
+  };
   readonly CREDIT_RATE: number;            // per tick on the drawn balance
   readonly CREDIT_ASSET_SHARE: number;     // credit limit as a multiple of capital assets
   readonly CREDIT_BASE: { readonly PRODUCER: number; readonly REFINER: number; readonly TRADER: number };   // $ added to the asset share
@@ -333,6 +349,66 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
   CANCEL_RATE: 0.10,
   TENDER_DELAY: { min: 3, max: 5 },
   DEAL_OFFER_INTERVAL: 7,
+
+  /**
+   * The economic climate (§12A.8, B; the owner's design, 2026-09-24). One number, from about −1 in
+   * the worst of a bust to about +1 at the top of a boom, moving the anchor every price is judged
+   * against. It is an Ornstein–Uhlenbeck process with a compound-Poisson jump term — which is the
+   * mathematics of "steady, with a few jumps":
+   *
+   *     c ← (1 − κ)·c + σ·z          every day, z standard normal
+   *     c ← c ± J                    on a day that jumps, J drawn from [JUMP.MIN, JUMP.MAX]
+   *
+   * κ = ln 2 / HALF_LIFE, so a swing works half its way back to normal in HALF_LIFE days. Between
+   * jumps the drift alone has a standing deviation of σ / √(2κ − κ²) ≈ 0.20, which keeps it inside
+   * the bands nearly all the time: it is a jump that starts a bust or a boom, and the decay that
+   * ends one. A jump lands about once in two and a half years, so a career sees a few.
+   */
+  CLIMATE: {
+    HALF_LIFE: 540,
+    SIGMA: 0.010,
+    JUMP_RATE: 1 / 900,
+    JUMP: { MIN: 0.35, MAX: 0.75 },
+    /** How far the anchor moves at c = ±1. A panic takes prices down four tenths before any noise. */
+    DEPTH: 0.40,
+    /**
+     * And how much of that each fuel takes. Capitalism 2 calls this a necessity index: what people
+     * cannot do without moves least when the economy turns. People keep driving to work in a
+     * recession, so petrol is the stickiest; diesel is freight and plant, which stops; fuel oil is
+     * industry and shipping, which stops hardest. 1.0 would be the full swing.
+     */
+    NECESSITY: { GASOLINE: 0.7, DIESEL: 1.0, FUEL_OIL: 1.25 },
+    /**
+     * And how far wages move with it. A boom is not a free ride: demand is up, and so is what it
+     * costs to lift a barrel, keep a field running and build anything — the lesson Capitalism 2
+     * teaches by moving its Spending Level and its Salary Level together (owner, 2026-09-24). Wages
+     * move less than prices, so a boom is still worth having and a panic still hurts: at c = −1 a
+     * barrel fetches four tenths less and costs a quarter less to lift, and the gap is the margin.
+     */
+    LABOUR: 0.25,
+    /**
+     * Where each kind of weather begins, reading up from the worst. Drift alone has a standing
+     * deviation of about 0.20, so an ordinary year wanders between Recession and Prosperous, and it
+     * takes a jump to reach a Panic or a Boom.
+     */
+    BANDS: { PANIC: -0.65, RECESSION: -0.25, PROSPEROUS: 0.25, BOOM: 0.65 },
+    /**
+     * The weather is sticky: it takes this much past an edge to change what the market is called.
+     * Without it the daily drift walks back and forth across a boundary and a recession reads as
+     * forty days when it is really two years of bad trading — and the news would say so every
+     * fortnight (measured 2026-09-24).
+     */
+    STICK: 0.06,
+    /**
+     * A first year is always ordinary weather. The drift is still there, so it is not a flat
+     * market, but nothing jumps: a tutorial is 90 to 180 days and a player's first year should be
+     * spent learning the game in a normal market rather than in somebody else's panic (D35's real
+     * concern, that a company should not be lost to a bad start).
+     */
+    CALM_DAYS: 365,
+    /** A run of jumps the same way cannot run off the end of the world. */
+    MAX: 1.0,
+  },
 
   CREDIT_RATE: 0.0003,
   // A line of about what the company is worth, which is what a bank will lend against ground and

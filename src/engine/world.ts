@@ -16,7 +16,8 @@ import {
 import { configFor, DEFAULT_CONFIG, withOverrides, type Config, type DeepPartial } from './config';
 import { dealCommitments, deliverDeals, type DealDelivery } from './deals';
 import {
-  applyShock, createLedger, createRetailSink, recordFee, updatePrices, type FeeLedger, type RetailSink,
+  advanceClimate, applyShock, createLedger, createRetailSink, labourFactor, recordFee, updatePrices,
+  type FeeLedger, type RetailSink, type Weather,
 } from './economics';
 import { FeeKind, type ChokepointStatus, type Grade, type Personality, type Product } from './enums';
 import { runLogistics, type LogisticsReport } from './logistics';
@@ -86,7 +87,7 @@ export interface World {
   nodes: Record<NodeName, ExchangeNode>;
   graph: LaneGraph;
   sink: RetailSink;
-  rng: { events: Rng; ai: Rng; wells: Rng };
+  rng: { events: Rng; ai: Rng; wells: Rng; climate: Rng };
   /** Cumulative total; entries hold only the current tick's fees. */
   ledger: FeeLedger;
   cargo: Cargo[];
@@ -147,6 +148,8 @@ export interface TickReport {
   readonly logistics: LogisticsReport;
   /** What caught up with anybody today. Empty on almost every day of almost every game. */
   readonly reckonings: readonly ReckoningReport[];
+  /** Set on the day the economic climate turns from one kind of weather to another (§12A.8, B). */
+  readonly weather: { readonly was: Weather; readonly now: Weather } | null;
   readonly fees: number;
 }
 
@@ -168,7 +171,7 @@ export function createWorld(s: WorldSettings): World {
     nodes,
     graph: buildLaneGraph(config),
     sink: createRetailSink(s.seed, config),
-    rng: { events: rngFor(s.seed, 'events'), ai, wells: rngFor(s.seed, 'wells') },
+    rng: { events: rngFor(s.seed, 'events'), ai, wells: rngFor(s.seed, 'wells'), climate: rngFor(s.seed, 'climate') },
     ledger: createLedger(),
     cargo: [],
     deals: [],
@@ -213,6 +216,8 @@ export function step(w: World): TickReport {
   advanceProjects(w);
   w.charters = expireCharters(w.charters, w.cargo, tick);
   byId = new Map<AgentId, Agent>(w.agents.map((a) => [a.agentId, a]));   // a finished refinery may have replaced a producer
+  // The weather turns before the day's prices are struck, so a bust is in them the day it arrives.
+  const turned = advanceClimate(w.sink, w.rng.climate, cfg, tick);
   updatePrices(w.sink, baselineOutput(w), cfg);
   for (const a of w.agents) {
     if (a.kind === 'REFINER' || a.kind === 'INTEGRATED') for (const p of plantsOf(a)) advancePlant(a, p, w.rng.events, w.ledger, tick, cfg, !w.cardsActive);
@@ -233,7 +238,7 @@ export function step(w: World): TickReport {
   let extracted = 0;
   for (const a of w.agents) {
     if (a.kind !== 'PRODUCER' && a.kind !== 'INTEGRATED') continue;
-    const barrels = extract(a, w.ledger, tick, cfg, w.rng.wells).barrels;
+    const barrels = extract(a, w.ledger, tick, cfg, w.rng.wells, w.sink.climate).barrels;
     dayOf(a.agentId).extracted += barrels;
     extracted += barrels;
     w.totals.extractedBy[a.agentId] = (w.totals.extractedBy[a.agentId] ?? 0) + barrels;
@@ -316,7 +321,11 @@ export function step(w: World): TickReport {
   updateInsolvency(w);
   checkInvariants(w, deliveries);
 
-  return { tick, extracted, refined, byAgent, fills, deliveries, logistics, reckonings, fees: w.ledger.total - feesBefore };
+  return {
+    tick, extracted, refined, byAgent, fills, deliveries, logistics, reckonings,
+    weather: turned.was === turned.now ? null : turned,
+    fees: w.ledger.total - feesBefore,
+  };
 }
 
 /** Runs n ticks, returning each tick's report. */
@@ -347,18 +356,25 @@ export function checkInvariants(w: World, deliveries: readonly DealDelivery[] = 
   const fail = (what: string): never => { throw new Error(`Invariant broken at tick ${w.tick}: ${what}`); };
   const t = w.totals;
 
-  // Tolerances: a millionth of a barrel and a tenth of a cent, plus float rounding on large sums.
+  // Tolerances: a millionth of a barrel and a tenth of a cent, plus float rounding — and the
+  // rounding has to be allowed against everything that has *flowed*, not against what is left.
+  // A balance of 92,795 barrels can carry twenty years of throughput behind it, and the error
+  // accumulates with the throughput: a twenty-year run tripped this with 1.1e-6 of drift on
+  // 92,795 barrels, which the old relative term put at 9e-8 (found 2026-09-24, and it was already
+  // true before the climate went in).
   // 1. Barrel conservation.
   const expectedBarrels = t.startingBarrels + t.extracted - t.refined - t.forceSold - t.confiscated;
+  const barrelFlow = t.startingBarrels + t.extracted + t.refined + t.forceSold + t.confiscated;
   const held = barrelsHeld(w.agents, w.cargo);
-  if (Math.abs(held - expectedBarrels) > 1e-6 + 1e-12 * Math.abs(expectedBarrels)) {
+  if (Math.abs(held - expectedBarrels) > 1e-6 + 1e-12 * barrelFlow) {
     fail(`barrels held ${held} ≠ start + extracted − refined − force-sold − confiscated = ${expectedBarrels}`);
   }
 
   // 2. Cash conservation.
   const cash = w.agents.reduce((s, a) => s + a.cash, 0);
   const expectedCash = t.startingCash + t.retailRevenue + t.forcedSaleRevenue + t.netBorrowing - w.ledger.total;
-  if (Math.abs(cash - expectedCash) > 1e-3 + 1e-12 * Math.abs(expectedCash)) {
+  const cashFlow = t.startingCash + t.retailRevenue + t.forcedSaleRevenue + Math.abs(t.netBorrowing) + w.ledger.total;
+  if (Math.abs(cash - expectedCash) > 1e-3 + 1e-12 * cashFlow) {
     fail(`company cash ${cash} ≠ start + revenue − fees = ${expectedCash}`);
   }
 
@@ -537,8 +553,9 @@ function chargeRunningCosts(w: World, tick: Tick): ReckoningReport[] {
   const reckonings: ReckoningReport[] = [];
   for (const a of w.agents) {
     const well = wellOf(a);
-    const fixed = (well ? cfg.FIXED_COST_RATE.PRODUCER * well.extractionCapacity : 0)
-      + plantsOf(a).reduce((s, p) => s + cfg.FIXED_COST_RATE.REFINER * p.processingCapacity, 0);
+    const fixed = ((well ? cfg.FIXED_COST_RATE.PRODUCER * well.extractionCapacity : 0)
+      + plantsOf(a).reduce((s, p) => s + cfg.FIXED_COST_RATE.REFINER * p.processingCapacity, 0))
+      * labourFactor(w.sink.climate, cfg);
     if (fixed > 0) {
       a.cash -= fixed;
       recordFee(w.ledger, { tick, agentId: a.agentId, kind: FeeKind.FIXED_COST, amount: fixed });

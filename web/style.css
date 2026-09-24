@@ -106,6 +106,14 @@ h3 { font-size: 14px; }
   border-bottom: 1px solid var(--line);
 }
 .brand { font-weight: 700; letter-spacing: 0.1em; }
+/* The economic climate, in the top bar: the one number outside the company that changes what every
+   number inside it means. Colour and word together, never colour alone. */
+.stat .weather { padding: 0 6px; border-radius: 4px; }
+.stat .weather.PANIC { background: var(--bad); color: #fff; }
+.stat .weather.RECESSION { background: var(--bad-soft); color: var(--bad); }
+.stat .weather.NORMAL { color: var(--text); }
+.stat .weather.PROSPEROUS { background: var(--good-soft); color: var(--good); }
+.stat .weather.BOOM { background: var(--good); color: #fff; }
 .stat { display: flex; flex-direction: column; line-height: 1.2; }
 .stat .label { font-size: 12px; color: var(--text-3); }
 .stat .value { font-weight: 600; font-variant-numeric: tabular-nums; }
