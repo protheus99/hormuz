@@ -1,7 +1,7 @@
 // The game screen's panels: the map, the company, markets, deals and cargo, and news.
 
 import { mapLayout, regionName, type Counterparty, type DayLog, type LeaseView, type OfferPlace, type PlayerView, type Point } from '../src/game';
-import { bbl, bblShort, dateOf, html, money, pct, signed, words, type Html } from './dom';
+import { bbl, bblShort, dateOf, html, money, pct, raw, signed, words, type Html } from './dom';
 
 const pts = (s: readonly Point[]) => s.map((p) => p.join(',')).join(' ');
 
@@ -144,6 +144,26 @@ const WELL_WORDS: Readonly<Record<string, string>> = {
 };
 
 /**
+ * A pumpjack, drawn at the size of a letter. A well that is pumping nods: its beam sits at an angle
+ * with the counterweight up. Everything else stands still, beam level — so a working well can be
+ * told from a stopped one without reading the colour, which green and red alone cannot manage for
+ * everybody. The colour then says which kind of stopped it is.
+ */
+function wellIcon(working: boolean): Html {
+  const beam = working ? 'M6.5 14.5 20 10' : 'M6.5 12.2h13.5';
+  const weight = working ? { x: 20, y: 10 } : { x: 20, y: 12.2 };
+  const rod = working ? 'M6.5 14.5v11' : 'M6.5 12.2v13.3';
+  return raw(`<svg viewBox="0 0 24 28" fill="none" stroke="currentColor" stroke-width="1.7"
+      stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M3 25.5h18"/>
+    <path d="M10 25.5 14 12l4 13.5"/>
+    <path d="${beam}"/>
+    <path d="${rod}"/>
+    <circle cx="${weight.x}" cy="${weight.y}" r="1.9" fill="currentColor" stroke="none"/>
+  </svg>`);
+}
+
+/**
  * One lease and its wells (spec §12A.3). How much oil is left is the engine's business: the player
  * is told the survey's band and nothing more, so the board shows what each well is doing and what
  * the lease makes between them.
@@ -156,8 +176,8 @@ function leaseBlock(l: LeaseView): Html {
   return html`
     <h3 style="margin-top:14px">${l.name} <span class="small muted">estimated size ${BAND_WORDS[l.band] ?? l.band}</span></h3>
     <div class="wells">
-      ${l.wells.map((x) => html`<span class="well ${x.status}" title="${bbl(x.rate)} bbl/day, ${WELL_WORDS[x.status] ?? x.status}${x.daysLeft > 0 ? `, ${x.daysLeft} days to go` : ''}"></span>`)}
-      ${Array.from({ length: Math.max(0, l.maxWells - l.wells.length) }, () => html`<span class="well SLOT" title="room for another well"></span>`)}
+      ${l.wells.map((x) => html`<span class="well ${x.status}" title="${bbl(x.rate)} bbl/day, ${WELL_WORDS[x.status] ?? x.status}${x.daysLeft > 0 ? `, ${x.daysLeft} days to go` : ''}">${wellIcon(x.status === 'PUMPING')}</span>`)}
+      ${Array.from({ length: Math.max(0, l.maxWells - l.wells.length) }, () => html`<span class="well SLOT" title="room for another well">${wellIcon(false)}</span>`)}
     </div>
     <div class="small muted">${pumping} of ${l.wells.length} wells pumping, ${bbl(l.capacity)} bbl/day${down > 0 ? html` · <span class="bad">${down} waiting on a crew</span>` : ''}${serviced > 0 ? ` · ${serviced} being serviced` : ''}${spent > 0 ? ` · ${spent} spent` : ''}${l.maxWells > l.wells.length ? ` · room for ${l.maxWells - l.wells.length} more` : ' · no room for more'}</div>`;
 }

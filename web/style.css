@@ -320,14 +320,16 @@ details { margin-top: 6px; font-size: 12px; color: var(--text-2); }
 .continue { display: block; width: 100%; margin-top: 10px; padding: 10px; font-size: 15px; font-weight: 600; }
 
 /* ── The well board: one square a well, colour-coded by what it is doing (spec 12A.3) ── */
-.wells { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
-.well { width: 16px; height: 22px; border-radius: 3px; border: 1px solid var(--line); background: var(--panel-2); }
-.well.PUMPING { background: var(--good); border-color: var(--good); }
-.well.MAINTENANCE { background: var(--warn); border-color: var(--warn); }
-.well.DOWN { background: var(--bad); border-color: var(--bad); }
-.well.DRILLING { background: var(--accent-soft); border-color: var(--accent); }
-.well.SPENT { background: var(--line); border-color: var(--line); }
-.well.SLOT { background: transparent; border-style: dashed; }
+/* Each well is drawn as a pumpjack: green while it is pumping, red while it is damaged and waiting
+   on a crew, grey for every other kind of stopped, and a dashed outline for a slot with nothing
+   sunk into it yet. The shape carries it too — only a pumping well's beam is at an angle. */
+.wells { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.well { width: 22px; height: 26px; display: inline-block; color: var(--text-3); }
+.well svg { width: 100%; height: 100%; display: block; }
+.well.PUMPING { color: var(--good); }
+.well.DOWN { color: var(--bad); }
+.well.SLOT { color: var(--line); }
+.well.SLOT svg { stroke-dasharray: 2.5 2.5; }
 
 /* ── The lease register ── */
 .register { width: 100%; }
