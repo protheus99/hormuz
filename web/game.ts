@@ -2,10 +2,11 @@
 // the left, decisions on the right. The clock lives here in the client; the session only runs the
 // days it is asked to and says when to stop (a new card or an alert).
 
-import { GameSession, msPerDay, PLAYER_ID, type CardType, type PlayerView, type SaveData, type Speed } from '../src/game';
+import { GameSession, msPerDay, PLAYER_ID, type Alert, type CardType, type PlayerView, type SaveData, type Speed } from '../src/game';
 import { dateOf, html, money, mount } from './dom';
 import { inboxPanel, missionPanel } from './inbox';
 import { companyPanel, activityPanel, dealsPanel, leaderboardPanel, leasesPanel, mapPanel, newsPanel, type BoardKind } from './panels';
+import { absorb, newTicker, patchTicker, readPinned, resumed, shapeOf, tickerPanel } from './ticker';
 import { saveGame } from './storage';
 
 type Tab = 'company' | 'activity' | 'leases' | 'deals' | 'board' | 'news';
@@ -44,12 +45,19 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
   const answered = new Map<string, string>();
   const openDetails = new Set<string>();
   let lastAutosave = view.tick;
+  // The news strip: what it is made of is rebuilt only when that changes, because rebuilding sends
+  // the crawl back to the left. Prices, which move every day, are patched into it instead.
+  const ticker = newTicker();
+  let tickerShape = '';
+  /** What stopped the clock, waiting for the refresh that will put it on the strip. */
+  let stoppedBy: Alert | null = null;
   /** When the clock last ran a day; days due since then are caught up, so throttled timers keep pace. */
   let lastDayAt = 0;
 
   mount(root, html`
     <div class="game">
       <header class="topbar" id="top"></header>
+      <div id="ticker"></div>
       <div class="body">
         <div class="left">
           <section class="panel" id="map"></section>
@@ -115,10 +123,20 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
     box.scrollTop = scroll;
   };
 
+  const renderTicker = () => {
+    const shape = shapeOf(view, ticker);
+    if (shape !== tickerShape) {
+      tickerShape = shape;
+      mount($('ticker'), tickerPanel(view, ticker));
+    }
+    patchTicker($('ticker'), view);
+  };
+
   const renderSheet = () => mount($('mission'), sheet === null ? html`` : html`<div class="overlay">${missionPanel(view)}</div>`);
 
   const render = () => {
     renderTop();
+    renderTicker();
     mount($('map'), mapPanel(view));
     renderTabs();
     renderInbox();
@@ -128,6 +146,8 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
   const refresh = async () => {
     const before = view.campaign?.result ?? null;
     view = await session.getView();
+    absorb(view, ticker, stoppedBy);
+    stoppedBy = null;
     if (before === null && view.campaign?.result) sheet = 'mission';
     // Answers apply at the start of the next day; forget those whose card has gone.
     for (const id of [...answered.keys()]) if (!view.cards.some((c) => c.id === id)) answered.delete(id);
@@ -157,6 +177,8 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
     busy = false;
     const stopping = r.pausedBy !== null || r.newCards.length > 0 || r.ended;
     if (stopping && r.newCards.length > 0 && !r.ended) { attention = true; resume = speed; }
+    if (r.pausedBy !== null && !r.ended) resume = speed;
+    stoppedBy = r.ended ? null : r.pausedBy;
     await refresh();
     if (r.ended) toast('The game has ended.');
     if (stopping) setSpeed(0);
@@ -164,10 +186,22 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
   };
 
   root.addEventListener('click', (e) => {
-    const t = (e.target as HTMLElement).closest<HTMLElement>('button, summary');
+    const t = (e.target as HTMLElement).closest<HTMLElement>('button, summary, a[data-ticker-news]');
     if (!t) return;
     const d = t.dataset;
-    if (d.speed !== undefined) setSpeed(Number(d.speed) as Speed);
+    if (d.tickerContinue !== undefined) {
+      // Read, and the day carries on at whatever it was running at before it stopped.
+      resumed(ticker);
+      renderTicker();
+      setSpeed((resume === 0 || resume === null ? 1 : resume) as Speed);
+    } else if (d.tickerHold !== undefined) { ticker.held = !ticker.held; renderTicker(); }
+    else if (d.tickerNews !== undefined || d.tickerPinned !== undefined) {
+      e.preventDefault();
+      readPinned(ticker);
+      tab = 'news';
+      renderTicker();
+      renderTabs();
+    } else if (d.speed !== undefined) setSpeed(Number(d.speed) as Speed);
     // Answering is the end of the interruption: the clock picks up where it left off.
     else if (d.continue !== undefined) setSpeed((resume === 0 ? 1 : resume ?? 1) as Speed);
     else if (d.sheet !== undefined) { sheet = sheet === d.sheet ? null : (d.sheet as 'mission'); renderSheet(); }
@@ -180,6 +214,8 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
         // "Next" runs until something needs the player: say so, or the stop looks like a glitch.
         // It was not running at a speed, so Continue offers the slowest one.
         if (r.newCards.length > 0 && !r.ended) { attention = true; resume = 1; }
+        if (r.pausedBy !== null && !r.ended) resume = 1;
+        stoppedBy = r.ended ? null : r.pausedBy;
         await refresh();
       });
     } else if (d.tab !== undefined) { tab = d.tab as Tab; renderTabs(); }

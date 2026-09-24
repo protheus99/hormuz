@@ -97,7 +97,7 @@ h3 { font-size: 14px; }
 /* ── Game shell ── */
 /* The screen is one viewport tall: the map is capped, and the panels take what is left, so
    nothing below the fold. The floor is low enough for a laptop screen. */
-.game { display: grid; grid-template-rows: auto 1fr; height: 100vh; min-height: 620px; }
+.game { display: grid; grid-template-rows: auto auto 1fr; height: 100vh; min-height: 620px; }
 .topbar {
   display: flex; align-items: center; gap: 20px; padding: 8px 16px; background: var(--panel);
   border-bottom: 1px solid var(--line);
@@ -109,6 +109,58 @@ h3 { font-size: 14px; }
 .clock { display: flex; gap: 4px; margin-left: auto; align-items: center; }
 .clock .btn { padding: 4px 10px; min-width: 40px; }
 .menu { display: flex; gap: 6px; }
+
+/* ── The news strip (G3) ──────────────────────────────────────────────────────────────────────
+   One piece of furniture, three states. Calm: it crawls. Yours: an item is pinned still at the
+   front until it is read. Breaking: the crawl halts, the band grows and turns, and the game is
+   waiting on an answer. The motion stopping is the signal. */
+.strip { display: flex; align-items: stretch; overflow: hidden; background: var(--text); color: var(--bg); height: 32px; }
+.strip .tag {
+  display: flex; align-items: center; padding: 0 12px; background: #3d4349; color: #fff;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.08em; white-space: nowrap;
+}
+.strip .hold { flex: 1; overflow: hidden; display: flex; align-items: center; min-width: 0; }
+.strip .crawl {
+  display: flex; align-items: center; gap: 0; white-space: nowrap; font-size: 13px; padding-left: 16px;
+  animation-name: crawl; animation-timing-function: linear; animation-iteration-count: infinite;
+}
+.strip .crawl.held { animation-play-state: paused; }
+/* The bullet belongs to the item, so a slot with nothing in it takes its separator with it. */
+.strip .item { margin-left: 20px; }
+.strip .item::after { content: '2'; margin-left: 20px; color: var(--text-3); }
+.strip .item[hidden] { display: none; }
+.strip .item b { font-weight: 600; }
+.strip .mv.up { color: #7fd39b; }
+.strip .mv.down { color: #f0a09a; }
+.strip .mv.flat { color: var(--text-3); }
+.strip .stop {
+  display: flex; align-items: center; gap: 6px; padding: 0 12px; border: 0; background: #32373d;
+  color: var(--bg); font: inherit; font-size: 12px; min-height: 0;
+}
+/* Yours: the tag changes colour and the item sits still while the rest goes by behind it. */
+.strip.mine .tag { background: var(--warn); }
+.strip .pin {
+  display: flex; align-items: center; gap: 8px; padding: 0 14px; border: 0; border-right: 1px solid #e3c08a;
+  background: var(--warn-soft); color: #7a3f00; font: inherit; font-size: 13px; font-weight: 600;
+  white-space: nowrap; max-width: 46%; overflow: hidden; text-overflow: ellipsis; min-height: 0;
+}
+.strip .pin .bead { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); flex: none; }
+.strip .pin .more { font-weight: 700; }
+/* Breaking: the whole band, and the way out of it. */
+.strip.band { height: auto; min-height: 76px; background: var(--bad); color: #fff; }
+.strip.band .tag { background: #8d1d17; }
+.strip.band .said { flex: 1; min-width: 0; padding: 10px 16px; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
+.strip.band .said strong { font-size: 16px; font-weight: 600; }
+.strip.band .said span { font-size: 13px; }
+.strip.band .act { display: flex; align-items: center; gap: 12px; padding: 0 14px; }
+.strip.band .act a { color: #fff; font-size: 13px; }
+.strip.band .go {
+  background: #fff; color: #8d1d17; border: 0; border-radius: 6px; padding: 7px 14px;
+  font: inherit; font-weight: 600; min-height: 36px;
+}
+@keyframes crawl { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+/* A crawl nobody asked for is a crawl that should not run. */
+@media (prefers-reduced-motion: reduce) { .strip .crawl { animation: none; } }
 
 .body { display: grid; grid-template-columns: 1fr 400px; gap: 12px; padding: 12px; min-height: 0; }
 /* Three fifths map, two fifths panels: the map is for orientation, the panels are the work. */
