@@ -132,7 +132,7 @@ h3 { font-size: 14px; }
 .strip .crawl.held { animation-play-state: paused; }
 /* The bullet belongs to the item, so a slot with nothing in it takes its separator with it. */
 .strip .item { margin-left: 20px; }
-.strip .item::after { content: '2'; margin-left: 20px; color: var(--text-3); }
+.strip .item::after { content: '•'; margin-left: 20px; color: var(--text-3); }
 .strip .item[hidden] { display: none; }
 .strip .item b { font-weight: 600; }
 .strip .mv.up { color: #7fd39b; }
