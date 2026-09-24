@@ -150,8 +150,10 @@ export const SCENARIOS: readonly ScenarioData[] = [
       { tick: 285, chokepoint: 'BOSPHORUS', stages: [{ stage: 'DISRUPTION', days: 8, status: 'CLOSED' }] },
       { tick: 320, chokepoint: 'BOSPHORUS', stages: [{ stage: 'DISRUPTION', days: 15, status: 'DELAYED', delay: 3 }] },
     ],
-    goalText: 'Make a profit of at least $1M in the last quarter, with no more than 2 days out of crude.',
-    goal: [{ kind: 'PROFIT', atLeast: 1_000_000, from: 274, to: 365 }, { kind: 'STOCKOUT_DAYS', atMost: 2 }],
+    goalText: 'Make a profit of at least $3M in the last quarter, with no more than 2 days out of crude.',
+    // Three seeds each: a refiner who answers by the meters makes $3.63M, $5.66M and $7.50M in the
+    // last quarter, one who answers nothing $2.06M at best. $1M was inside the idle bot's range.
+    goal: [{ kind: 'PROFIT', atLeast: 3_000_000, from: 274, to: 365 }, { kind: 'STOCKOUT_DAYS', atMost: 2 }],
     milestones: [
       { label: 'Sign a supply deal', condition: { kind: 'OWN', what: 'DEAL', atLeast: 1 }, reward: { cash: 500_000 } },
       { label: 'Upgrade to Tier 3', condition: { kind: 'OWN', what: 'TIER', atLeast: 3 }, reward: { report: true } },
@@ -165,8 +167,11 @@ export const SCENARIOS: readonly ScenarioData[] = [
       { tick: 1, company: 'player', action: { kind: 'SIGN_DEAL', terms: { sellerId: 'Qasr_Petroleum' as never, buyerId: 'player' as never, grade: 'MEDIUM', originRegion: 'Middle_East', deliveryRegion: 'South_Asia', qtyPerDay: 2000, termDays: 90, price: 70, avoidChokepoints: [] } } },
       hormuzCycle(25, 40),
     ],
-    goalText: 'No more than 5 days out of crude, and end the year at or above your starting net worth.',
-    goal: [{ kind: 'STOCKOUT_DAYS', atMost: 5 }, { kind: 'NET_WORTH', times: 1 }],
+    goalText: 'No more than 5 days out of crude, and end the year 15% above the net worth you started with.',
+    // Merely ending where you began was free: the idle bot managed ×1.00, ×1.02 and ×1.03 without
+    // answering a card, so only the stockout condition was ever doing any work. The meter-led bot
+    // makes ×1.05, ×1.40 and ×1.28.
+    goal: [{ kind: 'STOCKOUT_DAYS', atMost: 5 }, { kind: 'NET_WORTH', times: 1.15 }],
     milestones: [
       { label: 'Stay solvent', condition: { kind: 'SOLVENT' }, reward: { report: true } },
       { label: 'Sign a second supply deal', condition: { kind: 'OWN', what: 'DEAL', atLeast: 2 }, reward: { cash: 500_000 } },
@@ -198,11 +203,11 @@ export const SCENARIOS: readonly ScenarioData[] = [
       { tick: 5, engine: { tick: 5, kind: 'PLANT_ONLINE', agentId: 'Huanghai_Petrochem', online: false }, news: { headline: 'A major East Asian refinery shuts for repairs', body: 'Cargoes bound for it are looking for other buyers.' } },
       { tick: 55, engine: { tick: 55, kind: 'PLANT_ONLINE', agentId: 'Huanghai_Petrochem', online: true }, news: { headline: 'The East Asian refinery restarts', body: 'Demand for crude in the region recovers.' } },
     ],
-    goalText: 'Make $1M profit from the outage.',
+    goalText: 'Make $900K profit from the outage.',
     // Measured over six seeds rather than one: a trader who answers nothing makes $-0.07M to $0.79M
     // here, and one who answers by the meters $0.01M to $1.68M. A bar of $0.75M sat inside the idle
     // bot's range, so on the kindest seed doing nothing won (2026-09-24).
-    goal: [{ kind: 'PROFIT', atLeast: 1_000_000 }],
+    goal: [{ kind: 'PROFIT', atLeast: 900_000 }],
     milestones: [
       { label: 'Lease extra storage', condition: { kind: 'OWN', what: 'LEASE', atLeast: 1 }, reward: { cash: 100_000 } },
       { label: 'Stay solvent', condition: { kind: 'SOLVENT' }, reward: { report: true } },

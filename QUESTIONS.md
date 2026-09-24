@@ -284,6 +284,34 @@ nothing in this economy is near enough to its cost — and both belong to the st
 owner already asked for ("there seems to be little chance of losing money at current high prices").
 Halts (70–72), utilisation (76–78%) and insolvencies (none) are all where they should be.
 
+## Drilling cannot pay, and the payback meter says it can (2026-09-24, blocks the retune)
+
+Found while retuning the scenario targets. A lease's reserves are fixed when it is created —
+`capacity × 365 × BAND_YEARS` — and `reshare` divides that fixed pot equally among its live wells.
+Drilling therefore buys rate and no oil at all:
+
+```
+six wells    reserves 5,475,000   rate 3,000 bbl/day   each well holds 912,500 bbl
+nine wells   reserves 5,475,000   rate 4,500 bbl/day   each well holds 608,333 bbl
+```
+
+$16.9M for the same block pumped half as fast again — and every well already there now declines
+faster, because its own share of the pot just shrank. The stage 6a payback meter values the new well
+at 500 bbl/day of *new* barrels and reports 22 months, which is true of nothing.
+
+What it costs: in the finale the meter-led bot spent $45.23M on eight drilling programmes and
+finished on $21.09M of net worth against the idle bot's $73.04M — ranks 18, 18 and 13 of 20 against
+6, 7 and 6. On P2 the idle bot ends at ×1.15 of its starting net worth and the meter bot at ×1.00.
+P2, P3 and the finale cannot be tuned honestly until this is settled, and it also answers the older
+question below about the AI: rivals buy ground on fixed odds and do better, because not drilling is
+the right answer.
+
+**The fix, if you want it.** `newLease`'s own comment already states the rule — "a HIGH lease holds
+ten years of its own output". Give each well `initialRate × 365 × BAND_YEARS` of recoverable oil of
+its own, let `maxWells` cap how much a block can hold, and `reshare` is not needed. Reserves then
+grow when you drill, which is what you are paying for. It moves every production number in the world
+— the golden replay, the calibration, the markers — so it is a decision, not a retune. Do it?
+
 ## Two things the economics package raised, for the owner (2026-09-24)
 
 - ~~**Ground is now beyond what a producer can afford.**~~ **Answered by the owner (2026-09-24):
@@ -297,9 +325,11 @@ Halts (70–72), utilisation (76–78%) and insolvencies (none) are all where th
   What the measurement turned up on the way: **nobody had ever drawn a dollar of credit**, in 31
   companies × 3 seeds × a year. The line existed on every balance sheet and no rule ever reached it.
 
-  Still open underneath it: 6d's failed-company leases were the *other* answer to this, and are
-  still worth building — but they are now a source of cheap ground rather than the only way any
-  ground moves at all.
+  Still open underneath it: the failed-company leases were the *other* answer to this, and are still
+  worth building — but they are now a source of cheap ground rather than the only way any ground
+  moves at all. **The owner's constraint on them (2026-09-24):** "cheap is ok but still has to be
+  worth enough to require borrowing." So a dead company's acreage comes up under the reserve of new
+  ground, but not under what a producer keeps in the bank: you still buy it on the line.
 
 - **The AI does not read a payback.** Rivals buy ground and drill on fixed per-look odds
   (`ai/scoring.ts` GROWTH), whatever it costs. A player reading the meters now declines a three-year
@@ -308,10 +338,9 @@ Halts (70–72), utilisation (76–78%) and insolvencies (none) are all where th
   the AI weighs the same number the player does. Either teach `chooseForAi` the payback, or accept
   that rivals are structurally more reckless and set the finale's band against that.
 
-- **Trader cards do not make a trader better** (found 2026-09-24, while retuning T2). Over six seeds
-  on T3, the bot that answers by the meters ends on $-1.18M to $1.18M and the bot that answers
-  nothing on $-1.11M to $1.03M — the same spread. A trader's profit comes from holding crude while
-  the price drifts, which needs no decision at all; it is the §12A.8 complaint again, unfixed for
-  traders. No scenario bar can separate the two bots until that changes, so T3's target is left
-  where it is and the D44 band is checked on a majority of seeds rather than one. Is this 6d work,
-  or its own step?
+- ~~**Trader cards do not make a trader better**~~ — **answered (2026-09-24): its own step.** Over
+  six seeds on T3 the bot that answers by the meters ends on $-1.18M to $1.18M and the bot that
+  answers nothing on $-1.11M to $1.03M: the same spread. A trader's profit comes from holding crude
+  while the price drifts, which needs no decision at all — the §12A.8 complaint again, unfixed for
+  traders. Now stage 6f. Until it lands, T3's target stays where it is and the D44 band is checked
+  on a majority of seeds rather than one game.

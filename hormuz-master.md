@@ -1601,8 +1601,50 @@ it is that good and bad decisions both make money. Losses must stay avoidable by
       against the majority of three seeds rather than one game: a single game is a single draw. The
       deeper finding is parked for c — on T3 the meter-led bot does *worse* than the idle one, which
       means trader cards do not yet make a trader better.
-   d. One retune of every scenario target and the D44 band.
-   e. Company failure and replacement, which is new machinery rather than tuning.
+   d. ◑ **One retune of every scenario target and the D44 band.** Measured with both bots on three
+      seeds each. Six of the ten are now where they should be:
+
+      | | was | is | meter bot | idle bot |
+      |---|---|---|---|---|
+      | P1, R1, T1 (tutorials) | | unchanged | 3/3 | 0/3 |
+      | R2 last-quarter profit | $1.0M | **$3.0M** | 3/3 | 0/3 |
+      | R3 net worth | ×1.0 | **×1.15** | 2/3 | 0/3 |
+      | T2 profit | $1.0M | **$0.9M** | 2/3 | 0/3 |
+
+      R3's old target was free — the idle bot managed ×1.00, ×1.02 and ×1.03 without answering a
+      card, so only the stockout condition was ever doing any work.
+
+      **Four are blocked, and three of them by the same thing: drilling cannot pay.** A lease's
+      reserves are fixed at `capacity × 365 × BAND_YEARS` when it is created, and `reshare` divides
+      that fixed pot equally among its live wells. So a drilling programme buys rate and no oil:
+
+      ```
+      six wells    reserves 5,475,000   rate 3,000 bbl/day   each well holds 912,500 bbl
+      nine wells   reserves 5,475,000   rate 4,500 bbl/day   each well holds 608,333 bbl
+      ```
+
+      $16.9M for the same block, pumped half as fast again, and every existing well now declines
+      faster because its own share shrank. The payback meter prices the new well as 500 bbl/day of
+      *new* barrels and says 22 months, which is not true of anything. In the finale the meter-led
+      bot spent $45.23M on eight programmes and finished on $21.09M of net worth against the idle
+      bot's $73.04M — ranks 18, 18 and 13 against 6, 7 and 6.
+
+      That leaves **P2** (net worth × a multiple in one year, where the idle bot beats the meter bot
+      ×1.15 to ×1.00), **P3** (1/3 for the meter bot, and its profit condition carries the same
+      drilling cost), and the **finale** untunable until it is settled. **T3** is blocked on f.
+
+      The rule `newLease` already states — "a HIGH lease holds ten years of its own output" — is the
+      fix if the owner wants it: a well carries `initialRate × 365 × BAND_YEARS` of its own, `maxWells`
+      caps how much a block can hold, and `reshare` goes. It moves every production number in the
+      world, so it is the owner's call, not a retune.
+   e. Company failure and replacement, which is new machinery rather than tuning. A failed company's
+      acreage goes under the hammer at a discount to new ground — but not below what a producer keeps
+      in the bank, because it should still have to be bought on the line (owner, 2026-09-24).
+   f. **A trader's profit must need decisions.** Over six seeds on T3 the meter-led bot ends on
+      $-1.18M to $1.18M and the bot that answers nothing on $-1.11M to $1.03M — the same spread.
+      Profit comes from holding crude while the price drifts, which takes no decision at all. It is
+      §12A.8's complaint again, unfixed for traders, and no scenario bar can separate a competent
+      trader from an idle one until it is fixed. Its own step by the owner's decision (2026-09-24).
 
 **Stage 3b ✅ (2026-09-23): operating in a second region.** Built in two steps, on the same
 derived-aggregate pattern that let leases land without touching a card or a panel.
