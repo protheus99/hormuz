@@ -16,7 +16,7 @@
 import type { Config } from './config';
 import { FeeKind } from './enums';
 import { recordFee, type FeeLedger } from './economics';
-import { wellOf } from './companies';
+import { buyingPower, wellOf } from './companies';
 import { refreshStorage } from './leases';
 import { refreshCapacity } from './agents';
 import type { Agent, LeaseId, RegionName, Tick } from './model';
@@ -229,7 +229,12 @@ export function exposureDay(
   company.record = company.record.filter((x) => x !== item);
 
   const outcome = take(company, item, cfg);
-  const cost = item.amount * cfg.EXPOSURE.PENALTY;
+  // What is taken is taken in kind — the ground, the licence, the line — and the cash penalty
+  // follows it. It can take every penny the company can raise and no more: a settlement is not a
+  // debt conjured out of nothing. Uncapped, a corner worth $15M on a block came back as a $121.8M
+  // bill against $12.6M of cash, and left the company at minus $109M for good, with a day book
+  // that read as nonsense (found 2026-09-24, from a player's own game).
+  const cost = Math.min(item.amount * cfg.EXPOSURE.PENALTY, Math.max(0, buyingPower(company)));
   company.cash -= cost;
   recordFee(ledger, { tick, agentId: company.agentId, kind: FeeKind.SETTLEMENT, amount: cost });
   return { item, severity: outcome.severity, cost, what: outcome.what, barrels: outcome.barrels };
@@ -273,7 +278,11 @@ function take(company: Agent, item: ExposureItem, cfg: Config): { severity: Seve
       return { severity: 'REVOKE', what: String(region), barrels: 0 };
     }
     case 'CREDIT':
-      company.creditLimit = counsel ? Math.round(company.creditLimit / 2) : 0;
+      // A bank that pulls a line stops you drawing on it; it cannot take back money already
+      // advanced. So the limit comes down to what is outstanding and no further — without that
+      // floor a company left the day with more drawn than it was allowed, which is invariant 8
+      // (found 2026-09-24 by a $0 line carrying $621,896).
+      company.creditLimit = Math.max(company.creditDrawn, counsel ? Math.round(company.creditLimit / 2) : 0);
       return { severity: counsel ? 'FINE' : 'WITHDRAW', what: 'your credit line', barrels: 0 };
     case 'CASH':
       return { severity: 'FINE', what: 'a penalty', barrels: 0 };

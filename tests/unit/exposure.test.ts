@@ -112,6 +112,32 @@ describe('what a reckoning takes', () => {
     expect(d.creditLimit).toBe(0);
   });
 
+  it('cannot take back credit already advanced when it pulls the line', () => {
+    const c = company();
+    c.creditLimit = 40_000_000;
+    c.creditDrawn = 25_000_000;
+    addExposure(c, corner(400_000, { target: { kind: 'CREDIT' } }));
+    expect(exposureDay(c, createLedger(), 1 as never, certain, rngFor('credit', 'events'))?.severity).toBe('WITHDRAW');
+    // A bank stops you drawing; it does not un-lend. Anything else leaves the company owing more
+    // than it was ever allowed, which is invariant 8 (found 2026-09-24 in a player's own game).
+    expect(c.creditLimit).toBe(25_000_000);
+    expect(c.creditDrawn).toBeLessThanOrEqual(c.creditLimit);
+  });
+
+  it('takes every penny a company can raise and not one more', () => {
+    const c = company();
+    c.cash = 12_600_000;
+    c.creditLimit = 0;
+    // A corner worth $15M on a block came back as a $121.8M bill and left the company at minus
+    // $109M for good, with nothing in the game able to bring it back (found 2026-09-24).
+    addExposure(c, corner(60_900_000, { target: { kind: 'CASH' } }));
+    const r = exposureDay(c, createLedger(), 1 as never, certain, rngFor('ruin', 'events'));
+    expect(r?.cost).toBeLessThanOrEqual(12_600_000);
+    expect(c.cash).toBeGreaterThanOrEqual(0);
+    // Cleaned out, which is the point — but not in debt to a number nobody could have paid.
+    expect(c.cash).toBeLessThan(1);
+  });
+
   it('charges on top of whatever it took, and leaves the rest of the record standing', () => {
     const c = company();
     addExposure(c, corner(1_000_000, { tick: 1 as never }));
