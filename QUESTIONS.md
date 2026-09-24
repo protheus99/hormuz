@@ -286,13 +286,20 @@ Halts (70–72), utilisation (76–78%) and insolvencies (none) are all where th
 
 ## Two things the economics package raised, for the owner (2026-09-24)
 
-- **Ground is now beyond what a producer can afford.** A Medium block is worth about $63M against
-  bidders holding $19–37M in cash; before the bid cap was fixed, every bidder's "strong" bid was
-  simply all their money. §12A.8 predicted this exactly — "more than a producer holds at the first
-  auction, so lots would sit unsold until companies grew rich" — and the answer on the table was
-  that a failed company's leases go under the hammer (6d). Until that lands, **the auction is a
-  late-game event**: cheap LOW lots still change hands, a $63M block does not. Accept it, or lower
-  `AUCTION.WORTH_SHARE` so ground is cheaper relative to what it makes?
+- ~~**Ground is now beyond what a producer can afford.**~~ **Answered by the owner (2026-09-24):
+  credit.** "Buying leases will require extra buying power, this is where credit comes in handy.
+  Loans can be used for purchases outside of a company's buying power." Built in 6c: every
+  affordability question now asks cash *plus the undrawn line*, and the line was resized from 3.7×
+  net worth to 1.1× so that being able to borrow is not the same as being able to afford anything.
+  Lots that drew no bid went from 8 of 18 to 1 of 18, and eleven of seventeen winners needed the
+  line to pay. `AUCTION.WORTH_SHARE` was left alone — ground is not too dear, buyers were too poor.
+
+  What the measurement turned up on the way: **nobody had ever drawn a dollar of credit**, in 31
+  companies × 3 seeds × a year. The line existed on every balance sheet and no rule ever reached it.
+
+  Still open underneath it: 6d's failed-company leases were the *other* answer to this, and are
+  still worth building — but they are now a source of cheap ground rather than the only way any
+  ground moves at all.
 
 - **The AI does not read a payback.** Rivals buy ground and drill on fixed per-look odds
   (`ai/scoring.ts` GROWTH), whatever it costs. A player reading the meters now declines a three-year
@@ -300,3 +307,11 @@ Halts (70–72), utilisation (76–78%) and insolvencies (none) are all where th
   why the finale went to ranks 14–18 after the package. The finale cannot be retuned honestly until
   the AI weighs the same number the player does. Either teach `chooseForAi` the payback, or accept
   that rivals are structurally more reckless and set the finale's band against that.
+
+- **Trader cards do not make a trader better** (found 2026-09-24, while retuning T2). Over six seeds
+  on T3, the bot that answers by the meters ends on $-1.18M to $1.18M and the bot that answers
+  nothing on $-1.11M to $1.03M — the same spread. A trader's profit comes from holding crude while
+  the price drifts, which needs no decision at all; it is the §12A.8 complaint again, unfixed for
+  traders. No scenario bar can separate the two bots until that changes, so T3's target is left
+  where it is and the D44 band is checked on a majority of seeds rather than one. Is this 6d work,
+  or its own step?

@@ -8,7 +8,7 @@
 
 import { REGIONS, type RegionName } from '../data/regions';
 import type { Config } from './config';
-import { wellOf } from './companies';
+import { buyingPower, wellOf } from './companies';
 import { Grade } from './enums';
 import { BAND_YEARS, newLease } from './leases';
 import { LeaseBand, type Agent, type AgentId, type Lease, type Tick } from './model';
@@ -189,10 +189,14 @@ export function bidAmount(lot: LeaseLot, agent: Agent, cfg: Config, level: BidLe
   if (level === 'NONE') return 0;
   const share = level === 'STRONG' ? cfg.AUCTION.STRONG_SHARE : cfg.AUCTION.STEADY_SHARE;
   // A bidder offers on what it believes is down there, which is the survey unless it has seen more,
-  // and never stakes more than `MAX_CASH_SHARE` of what it holds on one block — the same limit the
-  // AI has always had. Without it a player's strong and steady bids were both simply "all of it",
-  // which made two options out of one number (found 2026-09-24).
-  const most = cfg.AUCTION.MAX_CASH_SHARE * Math.max(0, agent.cash - agent.cashReserved);
+  // and never stakes more than `MAX_CASH_SHARE` of what it can raise on one block — the same limit
+  // the AI has always had. Without it a player's strong and steady bids were both simply "all of
+  // it", which made two options out of one number (found 2026-09-24).
+  //
+  // What it can raise is cash plus the credit line, not cash alone. A block costs more than any
+  // producer keeps in the bank — half the lots on offer went unsold because of it — and borrowing
+  // against ground to buy ground is the ordinary way the business is done (spec G6).
+  const most = cfg.AUCTION.MAX_CASH_SHARE * Math.max(0, buyingPower(agent));
   return Math.min(share * worthTo(lot, agent, cfg), most);
 }
 
@@ -215,7 +219,7 @@ export function placeBid(lot: LeaseLot, agentId: AgentId, amount: number): void 
 export function aiBid(agent: Agent, lot: LeaseLot, cfg: Config, rng: Rng): number {
   if (!mayWork(agent, lot)) return 0;
   const appetite = cfg.AUCTION.AI_BID.MIN + nextFloat(rng) * (cfg.AUCTION.AI_BID.MAX - cfg.AUCTION.AI_BID.MIN);
-  const affordable = Math.max(0, agent.cash - agent.cashReserved) * cfg.AUCTION.MAX_CASH_SHARE;
+  const affordable = Math.max(0, buyingPower(agent)) * cfg.AUCTION.MAX_CASH_SHARE;
   // An AI company works from the published survey like everyone else who paid for nothing.
   const offer = Math.min(worthTo(lot, agent, cfg) * appetite, affordable);
   return offer >= lot.reserve ? offer : 0;
@@ -239,7 +243,10 @@ export function award(
     }
     if (best === null) continue;
     const field = wellOf(best.agent);
-    if (field === undefined || best.agent.cash < best.amount) continue;
+    // A winner who cannot cover the bonus loses the lot, silently — which is why the number bid is
+    // capped in the first place. The bonus is paid from cash and any shortfall is drawn on the line
+    // in phase 7, the same day, before the solvency invariant is checked.
+    if (field === undefined || buyingPower(best.agent) < best.amount) continue;
     best.agent.cash -= best.amount;
     const lease = newLease({
       id: `${best.agent.agentId}-${lot.lotId}`,

@@ -29,6 +29,15 @@ export function availableCash(agent: Agent): number {
   return agent.cash - agent.cashReserved;
 }
 
+/**
+ * What a company can actually spend: cash in hand plus the credit line it has not drawn (spec G6).
+ * A lease block costs more than any producer keeps in the bank, which is what the line is for — so
+ * every question of the form "can this be paid for" is asked of this number, not of cash alone.
+ */
+export function buyingPower(agent: Agent): number {
+  return agent.cash - agent.cashReserved + agent.creditLimit - agent.creditDrawn;
+}
+
 /** The company's wells, if it has any. */
 export function wellOf(agent: Agent): WellState | undefined {
   if (agent.kind === 'PRODUCER') return agent;

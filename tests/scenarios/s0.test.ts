@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { fillTanks } from '../../src/engine/leases';
 import { CORE_PORTFOLIO } from '../../src/data/portfolios';
 import { createRecorder, fingerprint, record, toCsv } from '../../src/engine/metrics';
-import { checkInvariants, createWorld, fork, run, step, type World } from '../../src/engine/world';
+import { checkInvariants, createWorld, fork, netWorth, run, step, type World } from '../../src/engine/world';
 
 const s0 = (seed = 'S0'): World => createWorld({ seed, portfolio: CORE_PORTFOLIO });
 
@@ -77,11 +77,24 @@ describe('scheduled events and forks', () => {
 });
 
 describe('credit lines (spec G6, invariants 8 and 9)', () => {
-  it('gives each company 5× its capital assets plus its play type’s base amount', () => {
+  it('gives each company a share of its capital assets plus its play type’s base amount', () => {
     const w = s0();
+    const cfg = w.config;
     const straits = w.agents.find((a) => a.agentId === 'Straits_Refining');
     // Coastal_Asia labor 0.80: (20,000 + 3,000 + 5,000) × 8,000 plant + 15 × 25,000 tanks × 0.80.
-    expect(straits?.creditLimit).toBeCloseTo(5 * (28_000 * 8_000 + 15 * 25_000) * 0.8 + 20_000_000, 6);
+    expect(straits?.creditLimit).toBeCloseTo(cfg.CREDIT_ASSET_SHARE * (28_000 * 8_000 + 15 * 25_000) * 0.8 + cfg.CREDIT_BASE.REFINER, 6);
+  });
+
+  it('lends about what the company is worth, not several times over', () => {
+    const w = s0();
+    // A line is buying power now that ground is bought on it, so its size is the whole decision:
+    // several times net worth and every block is affordable, which is no decision at all (G6).
+    // A trader is the exception the industry makes too: it owns almost no steel and borrows against
+    // the cargo, so its line is nearly all base amount and runs at several times its own worth.
+    for (const a of w.agents) {
+      if (a.kind === 'TRADER') continue;
+      expect(a.creditLimit / netWorth(w, a), a.name).toBeLessThan(2.5);
+    }
   });
 
   it('covers negative cash from the line at the end of the day, charges interest, and repays above the cushion', () => {

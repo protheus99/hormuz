@@ -6,7 +6,9 @@ import { describe, expect, it } from 'vitest';
 import { GLOBAL_PORTFOLIO } from '../../src/data/portfolios';
 import { REGIONS } from '../../src/data/regions';
 import { aiBid, award, bandFor, baseWorth, buySurvey, leasableRegions, mayBid, mayWork, placeBid, surveyLots, worthTo, type LeaseLot } from '../../src/engine/auction';
-import { wellOf } from '../../src/engine/companies';
+import { buyingPower, wellOf } from '../../src/engine/companies';
+import { recordFee } from '../../src/engine/economics';
+import { FeeKind } from '../../src/engine/enums';
 import { DEFAULT_CONFIG } from '../../src/engine/config';
 import { rngFor } from '../../src/engine/rng';
 import { createWorld, step } from '../../src/engine/world';
@@ -105,9 +107,29 @@ describe('bidding and award', () => {
     const w = world();
     const lot = surveyLots(1, DEFAULT_CONFIG, rngFor('lots', 'wells'), w.agents)[0]!;
     const bidder = w.agents.find((a) => mayWork(a, lot))!;
-    placeBid(lot, bidder.agentId, bidder.cash * 10);
+    placeBid(lot, bidder.agentId, buyingPower(bidder) * 10);
     expect(award([lot], w.agents, w.tick, DEFAULT_CONFIG)).toHaveLength(0);
     expect(wellOf(bidder)!.leases.every((l) => l.name !== lot.name)).toBe(true);
+  });
+
+  it('will hand one to a bidder whose cash is short but whose credit line is not', () => {
+    const w = world();
+    const lot = surveyLots(1, DEFAULT_CONFIG, rngFor('lots', 'wells'), w.agents)[0]!;
+    const bidder = w.agents.find((a) => mayWork(a, lot))!;
+    // Ground costs more than a producer keeps in the bank, so a block is bought on the line and
+    // repaid out of what it lifts. Paying leaves the cash negative until phase 7 draws on it (G6).
+    const price = Math.max(lot.reserve, bidder.cash * 1.5);
+    expect(price).toBeLessThanOrEqual(buyingPower(bidder));
+    placeBid(lot, bidder.agentId, price);
+    const won = award([lot], w.agents, w.tick, DEFAULT_CONFIG);
+    expect(won).toHaveLength(1);
+    // The bonus leaves the economy the way a tariff does, and the world's own auction records it as
+    // a fee for that reason; calling `award` straight has to do the same or the cash invariant bites.
+    recordFee(w.ledger, { tick: w.tick, agentId: bidder.agentId, kind: FeeKind.LEASE_BONUS, amount: won[0]!.price });
+    expect(bidder.cash).toBeLessThan(0);
+    step(w);
+    expect(bidder.cash).toBeGreaterThanOrEqual(0);
+    expect(bidder.creditDrawn).toBeGreaterThan(0);
   });
 
   it('sells nothing below the reserve', () => {
@@ -118,13 +140,13 @@ describe('bidding and award', () => {
     expect(award([lot], w.agents, w.tick, DEFAULT_CONFIG)).toHaveLength(0);
   });
 
-  it('never has a company bid away more than half its cash', () => {
+  it('never has a company stake more than half of what it could raise', () => {
     const w = world();
     const lot = surveyLots(1, DEFAULT_CONFIG, rngFor('lots', 'wells'), w.agents)[0]!;
     const rng = rngFor('bids', 'ai');
     for (const agent of w.agents) {
       const bid = aiBid(agent, lot, DEFAULT_CONFIG, rng);
-      expect(bid).toBeLessThanOrEqual(agent.cash * DEFAULT_CONFIG.AUCTION.MAX_CASH_SHARE + 1e-6);
+      expect(bid).toBeLessThanOrEqual(buyingPower(agent) * DEFAULT_CONFIG.AUCTION.MAX_CASH_SHARE + 1e-6);
       if (bid > 0) expect(mayWork(agent, lot)).toBe(true);
     }
   });

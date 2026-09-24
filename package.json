@@ -25,7 +25,8 @@
     "calibrate": "tsx tools/calibrate.ts",
     "report": "tsx tools/report.ts",
     "campaign": "tsx tools/campaign.ts",
-    "pacing": "tsx tools/pacing.ts"
+    "pacing": "tsx tools/pacing.ts",
+    "credit": "tsx tools/credit.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

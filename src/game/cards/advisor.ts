@@ -5,7 +5,7 @@
 // the world's AI stream, so a replay raises exactly the same cards.
 
 import { actionCost, applyAction, type Action } from '../../engine/actions';
-import { plantOf, total, wellOf } from '../../engine/companies';
+import { buyingPower, plantOf, total, wellOf } from '../../engine/companies';
 import type { Agent, AgentId, Fill } from '../../engine/model';
 import { nextFloat } from '../../engine/rng';
 import { netWorth, type World } from '../../engine/world';
@@ -196,7 +196,7 @@ function sameImpact(a: CardOption['impact'], b: CardOption['impact']): boolean {
 
 function option(w: World, me: Agent, state: AdvisorState, choice: Choice, label: string, o: OptionSpec, impact: CardOption['impact']): CardOption {
   const totalCost = o.actions.reduce((sum, a) => sum + actionCost(w, me.agentId, a).total, 0);
-  const available = me.cash - me.cashReserved + me.creditLimit - me.creditDrawn;
+  const available = buyingPower(me);
   const affordable = totalCost <= available;
   let affordableInDays: number | null = null;
   if (!affordable) {
@@ -325,7 +325,9 @@ const AI_GROWTH_INTERVAL = 30;
 
 /**
  * AI companies receive the same cards and answer at once (spec G4.6): operating cards from Phase 9,
- * growth cards from Phase 11. Growth is paid from cash in hand, never from credit.
+ * growth cards from Phase 11. Both are paid out of buying power — cash plus the unused credit line —
+ * which is the same test the player's cards are marked against. It used to be cash alone for growth,
+ * so the player could borrow to buy ground and the AI could not (spec G6).
  */
 function answerAsAi(w: World, state: AdvisorState, me: Agent): void {
   const ctx = context(w, state, me);
@@ -343,7 +345,6 @@ function answerAsAi(w: World, state: AdvisorState, me: Agent): void {
     const choice = chooseForAi(def.type, me.personality, hasMaybe, nextFloat(w.rng.ai));
     const actions = choice === 'YES' ? yes.actions : choice === 'MAYBE' && maybe ? maybe.actions : no?.actions ?? [];
     const cost = actions.reduce((sum, a) => sum + actionCost(w, me.agentId, a).total, 0);
-    const available = growth ? me.cash - me.cashReserved : me.cash - me.cashReserved + me.creditLimit - me.creditDrawn;
-    if (cost <= available) apply(w, me.agentId, actions);
+    if (cost <= buyingPower(me)) apply(w, me.agentId, actions);
   }
 }

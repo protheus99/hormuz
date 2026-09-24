@@ -12,6 +12,7 @@
 // Opportunity always did, so a replay takes the offer the player was looking at.
 
 import { actionCost } from '../engine/actions';
+import { buyingPower } from '../engine/companies';
 import type { Agent } from '../engine/model';
 import type { World } from '../engine/world';
 import { cardText } from '../content/cards';
@@ -109,6 +110,4 @@ export function offerOf(w: World, memory: AdvisorMemory, me: Agent, type: CardTy
 }
 
 /** Cash in hand plus the credit line still unused (spec G4.1 "Affordability"). */
-function spend(me: Agent): number {
-  return me.cash - me.cashReserved + me.creditLimit - me.creditDrawn;
-}
+const spend = buyingPower;

@@ -198,8 +198,11 @@ export const SCENARIOS: readonly ScenarioData[] = [
       { tick: 5, engine: { tick: 5, kind: 'PLANT_ONLINE', agentId: 'Huanghai_Petrochem', online: false }, news: { headline: 'A major East Asian refinery shuts for repairs', body: 'Cargoes bound for it are looking for other buyers.' } },
       { tick: 55, engine: { tick: 55, kind: 'PLANT_ONLINE', agentId: 'Huanghai_Petrochem', online: true }, news: { headline: 'The East Asian refinery restarts', body: 'Demand for crude in the region recovers.' } },
     ],
-    goalText: 'Make $550K profit from the outage.',
-    goal: [{ kind: 'PROFIT', atLeast: 750_000 }],
+    goalText: 'Make $1M profit from the outage.',
+    // Measured over six seeds rather than one: a trader who answers nothing makes $-0.07M to $0.79M
+    // here, and one who answers by the meters $0.01M to $1.68M. A bar of $0.75M sat inside the idle
+    // bot's range, so on the kindest seed doing nothing won (2026-09-24).
+    goal: [{ kind: 'PROFIT', atLeast: 1_000_000 }],
     milestones: [
       { label: 'Lease extra storage', condition: { kind: 'OWN', what: 'LEASE', atLeast: 1 }, reward: { cash: 100_000 } },
       { label: 'Stay solvent', condition: { kind: 'SOLVENT' }, reward: { report: true } },

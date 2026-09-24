@@ -272,9 +272,10 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
   // The best prospects are drilled first, so the last slots on a lease are a gamble (§12A.3).
   DRY_HOLE: { FIRST: 0.85, PER_ATTEMPT: 0.04, FLOOR: 0.45 },
   DRILL_STEP: 500,
-  // A barrel of a well's life costs this much to put on the books: $25,000 a bbl/day of capacity
-  // over roughly 2.7 million barrels is $9.13 a barrel, against shale's $8–15. It was $0.73, which
-  // is why growth was nearly free and why nothing in this world could ever lose money (§12A.8, A).
+  // A barrel of a well's life costs this much to put on the books: $15,000 a bbl/day of capacity,
+  // over the barrels a well delivers with dry holes counted, is about $9 a barrel against shale's
+  // $8–15. It was $0.73, which is why growth was nearly free and why nothing in this world could
+  // ever lose money (§12A.8, A). A well pays back in 28 months on the card the player reads.
   DRILL_COST: 15_000,
   DRILL_TICKS: 45,
   STORAGE_STEP: 5_000,
@@ -332,8 +333,14 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
   DEAL_OFFER_INTERVAL: 7,
 
   CREDIT_RATE: 0.0003,
-  CREDIT_ASSET_SHARE: 5,
-  CREDIT_BASE: { PRODUCER: 10_000_000, REFINER: 20_000_000, TRADER: 20_000_000 },
+  // A line of about what the company is worth, which is what a bank will lend against ground and
+  // steel. It was five times capital assets, which came to 3.7 times net worth — and since nothing
+  // in the game ever drew a dollar of it, nobody noticed. Now that ground is bought on it, the size
+  // is the whole decision: at this setting the median producer can just take the median block and
+  // nothing dearer (measured 2026-09-24, `npm run credit`).
+  CREDIT_ASSET_SHARE: 1.5,
+  // A trader owns almost no steel, so its line is nearly all base: it borrows against the cargo.
+  CREDIT_BASE: { PRODUCER: 4_000_000, REFINER: 6_000_000, TRADER: 12_000_000 },
   CREDIT_CUSHION_DAYS: 30,
   CREDIT_WORKING_DAYS: 5,
   REPORT_COST: 25_000,

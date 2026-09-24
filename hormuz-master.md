@@ -230,7 +230,16 @@ AI companies use only public information plus their own state. Order books are i
 
 **Net worth** = cash + inventory at its grade's marker price + depreciated capital assets − credit drawn.
 
-**Credit line:** limit = `CREDIT_ASSET_SHARE` (5) × capital assets + a play-type base amount (`CREDIT_BASE`: producer $10M, refiner and trader $20M) — generous by decision (D35), because the world has too few companies to lose any to a bad start — with `CREDIT_RATE` daily interest on the drawn balance. Capital assets are valued at replacement cost: the plant at `FACTORY_COST` plus its tier upgrades, wells at `DRILL_COST` and tanks at `STORAGE_COST`, all × labor. At the end of each day negative cash is covered from the line automatically (invariant 9), and cash above `CREDIT_CUSHION_DAYS` (30) of fixed costs repays it. Borrowing is money lent into the economy, so invariant 2 counts net borrowing.
+**Credit line:** limit = `CREDIT_ASSET_SHARE` (1.5) × capital assets + a play-type base amount
+(`CREDIT_BASE`: producer $4M, refiner $6M, trader $12M), with `CREDIT_RATE` daily interest (11.6% a
+year) on the drawn balance. That comes to roughly what the company is worth — 0.6–1.5× net worth for
+anyone who owns steel, and more for a trader, which owns almost none and borrows against the cargo.
+
+**The line is buying power.** Every question of the form "can this be paid for" — a card's
+affordability mark, a panel's purchase, an AI company's growth decision, a bid at the lease auction
+— is asked of cash plus the undrawn line, never of cash alone. A lease block costs more than any
+producer keeps in the bank, which is what the line is for: you buy ground on it and repay out of
+what the ground lifts. Capital assets are valued at replacement cost: the plant at `FACTORY_COST` plus its tier upgrades, wells at `DRILL_COST` and tanks at `STORAGE_COST`, all × labor. At the end of each day negative cash is covered from the line automatically (invariant 9), and cash above `CREDIT_CUSHION_DAYS` (30) of fixed costs repays it. Borrowing is money lent into the economy, so invariant 2 counts net borrowing.
 
 **Bankruptcy:** available cash below zero with the credit line fully drawn for 3 consecutive days. Scenarios may add their own loss conditions.
 
@@ -869,12 +878,12 @@ Placeholders for balancing. "× labor" scales with the region's `labor_cost_inde
 | `TRADER_CLEAR_FILL` | 90% | Hub fill above which a trader sells below cost |
 | `DUMP_DISCOUNT` | 20% below the reference, never below cash cost | Producer dumps (§6.1 rule 5) |
 | `CHOKEPOINT_THROUGHPUT` | 100% / 75% / 50% / 0% for `OPEN` / `TENSION` / `DELAYED` / `CLOSED` | Strait throughput (§3.5) |
-| `CREDIT_ASSET_SHARE` | 5 × capital assets | Credit line (G6) |
+| `CREDIT_ASSET_SHARE` | 1.5 × capital assets | Credit line (G6) |
 | `DEAL_VOLUME`, `DEAL_TERMS` | 1,000–10,000 bbl/day; 30 or 90 days | Deals |
 | `DEAL_MAX_SHARE` | 80% of capacity | Deals |
 | `SHORTFALL_RATE`, `CANCEL_RATE` | 15% of deal price per missing barrel; 10% of remaining deal value | Deal penalties |
 | `TENDER_DELAY`, `DEAL_OFFER_INTERVAL` | 3–5 ticks; 7 ticks | Deal offers |
-| `CREDIT_RATE`, `CREDIT_BASE`, `CREDIT_CUSHION_DAYS` | 0.03% per tick; producer $10M, refiner and trader $20M; 30 days | Credit line (G6) |
+| `CREDIT_RATE`, `CREDIT_BASE`, `CREDIT_CUSHION_DAYS` | 0.03% per tick (11.6% a year); producer $4M, refiner $6M, trader $12M; 30 days | Credit line (G6) |
 | `REPORT_COST`, `REPORT_LAG`, `REPORT_NOISE` | $25,000, 5 ticks, ±15% | Market reports |
 | `INTEGRATE_THRESHOLD` | Net worth of 3× starting | Integration and second-refinery cards (G2, G4.4) |
 | `CARD_MAX_OPEN`, `CARD_COOLDOWN`, `CARD_DEADLINE` | 3; 14 ticks per card type; 7 ticks | Cards |
@@ -1562,8 +1571,38 @@ it is that good and bad decisions both make money. Losses must stay avoidable by
       capped at half, so once ground got expensive both bid levels collapsed to "everything I have".
       Both are capped at half now, and the auction card is not raised for ground a strong bid could
       not win.
-   c. One retune of every scenario target and the D44 band.
-   d. Company failure and replacement, which is new machinery rather than tuning.
+   c. ✅ **The credit line becomes buying power.** Ground now costs more than a producer holds, and
+      the owner's answer to how it gets bought was credit. Measured first, with `npm run credit`:
+
+      | | before | after |
+      |---|---|---|
+      | The line, as a multiple of net worth | 3.7× (up to 5.0×) | **1.1×** (0.6–1.5×, trader 2.1×) |
+      | Days any company spent on the line, in a year | **0 of 365** | up to 119 |
+      | Lots that drew no bid at all | 8 of 18 | **1 of 18** |
+      | Winners who needed the line to pay | — | 11 of 17 |
+
+      Two findings behind those numbers. **Nobody had ever drawn a dollar.** Across 31 companies,
+      three seeds and a year, the line was never touched and no interest was ever paid: the only
+      thing that drew on it was the emergency top-up when cash fell below five days of costs, and
+      nothing ever fell that far. A line that is never reachable is not in the game. **And it was
+      far too big to make reachable as it stood** — five times capital assets came to 3.7 times net
+      worth, which no lender gives; at that size every block is affordable and the auction stops
+      being a decision. 1.5 × assets puts the median producer's cap within a few percent of the
+      median block's asking price, so small ground is comfortable, a medium block is a stretch that
+      costs you the line, and only a major can take a big one.
+
+      The player could already borrow for growth and the AI could not — `answerAsAi` paid for growth
+      cards from cash in hand. Both use `buyingPower` now, which is the one definition of the
+      question.
+
+      **The trader scenarios were tuned on one seed**, and it was the kindest of six. A trader who
+      answers nothing makes $-0.07M to $0.79M on T2, and the bar sat at $0.75M — inside that range,
+      so on the acceptance seed doing nothing won. T2's bar is $1.0M, and the D44 band is now checked
+      against the majority of three seeds rather than one game: a single game is a single draw. The
+      deeper finding is parked for c — on T3 the meter-led bot does *worse* than the idle one, which
+      means trader cards do not yet make a trader better.
+   d. One retune of every scenario target and the D44 band.
+   e. Company failure and replacement, which is new machinery rather than tuning.
 
 **Stage 3b ✅ (2026-09-23): operating in a second region.** Built in two steps, on the same
 derived-aggregate pattern that let leases land without touching a card or a panel.
