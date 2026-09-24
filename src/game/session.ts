@@ -14,7 +14,7 @@ import { nameGround } from '../data/leasenames';
 import type { Lease, WellState } from '../engine/model';
 import type { Grade } from '../engine/enums';
 import { DEFAULT_CONFIG, type Config } from '../engine/config';
-import { advise, createAdvisor, type AdvisorState } from './cards/advisor';
+import { advise, createAdvisor, expireCards, type AdvisorState } from './cards/advisor';
 import type { Card } from './cards/types';
 import { createDeck, deckDay, priceNews, pushNews, type DeckState, type ScriptedEvent } from './events';
 import { createHints, daysLeft, hintDay, type HintState } from './hints';
@@ -260,6 +260,10 @@ export class GameSession {
     const tick = s.world.tick + 1;
     const problems: string[] = [];
     for (const entry of s.log.filter((c) => c.tick === tick).sort((a, b) => a.seq - b.seq)) problems.push(...applyCommand(s.world, entry, s.advisor));
+    // A card nobody answered resolves as No at the start of the day, beside the answers that were
+    // given — because a No that does something is a decision taking effect, and it is paid for on
+    // the day it takes effect rather than on the one before it.
+    expireCards(s.world, s.advisor);
     deckDay(s.world, s.deck, s.script);
     if (s.campaign) scriptedActions(s.world, scenario(s.campaign.id));
     const report = step(s.world);

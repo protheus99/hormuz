@@ -10,7 +10,7 @@ import { plantOf, wellOf } from '../../src/engine/companies';
 import { fingerprint } from '../../src/engine/metrics';
 import type { Agent, WellState } from '../../src/engine/model';
 import { fork, netWorth, step, type World } from '../../src/engine/world';
-import { advise, answer, answerProblem, createAdvisor, type AdvisorState } from '../../src/game/cards/advisor';
+import { advise, answer, answerProblem, createAdvisor, expireCards, type AdvisorState } from '../../src/game/cards/advisor';
 import { CATALOG, cardsFor } from '../../src/game/cards/catalog';
 import { projectOptions } from '../../src/game/cards/projection';
 import type { Card, CardType } from '../../src/game/cards/types';
@@ -141,6 +141,9 @@ describe('card rules (spec G4.1)', () => {
     const card = raise(w, advisor, 'REFINING_LOSING') as Card;
     while (w.tick < (card.deadline as number)) step(w);
     plant.lowMarginDays = 6;
+    // A card expires at the start of the day, beside the answers that were given, so that what its
+    // No does is paid for on the day it takes effect (§12A.8, the day book).
+    expireCards(w, advisor);
     advise(w, advisor, []);
     expect(advisor.resolved).toContainEqual(expect.objectContaining({ type: 'REFINING_LOSING', choice: 'NO', expired: true }));
     expect(advisor.cards.some((c) => c.type === 'REFINING_LOSING')).toBe(false);

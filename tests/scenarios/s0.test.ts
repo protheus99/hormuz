@@ -80,8 +80,8 @@ describe('credit lines (spec G6, invariants 8 and 9)', () => {
   it('gives each company 5× its capital assets plus its play type’s base amount', () => {
     const w = s0();
     const straits = w.agents.find((a) => a.agentId === 'Straits_Refining');
-    // Coastal_Asia labor 0.80: (4,000 + 3,000 + 5,000) × 8,000 plant + 15 × 25,000 tanks = $96.375M × 0.80.
-    expect(straits?.creditLimit).toBeCloseTo(5 * (12_000 * 8_000 + 15 * 25_000) * 0.8 + 20_000_000, 6);
+    // Coastal_Asia labor 0.80: (20,000 + 3,000 + 5,000) × 8,000 plant + 15 × 25,000 tanks × 0.80.
+    expect(straits?.creditLimit).toBeCloseTo(5 * (28_000 * 8_000 + 15 * 25_000) * 0.8 + 20_000_000, 6);
   });
 
   it('covers negative cash from the line at the end of the day, charges interest, and repays above the cushion', () => {

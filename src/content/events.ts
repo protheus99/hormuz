@@ -109,6 +109,25 @@ export function strait(chokepoint: string, name: string, stage: Stage | 'CLEARED
   return { headline: t.headline.replace('{name}', name), body: t.body.replace('{name}', name) };
 }
 
+/**
+ * A recession (§12A.8, B). The other half of making a bust possible: mean reversion was slowed so a
+ * bad price can stay bad, and this is what makes one bad in the first place. Demand for fuel falls,
+ * refiners pay less for crude because their product is worth less, and everybody's margin goes with
+ * it. It is a deep cut that fades over months rather than an event that is over in a fortnight.
+ */
+export const RECESSION = {
+  /** Chance a day. About once in six years: a career sees one or two, a tutorial almost never. */
+  rate: 1 / (6 * 365),
+  /** How far fuel demand falls, as a share. It fades back at THETA, which is now a 69-day half-life. */
+  depth: 0.25,
+} as const;
+
+export const RECESSION_NEWS: NewsText = {
+  headline: 'Fuel demand falls as the economy turns',
+  body: 'Refiners are cutting runs, and what they will pay for crude is going with it. Nobody expects '
+    + 'this back within the quarter.',
+};
+
 /** News when a crude price moves sharply. */
 export function priceMove(grade: string, change: number, days: number): NewsText {
   const up = change > 0;

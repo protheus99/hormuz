@@ -131,12 +131,16 @@ describe('shocks (spec §7.3)', () => {
     PRODUCT_PRICES: { SIGMA: { GASOLINE: 0, DIESEL: 0, FUEL_OIL: 0 }, AMPLITUDE: { GASOLINE: 0, DIESEL: 0 } },
   });
 
-  it('lets a temporary shock fade back to fair value', () => {
+  it('lets a temporary shock fade back to fair value, at the half-life THETA sets', () => {
     const sink = createRetailSink('seed-1', noNoise);
     applyShock(sink, 'DIESEL', 0.20, false);
-    const path = run(sink, 60, noNoise);
-    expect(path[0]?.prices.DIESEL).toBeCloseTo(100 * 1.2 ** 0.95, 4);   // one day of reversion
-    expect(path.at(-1)?.prices.DIESEL).toBeLessThan(101);
+    const halfLife = Math.round(Math.log(2) / noNoise.PRODUCT_PRICES.THETA);
+    const path = run(sink, 4 * halfLife, noNoise);
+    expect(path[0]?.prices.DIESEL).toBeCloseTo(100 * 1.2 ** (1 - noNoise.PRODUCT_PRICES.THETA), 4);
+    // Half the shock gone by the half-life, and all but a trace of it by four of them. Slow enough
+    // that a bad price is a bad year rather than a bad fortnight (§12A.8, B).
+    expect(path[halfLife - 1]?.prices.DIESEL).toBeCloseTo(100 * 1.2 ** 0.5, 0);
+    expect(path.at(-1)?.prices.DIESEL).toBeCloseTo(100 * 1.2 ** 2 ** -4, 1);
   });
 
   it('lets a persistent shock move the anchor for good', () => {
@@ -153,8 +157,13 @@ describe('shocks (spec §7.3)', () => {
 describe('ten-year price statistics (Phase 3 acceptance)', () => {
   const years = run(createRetailSink('hormuz-golden', DEFAULT_CONFIG), 3650);
 
-  it.each(PRODUCTS)('keeps %s’s mean within 2% of base', (p) => {
-    expect(Math.abs(mean(years.map((s) => s.prices[p])) / cfg.BASE[p] - 1)).toBeLessThan(0.02);
+  it.each(PRODUCTS)('keeps %s’s mean on base, within what the sample can say', (p) => {
+    // The band has to come from the process, not from a number typed once: a price that reverts
+    // slowly wanders further and takes longer to average out, so ten years holds far fewer
+    // independent samples than it holds days. Roughly `days × THETA` of them (§12A.8, B).
+    const stationary = cfg.SIGMA[p] / Math.sqrt(2 * cfg.THETA - cfg.THETA ** 2);
+    const standardError = stationary / Math.sqrt(years.length * cfg.THETA);
+    expect(Math.abs(mean(years.map((s) => s.prices[p])) / cfg.BASE[p] - 1)).toBeLessThan(3 * standardError);
   });
 
   it.each(PRODUCTS)('keeps %s’s volatility within 20% of theory', (p) => {

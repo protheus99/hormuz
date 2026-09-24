@@ -431,7 +431,10 @@ export const CATALOG: readonly CardDef[] = [
     detect: ({ w, me }) => {
       const auction = w.auction;
       if (auction === null) return null;
-      const lot = auction.lots.find((l) => mayWork(me, l) && !l.bids.some((b) => b.agentId === me.agentId));
+      // Only ground this company could actually take: a lot whose reserve is beyond even a strong
+      // bid is not a decision, it is a notice that somebody else is buying something.
+      const lot = auction.lots.find((l) => mayWork(me, l) && !l.bids.some((b) => b.agentId === me.agentId)
+        && bidAmount(l, me, w.config, 'STRONG') >= l.reserve);
       if (lot === undefined) return null;
       return {
         key: `auction-${lot.lotId}`,

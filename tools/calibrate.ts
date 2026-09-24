@@ -22,6 +22,18 @@ const mix = values.mix === 'NONE' ? undefined : ((values.mix ?? 'EVEN') as Perso
 const seeds = Array.from({ length: Number(values.seeds ?? 3) }, (_, i) => `cal-${i + 1}`);
 const ticks = Number(values.ticks ?? 365);
 
+/**
+ * A recession (§12A.8, B): fuel demand falls a quarter and takes months to come back. The package's
+ * whole claim is that a company can now lose money, and a bad price is the only thing that makes
+ * that happen — so the calibration has to contain one. S0 and S4 are a world where the only price
+ * movement is noise, which is why output cuts and contested margins could never appear in them.
+ */
+const S18: ScheduledEvent[] = [
+  { tick: 90, kind: 'PRODUCT_SHOCK', product: 'GASOLINE', pct: -0.25, persistent: false },
+  { tick: 90, kind: 'PRODUCT_SHOCK', product: 'DIESEL', pct: -0.25, persistent: false },
+  { tick: 90, kind: 'PRODUCT_SHOCK', product: 'FUEL_OIL', pct: -0.25, persistent: false },
+];
+
 const S4: ScheduledEvent[] = [
   { tick: 150, kind: 'CHOKEPOINT', chokepoint: 'HORMUZ', status: 'CLOSED' },
   { tick: 181, kind: 'CHOKEPOINT', chokepoint: 'HORMUZ', status: 'OPEN' },
@@ -111,12 +123,14 @@ if (process.argv[1]?.endsWith('calibrate.ts')) {
   for (const seed of seeds) {
     const s0 = measure(seed, []);
     const s4 = measure(seed, S4);
+    const s18 = measure(seed, S18);
     console.log(`\nSeed ${seed}`);
     console.log(`  Storage pressure (S0)     fill ${pct(s0.fillStart)} → ${pct(s0.fillEnd)}; first halt ${s0.firstHalt ?? 'never'} (target: rises, none before 60)`);
     console.log(`  Disruption bites (S4/S0)  halt-days ${s4.haltDays} vs ${s0.haltDays} (target: higher; bypasses stay open, D35)`);
     console.log(`  Margin contested (S0)     ${pct(s0.throttledShare)} of ticks with a refinery throttled (target 5–40%)`);
     console.log(`  Merit order (S0)          cheapest quartile ${Math.round(s0.cheapQuartile).toLocaleString()} bbl, dearest ${Math.round(s0.dearQuartile).toLocaleString()} bbl (target: dearest measurably less)`);
-    console.log(`  Output cuts               ${s0.outputCutters} producers in S0, ${s4.outputCutters} in S4 (target ≥ 3 across S0–S17)`);
+    console.log(`  Output cuts               ${s0.outputCutters} in S0, ${s4.outputCutters} in S4, ${s18.outputCutters} in a recession (target ≥ 3 somewhere)`);
+    console.log(`  Recession bites (S18)     margin contested ${Math.round(100 * s18.throttledShare)}% of ticks, against ${Math.round(100 * s0.throttledShare)}% in a calm year`);
     console.log(`  Refinery utilization      ${pct(s0.utilization)} (S0)`);
     console.log(`  Markers (S0 mean)         ${Object.entries(s0.markers).map(([k, v]) => `${k} ${v.toFixed(1)}`).join('  ')}; grade order held ${pct(s0.gradeOrderShare)} of days`);
     console.log(`  Ever insolvent (S0)       ${s0.insolvent.join(', ') || 'none'} (target: none)`);

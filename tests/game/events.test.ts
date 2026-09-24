@@ -13,7 +13,7 @@ import { GameSession } from '../../src/game/session';
 /** The deck alone, over a stand-in world that only keeps the tick and the event queue. */
 function simulate(years: number, difficulty: Difficulty, relevant: ChokepointName[], seed = 'deck') {
   const w = { tick: 0, events: [] } as unknown as World;
-  const deck: DeckState = { rng: rngFor(`${seed}:deck`, 'events'), random: true, difficulty, active: [], past: [], seq: 0, news: [], relevant, lastPriceNews: {} };
+  const deck: DeckState = { rng: rngFor(`${seed}:deck`, 'events'), random: true, difficulty, active: [], past: [], seq: 0, news: [], relevant, lastPriceNews: {}, lastRecession: -Infinity };
   const overlaps: number[] = [];
   for (let d = 0; d < years * 365; d++) {
     deckDay(w, deck, []);

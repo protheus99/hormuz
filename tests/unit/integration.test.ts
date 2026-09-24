@@ -146,9 +146,9 @@ describe('the plant a producer builds (spec G2)', () => {
   });
 
   it('costs the factory plus each tier above 1, scaled by labor', () => {
-    // North Sea labor 1.40: 2,500 × (4,000 + 3,000) × 1.40 = $24.5M.
-    expect(plantCost('North_Sea', { techTier: 2, processingCapacity: 2500, crudeStorageCapacity: 25_000 }, DEFAULT_CONFIG)).toBeCloseTo(24_500_000, 6);
-    // Tier 1 in Southeast Asia (labor 0.70): 2,500 × 4,000 × 0.70 = $7.0M.
-    expect(plantCost('Southeast_Asia', { techTier: 1, processingCapacity: 2500, crudeStorageCapacity: 25_000 }, DEFAULT_CONFIG)).toBeCloseTo(7_000_000, 6);
+    // North Sea labor 1.40: 2,500 × (20,000 + 3,000) × 1.40 = $80.5M.
+    expect(plantCost('North_Sea', { techTier: 2, processingCapacity: 2500, crudeStorageCapacity: 25_000 }, DEFAULT_CONFIG)).toBeCloseTo(80_500_000, 6);
+    // Tier 1 in Southeast Asia (labor 0.70): 2,500 × 20,000 × 0.70 = $35.0M.
+    expect(plantCost('Southeast_Asia', { techTier: 1, processingCapacity: 2500, crudeStorageCapacity: 25_000 }, DEFAULT_CONFIG)).toBeCloseTo(35_000_000, 6);
   });
 });

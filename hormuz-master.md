@@ -1522,7 +1522,46 @@ it is that good and bad decisions both make money. Losses must stay avoidable by
       What it costs elsewhere: P3 went 1/3 to 0/3. Its goal is profit per barrel of *starting*
       capacity over twelve months, and a company that now spends on ground has not got those barrels
       back inside the year. That tension is real and belongs to the retune.
-   b. The economics package itself: A, B and C (§12A.8).
+   b. ✅ **The economics package: A, B and C.** `DRILL_COST` 2,000 → 15,000, `FACTORY_COST` 4,000 →
+      20,000, `FIXED_COST_RATE.PRODUCER` 2.00 → 7.00, `THETA` 0.05 → 0.01, and a recession — a
+      quarter off fuel demand, about once in six years, fading at the new 69-day half-life, so a bad
+      price is a bad year rather than a bad fortnight. Measured one letter at a time:
+
+      | | before | A | A+C | A+B+C |
+      |---|---|---|---|---|
+      | Well payback, on the card | 3 months | | | **28 months** (1.5–3 years) |
+      | Unit payback | 303 d | 1,515 d | | **1,452 d** (3–7 years) |
+      | Producer fixed costs | 2.8% | 2.8% | **9.7%** | 9.7% (8–10%) |
+      | Shock half-life | 14 d | 14 d | 14 d | **69 d** |
+      | Companies that shrank, of 31 | **0.0** | 1.7 | 2.7 | 1.3–4.0 |
+
+      **The stated constant did not produce the stated effect.** §12A.8 proposed `DRILL_COST`
+      8,000–10,000 for a 1.5–2 year payback; 8,000 gives 6.5 months. The effect was the decision,
+      the constant an estimate, so the effect is what was built to.
+
+      **Lease worth had to be decoupled from `DRILL_COST`**, as §12A.8 foresaw: worth was derived
+      from drilling cost, so raising one raised the other in lockstep. Ground is now valued at a
+      share of what it will make over its life less what it costs to get out, against a long-run
+      netback rather than today's spot — which is how acreage is actually valued, and means a bust
+      does not reprice the ground under your feet overnight.
+
+      **One correction on the way.** `DRILL_COST` was first set to 25,000 from the new `npm run
+      economics` harness, and then a card read 46 months where the harness said 23. The harness was
+      measuring capital per *drilled* barrel; the industry's $8–15 is per *delivered* barrel, dry
+      holes included. The card was right. 15,000 is the number that makes the card read true, and
+      the harness now counts dry holes.
+
+      **Two bugs fell out of it**, both about when a fee is charged against when the day is written
+      up. A card resolving unanswered charged after the day book was written, and a player's own
+      answer charged before `step` cleared the ledger — so $39,049 of well services left a company
+      with no line anywhere saying where it went. The ledger now keeps entries stamped for the tick
+      being run, and a card expires at the *start* of the day beside the answers that were given,
+      which is also the more defensible rule: a No that does something is a decision taking effect.
+
+      **And one the package exposed.** A player's bid was capped at all their cash where the AI's was
+      capped at half, so once ground got expensive both bid levels collapsed to "everything I have".
+      Both are capped at half now, and the auction card is not raised for ground a strong bid could
+      not win.
    c. One retune of every scenario target and the D44 band.
    d. Company failure and replacement, which is new machinery rather than tuning.
 

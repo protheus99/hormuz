@@ -101,6 +101,8 @@ export interface Config {
     readonly LOTS: number;                 // blocks on offer each time
     readonly WELLS: { readonly MIN: number; readonly MAX: number };   // slots on a lot
     readonly MISREAD: number;              // how often a published survey is a band out, either way
+    readonly NETBACK: number;              // the long-run price ground is valued against, $/bbl
+    readonly WORTH_SHARE: number;          // the bidder's share of what the ground will leave behind
     readonly RESERVE_SHARE: number;        // no lot sells below this share of what it is worth
     readonly MAX_CASH_SHARE: number;       // and nobody bids away more than this much of their cash
     readonly AI_BID: { readonly MIN: number; readonly MAX: number };  // appetite, as a share of worth
@@ -225,7 +227,7 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
   // No field pumps the same number twice: weather, pumps, water cut, a crew short. Symmetric, so a
   // year's output is unchanged — but a day's is never quite the plan, and the Activity tab shows it.
   EXTRACTION_SPREAD: 0.06,
-  FIXED_COST_RATE: { PRODUCER: 2.00, REFINER: 4.00 },
+  FIXED_COST_RATE: { PRODUCER: 7.00, REFINER: 4.00 },
   ABANDON_SHARE: 0.05,
   // A well is a simpler thing than a refinery and there are a dozen of them, so each one fails
   // rarely; together they cost a producer a couple of per cent of its output a year.
@@ -256,6 +258,11 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
     // to drill what you had just bought, so the auction existed and no campaign could use it.
     EVERY_TICKS: 180, NOTICE_TICKS: 30, LOTS: 3, WELLS: { MIN: 6, MAX: 12 },
     MISREAD: 0.3, RESERVE_SHARE: 0.35, MAX_CASH_SHARE: 0.5, AI_BID: { MIN: 0.5, MAX: 1.2 },
+    // What ground is worth is what it will make less what it costs to get out, not what it costs to
+    // drill — which is what it used to be, and which meant a block's price carried DRILL_COST's
+    // distortion exactly (§12A.8). Acreage is valued on a long-run price rather than today's spot,
+    // as it is in life: a bust does not reprice the ground under your feet overnight.
+    NETBACK: 70, WORTH_SHARE: 0.15,
     // Bidding strong clears the keenest rival, so it wins — and pays a third over the odds for the
     // privilege. Bidding steady wins only against a shy field. That is the decision (§12A.4).
     STRONG_SHARE: 1.3, STEADY_SHARE: 0.75,
@@ -265,7 +272,10 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
   // The best prospects are drilled first, so the last slots on a lease are a gamble (§12A.3).
   DRY_HOLE: { FIRST: 0.85, PER_ATTEMPT: 0.04, FLOOR: 0.45 },
   DRILL_STEP: 500,
-  DRILL_COST: 2_000,
+  // A barrel of a well's life costs this much to put on the books: $25,000 a bbl/day of capacity
+  // over roughly 2.7 million barrels is $9.13 a barrel, against shale's $8–15. It was $0.73, which
+  // is why growth was nearly free and why nothing in this world could ever lose money (§12A.8, A).
+  DRILL_COST: 15_000,
   DRILL_TICKS: 45,
   STORAGE_STEP: 5_000,
   STORAGE_COST: 15,
@@ -276,7 +286,9 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
   TIER_COST: { TO_TIER_2: 3_000, TO_TIER_3: 5_000 },
   TIER_TICKS: 60,
   WORKS_CAPACITY_FACTOR: 0.60,
-  FACTORY_COST: 4_000,
+  // The same sum for a still: a unit pays for itself in about four years, against the industry's
+  // three to seven. It was ten months (§12A.8, A).
+  FACTORY_COST: 20_000,
   FACTORY_TICKS: 90,
   UNIT_CAPACITY: 2_500,
   MAINT_TICKS: 5,
@@ -334,7 +346,7 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
     SIGMA: { GASOLINE: 0.012, DIESEL: 0.010, FUEL_OIL: 0.015 },
     AMPLITUDE: { GASOLINE: 0.04, DIESEL: 0.03, FUEL_OIL: 0 },
     PHASE: { GASOLINE: 105, DIESEL: 289, FUEL_OIL: 0 },
-    THETA: 0.05,
+    THETA: 0.01,
     CORRELATION: { GASOLINE_DIESEL: 0.70, GASOLINE_FUEL_OIL: 0.40, DIESEL_FUEL_OIL: 0.50 },
     BETA: 0.10,
     SUPPLY_WINDOW: 7,

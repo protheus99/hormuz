@@ -15,7 +15,7 @@ function numbers(value: unknown, path = ''): [string, number][] {
 describe('DEFAULT_CONFIG (spec §7.4)', () => {
   it('carries the spec values that the design rests on', () => {
     expect(c.LOT_SIZE).toBe(1000);
-    expect(c.FIXED_COST_RATE).toEqual({ PRODUCER: 2, REFINER: 4 });
+    expect(c.FIXED_COST_RATE).toEqual({ PRODUCER: 7, REFINER: 4 });
     expect(c.DEAL_MAX_SHARE).toBe(0.8);
     expect(c.DEAL_TERMS).toEqual([30, 90]);
     expect(c.CARD_MAX_OPEN).toBe(3);
@@ -80,7 +80,7 @@ describe('withOverrides', () => {
 
   it('changes one nested value without restating its siblings', () => {
     const cheap = withOverrides(c, { FIXED_COST_RATE: { REFINER: 3 } });
-    expect(cheap.FIXED_COST_RATE).toEqual({ PRODUCER: 2, REFINER: 3 });
+    expect(cheap.FIXED_COST_RATE).toEqual({ PRODUCER: 7, REFINER: 3 });
   });
 
   it('replaces arrays whole', () => {

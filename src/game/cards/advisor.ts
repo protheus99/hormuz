@@ -54,7 +54,6 @@ const human = (a: Agent) => a.controller === 'HUMAN';
  */
 export function advise(w: World, state: AdvisorState, fills: readonly Fill[]): Card[] {
   remember(w, state, fills);
-  expire(w, state);
   const raised: Card[] = [];
   for (const me of w.agents) {
     if (me.insolvent) continue;
@@ -224,7 +223,7 @@ function details(s: Situation): string {
  * Cards past their deadline resolve as No (spec G4.1), and a No that does something does it. Not
  * deciding is a decision: on a dilemma it is the answer where the work quietly does not get done.
  */
-function expire(w: World, state: AdvisorState): void {
+export function expireCards(w: World, state: AdvisorState): void {
   for (const card of [...state.cards]) {
     if (card.deadline === null || w.tick < card.deadline) continue;
     const no = card.options.find((o) => o.choice === 'NO');

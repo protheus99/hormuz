@@ -9,7 +9,7 @@ import type { ChokepointStatus } from '../engine/enums';
 import { nextFloat, rngFor, type Rng } from '../engine/rng';
 import { findRoute } from '../engine/transport';
 import type { ScheduledEvent, World } from '../engine/world';
-import { BYPASS_CONFLICTS, EVENT_PROFILES, priceMove, strait, type EventProfile, type Range, type Stage } from '../content/events';
+import { BYPASS_CONFLICTS, EVENT_PROFILES, priceMove, RECESSION, RECESSION_NEWS, strait, type EventProfile, type Range, type Stage } from '../content/events';
 import type { Difficulty } from './newgame';
 import type { DailyPrices } from './view';
 
@@ -54,6 +54,8 @@ export interface DeckState {
   news: NewsItem[];
   /** Chokepoints the player's company depends on (deck rule 3). */
   relevant: ChokepointName[];
+  /** The day the last recession began, so one does not follow another (§12A.8, B). */
+  lastRecession: number;
   lastPriceNews: Partial<Record<string, number>>;
 }
 
@@ -70,11 +72,13 @@ const PRICE_NEWS_DAYS = 7;
 const PRICE_NEWS_GAP = 14;
 /** Day of the year by which the relevance rule forces an event if none has touched the player. */
 const RELEVANCE_DAY = 240;
+/** Days that must pass between recessions: a downturn is not an annual event. */
+const RECESSION_GAP = 2 * 365;
 
 export function createDeck(w: World, seed: string, difficulty: Difficulty, random: boolean, playerRegions: readonly RegionName[], playerKind: string): DeckState {
   return {
     rng: rngFor(`${seed}:deck`, 'events'), random, difficulty, active: [], past: [], seq: 0, news: [],
-    relevant: relevantChokepoints(w, playerRegions, playerKind), lastPriceNews: {},
+    relevant: relevantChokepoints(w, playerRegions, playerKind), lastPriceNews: {}, lastRecession: -Infinity,
   };
 }
 
@@ -202,6 +206,17 @@ export function deckDay(w: World, deck: DeckState, script: readonly ScriptedEven
     const roll = nextFloat(deck.rng);
     if (!inSeason(profile.season, tick) || deck.active.some((e) => e.chokepoint === c) || conflicts(deck, c)) continue;
     if (roll < (profile.rate * d.rate) / seasonLength(profile.season)) start(w, deck, c, planFor(profile, deck.rng, d.rumor), tick, false);
+  }
+
+  // A recession: rare, deep, and slow to lift. Demand for fuel falls and every margin follows it
+  // down — the one thing in this world that can make a bad year rather than a bad fortnight
+  // (§12A.8, B). Never two within a couple of years of each other.
+  if (tick - deck.lastRecession > RECESSION_GAP && nextFloat(deck.rng) < RECESSION.rate * d.rate) {
+    deck.lastRecession = tick;
+    for (const product of ['GASOLINE', 'DIESEL', 'FUEL_OIL'] as const) {
+      schedule(w, { tick, kind: 'PRODUCT_SHOCK', product, pct: -RECESSION.depth, persistent: false });
+    }
+    addNews(deck, { tick, ...RECESSION_NEWS });
   }
 
   // Rule 3: each year touches a strait the player depends on.

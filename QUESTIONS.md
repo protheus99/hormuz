@@ -283,3 +283,20 @@ cutting output against a band of at least three across S0–S17. Both are the sa
 nothing in this economy is near enough to its cost — and both belong to the stage 6 rebalance the
 owner already asked for ("there seems to be little chance of losing money at current high prices").
 Halts (70–72), utilisation (76–78%) and insolvencies (none) are all where they should be.
+
+## Two things the economics package raised, for the owner (2026-09-24)
+
+- **Ground is now beyond what a producer can afford.** A Medium block is worth about $63M against
+  bidders holding $19–37M in cash; before the bid cap was fixed, every bidder's "strong" bid was
+  simply all their money. §12A.8 predicted this exactly — "more than a producer holds at the first
+  auction, so lots would sit unsold until companies grew rich" — and the answer on the table was
+  that a failed company's leases go under the hammer (6d). Until that lands, **the auction is a
+  late-game event**: cheap LOW lots still change hands, a $63M block does not. Accept it, or lower
+  `AUCTION.WORTH_SHARE` so ground is cheaper relative to what it makes?
+
+- **The AI does not read a payback.** Rivals buy ground and drill on fixed per-look odds
+  (`ai/scoring.ts` GROWTH), whatever it costs. A player reading the meters now declines a three-year
+  payback, so the meter bot is out-grown by companies making a worse decision than it is — which is
+  why the finale went to ranks 14–18 after the package. The finale cannot be retuned honestly until
+  the AI weighs the same number the player does. Either teach `chooseForAi` the payback, or accept
+  that rivals are structurally more reckless and set the finale's band against that.

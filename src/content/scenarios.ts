@@ -199,7 +199,7 @@ export const SCENARIOS: readonly ScenarioData[] = [
       { tick: 55, engine: { tick: 55, kind: 'PLANT_ONLINE', agentId: 'Huanghai_Petrochem', online: true }, news: { headline: 'The East Asian refinery restarts', body: 'Demand for crude in the region recovers.' } },
     ],
     goalText: 'Make $550K profit from the outage.',
-    goal: [{ kind: 'PROFIT', atLeast: 550_000 }],
+    goal: [{ kind: 'PROFIT', atLeast: 750_000 }],
     milestones: [
       { label: 'Lease extra storage', condition: { kind: 'OWN', what: 'LEASE', atLeast: 1 }, reward: { cash: 100_000 } },
       { label: 'Stay solvent', condition: { kind: 'SOLVENT' }, reward: { report: true } },

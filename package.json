@@ -21,6 +21,7 @@
     "sim": "tsx src/cli/main.ts",
     "golden:browser": "vite tests/golden --port 5174 --strictPort",
     "scenario": "tsx tools/run-scenario.ts",
+    "economics": "tsx tools/economics.ts",
     "calibrate": "tsx tools/calibrate.ts",
     "report": "tsx tools/report.ts",
     "campaign": "tsx tools/campaign.ts",

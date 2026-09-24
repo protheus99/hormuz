@@ -201,7 +201,10 @@ export function step(w: World): TickReport {
   w.tick += 1;
   const tick = w.tick;
   const cfg = w.config;
-  w.ledger.entries = [];
+  // Today's entries only, and today began before this call: a player's answer is applied to the
+  // start of this tick and charged then, so clearing outright would take the money and lose the
+  // line that says where it went (found 2026-09-23 by $39,049 missing from a day book).
+  w.ledger.entries = w.ledger.entries.filter((e) => e.tick >= tick);
   const feesBefore = w.ledger.total;
   let byId = new Map<AgentId, Agent>(w.agents.map((a) => [a.agentId, a]));
 

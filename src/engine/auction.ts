@@ -82,12 +82,21 @@ export function mayBid(agent: Agent, region: RegionName): boolean {
 }
 
 /**
- * What a lot is worth before anyone's appetite: roughly what it costs to drill the ground out,
- * scaled by the survey. Bids are built from this, so a HIGH survey draws about twice a LOW one.
+ * What a lot is worth before anyone's appetite: what the ground will leave behind over its life,
+ * less what it costs to get it out, and a share of that to the bidder — the landowner keeps the
+ * rest, which is what a bonus is.
+ *
+ * It used to be what the ground cost to drill, which meant a block's price carried `DRILL_COST`'s
+ * distortion exactly and could never be fixed on its own (§12A.8). Valuing it on what it makes fixes
+ * both with one number, and it is how acreage is actually valued: against a long-run price rather
+ * than today's spot, because a bust does not reprice the ground under your feet overnight.
  */
 export function baseWorth(lot: LeaseLot, cfg: Config): number {
-  const development = lot.maxWells * cfg.DRILL_COST * cfg.DRILL_STEP * REGIONS[lot.region].laborCostIndex;
-  return development * (BAND_YEARS[lot.band] / BAND_YEARS.MEDIUM);
+  const labor = REGIONS[lot.region].laborCostIndex;
+  const barrels = lot.notionalCapacity * 365 * BAND_YEARS[lot.band];
+  const margin = cfg.AUCTION.NETBACK - lot.baseExtractionCost * labor - REGIONS[lot.region].infrastructureTariff;
+  const drilling = lot.maxWells * cfg.DRILL_COST * cfg.DRILL_STEP * labor;
+  return Math.max(0, cfg.AUCTION.WORTH_SHARE * (barrels * margin - drilling));
 }
 
 /** The lots for one year's auction, surveyed from the ground that is open to be taken. */
@@ -179,8 +188,12 @@ export type BidLevel = 'STRONG' | 'STEADY' | 'NONE';
 export function bidAmount(lot: LeaseLot, agent: Agent, cfg: Config, level: BidLevel): number {
   if (level === 'NONE') return 0;
   const share = level === 'STRONG' ? cfg.AUCTION.STRONG_SHARE : cfg.AUCTION.STEADY_SHARE;
-  // A bidder offers on what it believes is down there, which is the survey unless it has seen more.
-  return Math.min(share * worthTo(lot, agent, cfg), Math.max(0, agent.cash - agent.cashReserved));
+  // A bidder offers on what it believes is down there, which is the survey unless it has seen more,
+  // and never stakes more than `MAX_CASH_SHARE` of what it holds on one block — the same limit the
+  // AI has always had. Without it a player's strong and steady bids were both simply "all of it",
+  // which made two options out of one number (found 2026-09-24).
+  const most = cfg.AUCTION.MAX_CASH_SHARE * Math.max(0, agent.cash - agent.cashReserved);
+  return Math.min(share * worthTo(lot, agent, cfg), most);
 }
 
 /** What this lot is worth to this bidder, on whichever survey they are working from. */
