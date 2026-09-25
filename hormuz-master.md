@@ -1,7 +1,7 @@
 # HORMUZ MASTER PLAN
 ## Game Design, Engine Specification & Build Plan
 
-**Status:** In build — engine Phases 0–7, the game session (Phase 8) and decision cards (Phase 9) complete; the Phase 10 interface and Phase 11 events, news, campaign and difficulty are built, Phase 12's first balance pass is done, the owner's first eight rounds of playtest notes are answered (D45–D52), and Phase 13 — producer leases, wells and the card philosophy — is designed in §12A and being built; the open balance and process questions are in `QUESTIONS.md`. **The game is playable at [hormuz.protheus99.workers.dev](https://hormuz.protheus99.workers.dev/) as of 2026-09-25** — the first half of §14's release phase (§14.2). This is the single source of truth for the Hormuz game and its market engine (GEMS, the Global Energy Market Simulator). It supersedes all earlier GEMS specifications and prototypes.
+**Status:** In build — engine Phases 0–7, the game session (Phase 8) and decision cards (Phase 9) complete; the Phase 10 interface and Phase 11 events, news, campaign and difficulty are built, Phase 12's first balance pass is done, the owner's first eight rounds of playtest notes are answered (D45–D52), and Phase 13 — producer leases, wells and the card philosophy — is designed in §12A and being built; the open balance and process questions are in `QUESTIONS.md`. **The game is playable at [hormuz.protheus99.workers.dev](https://hormuz.protheus99.workers.dev/) as of 2026-09-25** — the first half of §14's release phase (§14.9); it wants a window 1024 px wide or more, and §12B is the review of what a phone would take. This is the single source of truth for the Hormuz game and its market engine (GEMS, the Global Energy Market Simulator). It supersedes all earlier GEMS specifications and prototypes.
 **Build:** TypeScript. `src/engine/` in Phases 1–7, then `src/game/` and `web/` in Phases 8–13 (§14).
 
 Anything not written here is out of scope. Every number in this document — labor indices, tariffs, transit times, freight rates, capacities, costs, scenario targets — is an **illustrative placeholder** to be tuned for play, not market data. There are no open decisions (§12).
@@ -1753,6 +1753,74 @@ identical to the last decimal — the property the first step was designed to ha
 producer still worked one region, and still true after the second, because the lots that now change
 hands across a border are bought empty. Calibration unchanged.
 
+## 12B. Playing on a Phone (to review)
+
+Stage 1 went live on 2026-09-25 (§14.9) and the first thing anyone did was open it on a phone. It
+does not work there. This section is what is actually wrong, measured on the deployed build, and
+what has to be decided before any of it is worth fixing.
+
+**This is not a regression.** §G10 has always said mobile is the fifth and last delivery stage and
+**"a new portrait and touch interface, not a repackaging"**, and Phase 10's acceptance says the
+layout works at **1280×800 and larger**. The build is doing what it was specified to do. Deploying it
+simply moved the question forward, because a link on a phone is now the easiest way for anyone to
+see the game.
+
+### What happens today
+
+Measured on [the live build](https://hormuz.protheus99.workers.dev/), a Sandbox producer, at four widths:
+
+| Width | `.body` grid resolves to | Left column | Top bar | Scrolls sideways |
+|---|---|---|---|---|
+| **375** (phone) | `26px 400px` | **26 px** | **178 px** | yes, to 778 px |
+| **768** (tablet portrait) | `317px 400px` | 317 px | **178 px** | yes |
+| **1024** | `588px 400px` | 588 px | 50 px | no |
+| **1280** and up | `844px 400px` | 844 px | 50 px | no |
+
+**1024 is the floor.** Below it the top bar wraps and the page scrolls sideways; at phone width the
+game is not playable at all.
+
+Three things break, and only the last is cosmetic:
+
+1. **The decisions column wins and the game loses.** `.body` is `grid-template-columns: 1fr 400px`
+   with no breakpoint. The 400 px is fixed, so as the window narrows the `1fr` gives way — at 375 px
+   it is **26 pixels wide**. The map is a 26-pixel sliver showing four legend dots; the Company,
+   Activity, Leases, Deals, Leaderboard and News tabs are all inside it and cannot be reached. The
+   right column meanwhile starts at x = 50 and runs to 450, off the side of a 375-pixel screen.
+2. **The top bar wraps to 178 pixels** — 22% of a phone screen before anything else. "Lone Star
+   Crude / 1 Jan, year 1 · 365 days left" stacks over seven lines, and the clock controls — pause,
+   ×1 to ×8, Next — are pushed off the right edge, so the game cannot even be run.
+3. **The smallest text is 11 px**, under the 12 px floor §14.1 sets for Phase 10.
+
+### What a review has to decide
+
+Resizing will not do it. The desktop screen is a map, a six-tab panel and a decisions column, all at
+once, on the premise that a player sees the world and their company together. A phone shows one of
+those at a time, so the question is not how to shrink the layout but **which of them a phone player
+is looking at, and how they move between them**.
+
+Open, and for the owner:
+
+- **Is a phone a first-class way to play, or a way to look?** A CEO answering three cards a week is a
+  better fit for a phone than most strategy games — the clock is the player's, the company runs
+  itself, and a decision is one card. That argues for first-class. Against it: the map, the
+  leaderboard and the lease register are all reading surfaces that want width.
+- **One screen at a time, or a scroll?** Tabs across the bottom (decisions · company · map · news) is
+  the phone convention and suits a game that is already tab-shaped. A single scrolling column is
+  less work and worse to play.
+- **What happens to the news strip?** It is 30 px of crawling text that reads well at 1280 and would
+  be most of a phone's top edge. Its three states (§G3) may need a fourth for narrow screens.
+- **Touch targets.** Every control is sized for a mouse. The clock buttons are 40 px wide against a
+  44 px minimum, and the card options are text rows.
+- **Does it need the engine at all?** It does not: the engine, session and save are all in the
+  browser already and none of this touches them. This is `web/` only, which is why it can wait
+  without blocking anything else.
+
+**Recommended order:** not yet. §G10's staging is right — the game is still being balanced (stage 6),
+and a second interface built on a design that is still moving would have to be built twice. What is
+worth doing now is the cheap half of it: a breakpoint below 1024 that says plainly *this game wants a
+wider window*, rather than showing a 26-pixel map and a top bar with no clock. That is honest, it
+costs an hour, and it stops the first thing a phone visitor sees being a broken screen.
+
 ## 13. Out of Scope & Deferred
 
 **Out of scope by design**
@@ -2134,7 +2202,7 @@ One codebase, released from the easiest channel to the hardest. Each stage adds 
 
 The free web version stays available after Steam launches. Schools mostly use Chromebooks, which cannot run Steam, and many teenagers cannot buy on Steam without a parent, so the browser is how the game reaches its youngest players.
 
-### 14.2 Released
+### 14.9 Released, stage 1
 
 **Stage 1 is live: the game runs outside this machine (2026-09-25).**
 [hormuz.protheus99.workers.dev](https://hormuz.protheus99.workers.dev/) — a Cloudflare Worker serving
@@ -2172,6 +2240,7 @@ see a new build.
 | 3.1 | 2026-09-18 | Closed the real-world framing decision as D32: real geography, fictional companies, faceless and non-violent event wording, coastline-only map. Renamed nine companies whose names matched or crowded real companies. Removed the refiner's "Buy an oilfield" card: only producers can become integrated. |
 | 3.2 | 2026-09-18 | Made every chokepoint a live risk: an event profile for each of the seven, deck rules, route cards that react to delays as well as tension, a campaign featuring six of the seven, verification runs S13–S17, and a property test that no single closure strands a region. |
 | 3.5 | 2026-09-19 | Phase 7 calibration: price discovery (bids climb towards value as tanks empty; unsold asks decay; closing offers published), refiners count the voyage in stock targets and tank space, credit lines, recoverable insolvency, AI output cuts, personality mixes, the global portfolio's cash and storage, and the D35 decisions. Global S0: markers about 78 / 71 / 63 in grade order on ~90% of days, no insolvencies. |
+| 5.1 | 2026-09-25 | §12B, a review of what playing on a phone would take, written from measurements of the live build rather than from intent. Below 1024 px the layout fails structurally, not cosmetically: `.body` is `1fr 400px`, so the fixed decisions column wins and at 375 px the left column — map and all six tabs — is 26 pixels wide, while the top bar wraps to 178 px and pushes the clock off screen. Consistent with §G10, which has always had mobile as the last delivery stage and a new interface rather than a repackaging; deploying simply moved the question forward. Recommended: not yet, but a breakpoint that says the game wants a wider window. |
 | 5.0 | 2026-09-25 | **Released, stage 1: the game runs outside this machine** — [hormuz.protheus99.workers.dev](https://hormuz.protheus99.workers.dev/), a Cloudflare Worker serving static assets, rebuilt from `main` on every push. Phase 13's first acceptance criterion verified rather than asserted: three same-origin requests and nothing external, and the golden replay's day 1, day 30 and final hashes identical in Chrome 152 and Node 24. Two deploys failed first — a Vite config with no `plugins` array for Cloudflare's installer to edit, then its first-time setup wizard answering its own prompts on every CI build because no wrangler config was committed. Both fixed at the root: the array is there with a comment saying why, and the setup is done once and committed. |
 | 4.18 | 2026-09-24 | The news strip: one strip under the top bar in three states (crawling, a pinned item of the company's own, and a breaking band that halts it and offers Continue). It answers a reported bug — the engine already stopped the clock for a reckoning and already returned the sentence explaining it, and the interface read that as a true/false and threw the message away, so the game halted in silence. The crawl is built on fixed slots and patched in place, because rebuilding it sends it back to the left and the news alone was doing that every few days. |
 | 4.17 | 2026-09-24 | A reckoning says what it is for. The record carries which corner it was (`ExposureItem.because`, seven keys, no prose in the engine), through a part-settled escape and on a tainted lot, and the notice opens with it in the words of the card the player answered. |
