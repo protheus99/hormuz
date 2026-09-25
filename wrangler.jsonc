@@ -1,0 +1,20 @@
+{
+  // Deploying the built game (2026-09-25). Committed so that `wrangler deploy` finds a configured
+  // project and simply deploys it: without this it runs its first-time setup flow on every CI
+  // build, which is an interactive wizard answering itself in a non-interactive environment.
+  //
+  // There is no Worker here, and there should not be: the engine, the session and the save all run
+  // in the browser, so a build is one HTML file and two assets. `directory` is what a Vite build
+  // leaves behind; `single-page-application` sends every other path to index.html, because the game
+  // is one page that swaps its own screens.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "hormuz",
+  "compatibility_date": "2026-09-25",
+  "observability": {
+    "enabled": true
+  },
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  }
+}
