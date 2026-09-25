@@ -68,8 +68,11 @@ describe('DEFAULT_CONFIG (spec §7.4)', () => {
     expect(c.ABANDON_SHARE).toBeLessThan(0.2);
     expect(c.DRY_HOLE.FIRST).toBeGreaterThan(c.DRY_HOLE.FLOOR);
     expect(c.DRY_HOLE.PER_ATTEMPT).toBeGreaterThan(0);
-    // Ten holes on one lease and the odds are still better than a coin toss.
-    expect(c.DRY_HOLE.FIRST - 9 * c.DRY_HOLE.PER_ATTEMPT).toBeGreaterThan(c.DRY_HOLE.FLOOR);
+    // The ramp has to do real work before the floor takes over — several holes on one lease, not
+    // one or two — and the floor itself stays well the better side of a coin toss: infill on ground
+    // you already produce from is not a gamble, whatever the last slot on it is (2026-09-25).
+    expect((c.DRY_HOLE.FIRST - c.DRY_HOLE.FLOOR) / c.DRY_HOLE.PER_ATTEMPT).toBeGreaterThan(4);
+    expect(c.DRY_HOLE.FLOOR).toBeGreaterThan(0.6);
   });
 
   it('refuses to be changed at runtime', () => {

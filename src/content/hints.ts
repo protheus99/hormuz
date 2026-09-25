@@ -85,8 +85,9 @@ export const HINTS: Readonly<Record<Exclude<Rung, 0>, readonly HintLine[]>> = {
     },
     {
       id: 'h4-agenda',
-      headline: 'The ministry’s committee has your company on its agenda',
-      body: 'Nobody will say under which heading. The meeting is not far off.',
+      headline: 'A ministry committee is meeting about your company',
+      body: 'Nobody will say whether you are down as routine business or as the other kind. It sits '
+        + 'this month, and those meetings end in a decision.',
     },
     {
       id: 'h4-legal',

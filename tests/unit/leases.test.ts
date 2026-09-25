@@ -102,9 +102,11 @@ describe('a lease and its wells', () => {
       for (let i = 0; i < 4; i++) { attempts += 1; if (drillWell(l, 500, DEFAULT_CONFIG, rng) !== null) hits += 1; }
     }
     const rate = hits / attempts;
-    // Eight wells already sunk, so the chance starts near 0.53 and falls 4 points a hole.
-    expect(rate).toBeGreaterThan(0.35);
-    expect(rate).toBeLessThan(0.60);
+    // Eight wells are already sunk here, so the ramp bottomed out long ago and every one of these
+    // is drilled at the floor. That floor is what infill on proven ground is worth: it used to be
+    // 0.45, a wildcat's odds on a development well, which made growing a coin flip (2026-09-25).
+    expect(rate).toBeGreaterThan(DEFAULT_CONFIG.DRY_HOLE.FLOOR - 0.06);
+    expect(rate).toBeLessThan(DEFAULT_CONFIG.DRY_HOLE.FLOOR + 0.06);
   });
 
   it('finds nothing at all once every slot is drilled', () => {

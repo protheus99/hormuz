@@ -302,7 +302,15 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
     BASE_COST: { LIGHT_SWEET: 38, MEDIUM: 36, HEAVY_SOUR: 34 },
   },
   // The best prospects are drilled first, so the last slots on a lease are a gamble (§12A.3).
-  DRY_HOLE: { FIRST: 0.85, PER_ATTEMPT: 0.04, FLOOR: 0.45 },
+  /**
+   * The floor was 0.45, and the floor is what a producer hits drilling its own established lease —
+   * so half of every drilling programme found nothing. That is a wildcat's odds applied to a
+   * development well: infill on proven, producing acreage succeeds about nine times in ten in life,
+   * and it is exploration that comes in at 10–40%. The ramp is right — the best prospects do go
+   * first — but the bottom of it was priced as if every well were a gamble on new ground, which
+   * made growth a coin flip and the finale unable to tell a grower from an idler (2026-09-25).
+   */
+  DRY_HOLE: { FIRST: 0.95, PER_ATTEMPT: 0.03, FLOOR: 0.75 },
   DRILL_STEP: 500,
   // A barrel of a well's life costs this much to put on the books: $20,000 a bbl/day of capacity,
   // over the barrels a well delivers with dry holes counted, is $8.60 a barrel against shale's

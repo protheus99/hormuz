@@ -229,13 +229,16 @@ export const SCENARIOS: readonly ScenarioData[] = [
     ],
   },
   {
-    id: 'FINALE', title: 'The Strait', tutorial: false, level: 'HARD', playType: null, region: null, lengthDays: 1095, difficulty: 'NORMAL', randomEvents: true,
-    blurb: 'Three years. A full Hormuz crisis, another strait in trouble without warning, and everything else the market throws at you.',
+    // Five years, not three. A well pays for itself in about 600 days, so over three a well drilled
+    // at the midpoint never paid back at all and growing was break-even: the measure could not tell
+    // a player who built a company from one who sat still (owner, 2026-09-25).
+    id: 'FINALE', title: 'The Strait', tutorial: false, level: 'HARD', playType: null, region: null, lengthDays: 1825, difficulty: 'NORMAL', randomEvents: true,
+    blurb: 'Five years. A full Hormuz crisis, another strait in trouble without warning, and everything else the market throws at you.',
     script: [hormuzCycle(400, 40)],
     goalText: 'Finish in the top three of your type, by profit per barrel of capacity (traders: by growth).',
     goal: [{ kind: 'RANK_TOP', places: 3 }],
     milestones: [
-      { label: 'Stay solvent for three years', condition: { kind: 'SOLVENT' }, reward: { report: true } },
+      { label: 'Stay solvent for five years', condition: { kind: 'SOLVENT' }, reward: { report: true } },
       { label: 'Double your net worth', condition: { kind: 'NET_WORTH', times: 2 }, reward: { cash: 1_000_000 } },
     ],
   },

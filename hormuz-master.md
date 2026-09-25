@@ -1638,10 +1638,36 @@ it is that good and bad decisions both make money. Losses must stay avoidable by
       bot spent $45.23M on eight programmes and finished on $21.09M of net worth against the idle
       bot's $73.04M — ranks 18, 18 and 13 against 6, 7 and 6.
 
-      **P2 was unblocked by e and is now set.** **P3** and the **finale** are not: the meter-led bot
-      finishes the finale 6th to 14th of 20 where the bot that answers nothing finishes 7th to 8th,
-      which is the open AI question in QUESTIONS.md rather than a number to move. **T3** is blocked
-      on f.
+      **P2 was unblocked by e. The finale was unblocked on 2026-09-25**, by diagnosing why growing
+      made the meter-led bot *worse*. Over three years it grew capacity 42% and lifted 44% more oil
+      and still finished behind:
+
+      ```
+      CAPITAL over three years   $50.14M
+      holes sunk                 6, of which 3 found oil (50%)
+      spent on dry holes         ~$25M   <- buys nothing, ever
+      ```
+
+      Half the drilling money was destroyed and the barrels the other half produced just replaced
+      it. Growth was break-even *by construction*: a well pays back in about 600 days, the finale
+      ran 1,095, and a well drilled at the midpoint never paid back at all.
+
+      Two changes, measured one at a time:
+
+      | | meter bot | idle bot |
+      |---|---|---|
+      | three years, dry-hole floor 0.45 | 6, 7, 13 | 9, 8, 6 |
+      | three years, floor **0.75** | 5, 18, 17 | 13, 13, 10 |
+      | **five years, floor 0.75** | **7, 13, 8** | 14, 14, 11 |
+
+      The floor alone did not do it — better odds help the rivals drill too, so relative rank barely
+      moved. **Length did**: the meter-led bot now beats the idle one on every seed, which had never
+      been true. Neither reaches the top three, so the band still holds.
+
+      The floor was the honest half of it anyway: 0.45 is a wildcat's odds, and a producer hits the
+      floor drilling its own established lease. Infill on proven, producing acreage succeeds about
+      nine times in ten; it is exploration that comes in at 10–40%. **P3** is still 1/3 for the
+      meter bot and **T3** is blocked on g.
    e. ✅ **A well holds oil of its own.** A lease's reserves were fixed when it was created and
       `reshare` divided that one pot equally among however many wells were on it, so a drilling
       programme bought rate and no barrels: $16.9M for the same block pumped half as fast again,
