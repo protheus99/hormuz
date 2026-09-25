@@ -301,6 +301,44 @@ comment rather than the code. When neither answer paid back inside two years bot
 the tie went to whichever looked less risky, and it bid $35M on ground its own card said would take
 56 months. Fixed.
 
+## Ground from a bust that nobody is allowed to buy (2026-09-24, blocks the rest of 6f)
+
+Winding up works: over twenty years a company runs out of road four to six times, its ground goes to
+the hammer with its wells and its oil, and some of it sells. Most of it does not, and the reason is
+structural rather than a number I can move.
+
+A producer may only work **one crude, in the regions it has rights in** (`mayWork`). So when one
+fails, the companies allowed to buy its ground are the few with the same grade in the same region —
+and after a bust they are poor. Measured on one twenty-year run, of seventeen unsold blocks:
+
+```
+Gulf_of_Oman/MEDIUM      1 eligible: Dhofar Oil  (cash $5M) - the company that just lost it
+Russia_Far_East/MEDIUM   1 eligible: Amur Pacific (cash $5M) - likewise
+North_Sea/MEDIUM         7 eligible, including Volga Export at $1,396M
+```
+
+The North Sea ones now sell (a queue bug: the same two lots came up for ever and the rest were never
+offered). The other two kinds cannot ever sell: the only company permitted to work that crude there
+is the one that was just wound up, and it has $5M. The pool grows and never empties.
+
+It does not affect play today — a scenario is at most three years and the first wind-up lands around
+year fifteen — but it is not a finished mechanism. Three ways out:
+
+1. **A licence that nobody works lapses.** After a few rounds unsold the ground goes back to the
+   state and leaves the world. Simple, real, and the pool stays bounded — but a bust then mostly
+   *destroys* acreage rather than handing it to whoever kept their powder dry, which was the point.
+2. **Let a receivership block be worked by any producer with rights in the region**, whatever crude
+   it is set up for. This needs `WellState.grade` to stop being one value per company, which is a
+   real change to the model, not a rule tweak.
+3. **More producers per grade per region in the portfolio**, so there is always somebody solvent who
+   could buy. Changes the cast rather than the rules.
+
+Related, and smaller: **the ground is not being bought on the line.** Every sale so far was paid in
+cash, against your "cheap is ok but still has to be worth enough to require borrowing". The reserve
+is `DISTRESS_SHARE` of what the same *undrilled* acreage is worth, and the wells already on it come
+free — which is where the bargain in a bust really lives. If it should bite harder, that is
+`DISTRESS_SHARE` upward, or bidders valuing the wells they are getting.
+
 ## Two things the economics package raised, for the owner (2026-09-24)
 
 - ~~**Ground is now beyond what a producer can afford.**~~ **Answered by the owner (2026-09-24):

@@ -6,8 +6,9 @@
 // with behavior, the route provider, is rebuilt at the start of every tick from the lane graph.
 
 import { advanceProjects, chargeLeases, type CapitalProject, type Lease, type ReservationRecord, type StandingOrder } from './actions';
+import type { Lease as GroundLease } from './model';
 import { expireCharters } from './charters';
-import { advancePlant, applyDecline, extract, internalTransfer, refine } from './agents';
+import { advancePlant, applyDecline, extract, internalTransfer, refine, refreshCapacity } from './agents';
 import { clear, createNode, submit, type ExchangeNode } from './clearing';
 import {
   acceptedGrades, createIntegrated, createProducer, createRefiner, createTrader, plantOf, total, wellOf,
@@ -23,16 +24,16 @@ import { FeeKind, type ChokepointStatus, type Grade, type Personality, type Prod
 import { runLogistics, type LogisticsReport } from './logistics';
 import { makeOrderId, type Agent, type AgentId, type Cargo, type Charter, type ChokepointName, type Deal, type Fill, type NodeName, type Order, type RegionName, type Tick } from './model';
 import { nextFloat, rngFor, type Rng } from './rng';
-import { advanceWells, capacityOf } from './leases';
+import { advanceWells, capacityOf, refreshStorage } from './leases';
 import { nameGround } from '../data/leasenames';
-import { aiBid, award, placeBid, surveyLots, type Auction } from './auction';
+import { aiBid, award, placeBid, surveyLots, type Auction , receivershipLots } from './auction';
 import { exposureDay, type Reckoning } from './exposure';
 import { decideOrders, recordSales, rememberMarkers, updateOutput, updateThrottle, type MarketView } from './rules';
 import { placeOrder, releaseEscrow, settleFills } from './settlement';
 import { avoidFor, buildLaneGraph, edgeCapacity, LaneRouteProvider, setChokepoint, type LaneGraph } from './transport';
 import { NODE_NAMES } from '../data/nodes';
 import { REGIONS } from '../data/regions';
-import type { PlantData, PortfolioEntry } from '../data/portfolios';
+import { PRODUCER_CASH, REFINER_CASH_PER_BBL_DAY, TRADER_CASH, type PlantData, type PortfolioEntry } from '../data/portfolios';
 
 /** Something scheduled to happen at the start of a tick (spec §5 phase 0). Event stages come in Phase 11. */
 export type ScheduledEvent =
@@ -71,6 +72,8 @@ export interface WorldTotals {
   forceSold: number;
   /** Crude taken with ground that was forfeited (§12A.6). It leaves the world with the lease. */
   confiscated: number;
+  /** Money put into the world by the backers of a company that was wound up and started again. */
+  recapitalised: number;
   retailRevenue: number;
   forcedSaleRevenue: number;
   /** Credit drawn less credit repaid, across all companies: money lent into the economy. */
@@ -99,6 +102,8 @@ export interface World {
   distressDays: Partial<Record<AgentId, number>>;
   /** Every company that has ever been insolvent, with the first tick it happened (D11: recorded). */
   insolvencies: Partial<Record<AgentId, Tick>>;
+  /** Every company that has been wound up and started again, with the day it happened (D57). */
+  failures: Partial<Record<AgentId, Tick>>;
   /** Capital projects under way, leases, standing orders and pipeline reservations (actions.ts). */
   projects: CapitalProject[];
   leases: Lease[];
@@ -106,6 +111,12 @@ export interface World {
   charters: Charter[];
   /** Numbers charters as they are hired, so their ids are stable in a replay. */
   charterSeq: number;
+  /**
+   * Ground taken off a company that was wound up, waiting for the next sale (§12A.8, D57). It is
+   * nobody's while it sits here, but the oil in its tanks is still in the world, so `barrelsHeld`
+   * counts it and the conservation invariant still closes.
+   */
+  forSale: GroundLease[];
   /** The lots on offer, from the day they are published to the day they are awarded (§12A.4). */
   auction: Auction | null;
   auctionSeq: number;
@@ -150,6 +161,8 @@ export interface TickReport {
   readonly reckonings: readonly ReckoningReport[];
   /** Set on the day the economic climate turns from one kind of weather to another (§12A.8, B). */
   readonly weather: { readonly was: Weather; readonly now: Weather } | null;
+  /** Companies wound up today, and how many blocks each sent to the hammer (D57). Almost always empty. */
+  readonly wound: readonly { readonly agentId: AgentId; readonly name: string; readonly blocks: number }[];
   readonly fees: number;
 }
 
@@ -178,13 +191,16 @@ export function createWorld(s: WorldSettings): World {
     dealSeq: 0,
     events: [...(s.events ?? [])].sort((a, b) => a.tick - b.tick),
     totals: {
-      extracted: 0, extractedBy: {}, refined: 0, forceSold: 0, confiscated: 0, retailRevenue: 0, forcedSaleRevenue: 0, netBorrowing: 0,
+      extracted: 0, extractedBy: {}, refined: 0, forceSold: 0, confiscated: 0, recapitalised: 0,
+      retailRevenue: 0, forcedSaleRevenue: 0, netBorrowing: 0,
       startingBarrels: barrelsHeld(agents, []),
       startingCash: agents.reduce((sum, a) => sum + a.cash, 0),
     },
     distressDays: {},
     insolvencies: {},
+    failures: {},
     projects: [],
+    forSale: [],
     leases: [],
     charters: [],
     charterSeq: 0,
@@ -318,12 +334,13 @@ export function step(w: World): TickReport {
   settleCredit(w, tick);
   for (const a of w.agents) if (a.kind === 'PRODUCER' || a.kind === 'INTEGRATED') updateOutput(a, w.nodes, w.ledger, tick, cfg, !w.cardsActive);
   for (const a of w.agents) if (a.kind === 'TRADER') rememberMarkers(a, w.nodes);
-  updateInsolvency(w);
+  const wound = updateInsolvency(w);
   checkInvariants(w, deliveries);
 
   return {
     tick, extracted, refined, byAgent, fills, deliveries, logistics, reckonings,
     weather: turned.was === turned.now ? null : turned,
+    wound,
     fees: w.ledger.total - feesBefore,
   };
 }
@@ -365,15 +382,16 @@ export function checkInvariants(w: World, deliveries: readonly DealDelivery[] = 
   // 1. Barrel conservation.
   const expectedBarrels = t.startingBarrels + t.extracted - t.refined - t.forceSold - t.confiscated;
   const barrelFlow = t.startingBarrels + t.extracted + t.refined + t.forceSold + t.confiscated;
-  const held = barrelsHeld(w.agents, w.cargo);
+  const held = barrelsHeld(w.agents, w.cargo, w.forSale);
   if (Math.abs(held - expectedBarrels) > 1e-6 + 1e-12 * barrelFlow) {
     fail(`barrels held ${held} ≠ start + extracted − refined − force-sold − confiscated = ${expectedBarrels}`);
   }
 
   // 2. Cash conservation.
   const cash = w.agents.reduce((s, a) => s + a.cash, 0);
-  const expectedCash = t.startingCash + t.retailRevenue + t.forcedSaleRevenue + t.netBorrowing - w.ledger.total;
-  const cashFlow = t.startingCash + t.retailRevenue + t.forcedSaleRevenue + Math.abs(t.netBorrowing) + w.ledger.total;
+  const expectedCash = t.startingCash + t.recapitalised + t.retailRevenue + t.forcedSaleRevenue + t.netBorrowing - w.ledger.total;
+  const cashFlow = t.startingCash + Math.abs(t.recapitalised) + t.retailRevenue + t.forcedSaleRevenue
+    + Math.abs(t.netBorrowing) + w.ledger.total;
   if (Math.abs(cash - expectedCash) > 1e-3 + 1e-12 * cashFlow) {
     fail(`company cash ${cash} ≠ start + revenue − fees = ${expectedCash}`);
   }
@@ -591,14 +609,24 @@ function runAuction(w: World, tick: Tick): void {
     // Ground bought is ground with nothing on it, so nothing about the winner's output changes
     // today: it has wells to drill before a barrel moves (§12A.4). The bonus leaves the economy
     // the way a tariff does, so it is recorded as a fee or the cash invariant would catch it.
-    for (const { winner, price } of award(w.auction.lots, w.agents, tick, cfg)) {
+    for (const { lot, winner, price } of award(w.auction.lots, w.agents, tick, cfg)) {
       recordFee(w.ledger, { tick, agentId: winner.agentId, kind: FeeKind.LEASE_BONUS, amount: price });
+      // Ground sold out of a receivership belongs to its buyer now, so it leaves the pool.
+      if (lot.receivership !== undefined) w.forSale = w.forSale.filter((l) => l !== lot.receivership);
     }
+    // Whatever did not sell goes to the back of the queue, so the next round offers the ground
+    // behind it. Without this the same two blocks came up for ever and the rest were never offered
+    // at all — including ones a company with $1.4bn in the bank was waiting to buy (2026-09-24).
+    const offered = new Set(w.auction.lots.map((l) => l.receivership).filter((l) => l !== undefined));
+    w.forSale = [...w.forSale.filter((l) => !offered.has(l)), ...w.forSale.filter((l) => offered.has(l))];
     w.auction = null;
   }
   if (w.auction === null && tick % cfg.AUCTION.EVERY_TICKS === cfg.AUCTION.EVERY_TICKS - cfg.AUCTION.NOTICE_TICKS) {
     w.auctionSeq += 1;
-    w.auction = { tick: (tick + cfg.AUCTION.NOTICE_TICKS) as Tick, lots: surveyLots(w.auctionSeq, cfg, w.rng.wells, w.agents) };
+    // What a bust left behind comes up first, and new acreage makes up the rest of the round.
+    const wound = receivershipLots(w.auctionSeq, w.forSale, cfg);
+    const fresh = surveyLots(w.auctionSeq, cfg, w.rng.wells, w.agents).slice(0, Math.max(0, cfg.AUCTION.LOTS - wound.length));
+    w.auction = { tick: (tick + cfg.AUCTION.NOTICE_TICKS) as Tick, lots: [...wound, ...fresh] };
     // A sealed bid is lodged when the round opens and opened on the day, so the rest of the field
     // has already decided while the player is still thinking. That is what makes a number somebody
     // was not meant to hear worth anything at all (§12A.6, dilemma 23).
@@ -710,7 +738,8 @@ function dailyFixedCost(a: Agent, cfg: Config): number {
  * Once its available cash is back above zero — cargo it had already paid for gets sold — it may
  * trade again; the record of the insolvency stays in `insolvencies`.
  */
-function updateInsolvency(w: World): void {
+function updateInsolvency(w: World): { readonly agentId: AgentId; readonly name: string; readonly blocks: number }[] {
+  const wound: { agentId: AgentId; name: string; blocks: number }[] = [];
   for (const a of w.agents) {
     const creditLeft = a.creditLimit - a.creditDrawn;
     const available = a.cash - a.cashReserved;
@@ -723,12 +752,71 @@ function updateInsolvency(w: World): void {
     } else if (a.insolvent && available >= 0) {
       a.insolvent = false;
     }
+    // Six months unable to trade is the end of it. The shell is wound up and started again rather
+    // than removed, so the cast never thins (D35), and its ground goes to the hammer (D57).
+    if (days >= w.config.FAILURE_DAYS) wound.push({ agentId: a.agentId, ...windUp(w, a, w.tick) });
   }
+  return wound;
+}
+
+/**
+ * A company that has run out of road (§12A.8, D57). It is not removed from the cast — the world has
+ * too few companies to lose any (D35) — it is wound up and started again under new backers: its
+ * ground goes to the hammer, its debts are written off, and money comes in to replace what was lost.
+ * A producer comes out of it exactly as the owner described a new entrant: fully capitalised and not
+ * fully formed, with money and no acreage, having to bid and drill like everybody else.
+ */
+export function windUp(w: World, a: Agent, tick: Tick): { readonly name: string; readonly blocks: number } {
+  const field = wellOf(a);
+  let blocks = 0;
+  if (field !== undefined && field.leases.length > 0) {
+    // A reorganisation, not a liquidation: the business keeps the one block it is built around and
+    // everything else goes, with its wells and the oil in its tanks — which is how a bust hands
+    // working assets to whoever kept their powder dry.
+    //
+    // It keeps one because a producer stripped of every acre can never come back: with no wells it
+    // has no borrowing base, and a block costs many times the cash its backers put in. Twenty-year
+    // runs left nineteen blocks in the pool that nothing in the world could ever lift, because the
+    // only company allowed to work that crude in that region was the one that had just lost it
+    // (measured 2026-09-24).
+    const keep = field.leases.reduce((best, l) => (l.reserves > best.reserves ? l : best), field.leases[0] as GroundLease);
+    const rest = field.leases.filter((l) => l !== keep);
+    blocks = rest.length;
+    w.forSale.push(...rest);
+    field.leases = [keep];
+    refreshStorage(field);
+    refreshCapacity(field);
+  }
+  // The debt is written off. No cash moves, so the cash invariant does not see it; what it costs is
+  // a company's net worth, which is where a write-off belongs.
+  a.creditDrawn = 0;
+  a.insolvent = false;
+  w.distressDays[a.agentId] = 0;
+  // New money, put in by whoever bought the shell. It is counted, or invariant 2 would catch it.
+  const fresh = startingCashFor(a);
+  w.totals.recapitalised += fresh - a.cash;
+  a.cash = fresh;
+  a.cashReserved = 0;
+  a.creditLimit = creditLimit(a, w.config);
+  a.record = [];
+  a.counsel = false;
+  w.failures[a.agentId] = tick;
+  return { name: a.name, blocks };
+}
+
+/** What backers put into a company of this kind when they take on the shell: the same as a new one. */
+function startingCashFor(a: Agent): number {
+  const plants = plantsOf(a);
+  if (a.kind === 'TRADER') return TRADER_CASH;
+  if (plants.length > 0) return REFINER_CASH_PER_BBL_DAY * plants.reduce((s, p) => s + p.processingCapacity, 0);
+  return PRODUCER_CASH;
 }
 
 /** Every barrel the companies hold, plus every barrel at sea (invariant 1). */
-export function barrelsHeld(agents: readonly Agent[], cargo: readonly Cargo[]): number {
+export function barrelsHeld(agents: readonly Agent[], cargo: readonly Cargo[], forSale: readonly GroundLease[] = []): number {
   let sum = cargo.reduce((s, c) => s + c.qty, 0);
+  // Ground waiting for the hammer still has oil in its tanks, and it is still in the world.
+  for (const l of forSale) sum += l.storage + l.storageEscrow;
   for (const a of agents) {
     const well = wellOf(a);
     if (well) sum += well.storage + well.storageEscrow;

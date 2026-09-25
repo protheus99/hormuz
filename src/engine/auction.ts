@@ -9,8 +9,9 @@
 import { REGIONS, type RegionName } from '../data/regions';
 import type { Config } from './config';
 import { buyingPower, wellOf } from './companies';
+import { refreshCapacity } from './agents';
 import { Grade } from './enums';
-import { BAND_YEARS, newLease } from './leases';
+import { BAND_YEARS, newLease, refreshStorage } from './leases';
 import { LeaseBand, type Agent, type AgentId, type Lease, type Tick } from './model';
 import { nextFloat, type Rng } from './rng';
 import { addExposure, type CornerKind } from './exposure';
@@ -45,6 +46,12 @@ export interface LeaseLot {
    * wins you the lot, and that is what a reckoning takes back.
    */
   tainted: { readonly agentId: AgentId; readonly saved: number; readonly because: CornerKind }[];
+  /**
+   * Ground taken off a company that was wound up, coming up as it stands — wells, oil and all. The
+   * winner takes this lease rather than fresh acreage, which is how a bust hands working assets to
+   * whoever kept their powder dry (§12A.8, D57).
+   */
+  readonly receivership?: Lease;
 }
 
 export interface Auction {
@@ -144,6 +151,39 @@ export function surveyLots(seq: number, cfg: Config, rng: Rng, agents: readonly 
     lots.push({ ...lot, reserve: cfg.AUCTION.RESERVE_SHARE * baseWorth(lot, cfg) });
   }
   return lots;
+}
+
+/**
+ * Ground from a wound-up company, put up as it stands. It goes cheap — `DISTRESS_SHARE` of what the
+ * same acreage would fetch new — but never below what the bidders are actually holding in cash, so
+ * it still has to be bought on the line rather than out of the current account (owner, 2026-09-24).
+ */
+export function receivershipLots(seq: number, leases: readonly Lease[], cfg: Config): LeaseLot[] {
+  // A few at a time. A company can go under holding eleven blocks, and putting all eleven up at
+  // once is not a sale, it is a flood: nobody in a bust can lift that, and the round drowns the
+  // ordinary acreage as well (measured 2026-09-24).
+  return leases.slice(0, cfg.AUCTION.WOUND_LOTS).map((lease, i) => {
+    const lot: LeaseLot = {
+      lotId: `wound-${seq}-${i + 1}`,
+      name: lease.name,
+      region: lease.region,
+      grade: lease.grade,
+      // Nothing is hidden about ground that has been worked: its band is what it turned out to be.
+      band: lease.band,
+      trueBand: lease.band,
+      surveyed: [],
+      maxWells: lease.maxWells,
+      notionalCapacity: lease.maxWells * cfg.DRILL_STEP,
+      baseExtractionCost: lease.baseExtractionCost,
+      reserve: 0,
+      bids: [], tainted: [],
+      receivership: lease,
+    };
+    // Cheap, and no floor beyond that: a reserve set from what the bidders happen to be holding put
+    // $51.9M on a block worth $12.9M, and of course nothing bid. What makes it take the credit line
+    // is the price a contested block reaches, not the reserve.
+    return { ...lot, reserve: cfg.AUCTION.DISTRESS_SHARE * baseWorth(lot, cfg) };
+  });
 }
 
 /** One band up or down, as far as the scale goes. */
@@ -248,7 +288,9 @@ export function award(
     // in phase 7, the same day, before the solvency invariant is checked.
     if (field === undefined || buyingPower(best.agent) < best.amount) continue;
     best.agent.cash -= best.amount;
-    const lease = newLease({
+    // Ground from a receivership comes across as it stands, wells and oil and all; new acreage is
+    // drilled from nothing. Either way the buyer's field has to be told what it now holds.
+    const lease = lot.receivership ?? newLease({
       id: `${best.agent.agentId}-${lot.lotId}`,
       name: lot.name,
       region: lot.region,
@@ -260,7 +302,16 @@ export function award(
       wells: 0,
       maxWells: lot.maxWells,
     });
-    field.leases.push(lease);
+    // Ground with wells and oil on it arrives carrying both, so the field's derived totals have to
+    // be told; and it is carried at what this buyer paid, not at what the last owner did.
+    if (lot.receivership !== undefined) {
+      (lease as { acquiredFor: number }).acquiredFor = best.amount;
+      field.leases.push(lease);
+      refreshStorage(field);
+      refreshCapacity(field);
+    } else {
+      field.leases.push(lease);
+    }
     // Ground won on something you were not meant to have is ground you can be made to give back.
     const taint = lot.tainted.find((t) => t.agentId === (best as { agent: Agent }).agent.agentId);
     if (taint !== undefined) {

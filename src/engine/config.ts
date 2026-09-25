@@ -102,6 +102,8 @@ export interface Config {
     readonly WELLS: { readonly MIN: number; readonly MAX: number };   // slots on a lot
     readonly MISREAD: number;              // how often a published survey is a band out, either way
     readonly NETBACK: number;              // the long-run price ground is valued against, $/bbl
+    readonly DISTRESS_SHARE: number;       // what a wound-up company's ground goes for, against new
+    readonly WOUND_LOTS: number;           // how much of it comes up in any one round
     readonly WORTH_SHARE: number;          // the bidder's share of what the ground will leave behind
     readonly RESERVE_SHARE: number;        // no lot sells below this share of what it is worth
     readonly MAX_CASH_SHARE: number;       // and nobody bids away more than this much of their cash
@@ -190,6 +192,12 @@ export interface Config {
     readonly CALM_DAYS: number;            // no jump lands before this, so a first year is ordinary
     readonly MAX: number;
   };
+  /**
+   * Days a company may sit unable to trade before it is wound up and its backers replaced. Six
+   * months: long enough that a bad quarter is survivable, short enough that nobody sits insolvent
+   * for years, which is what the twenty-year runs showed happening (§12A.8, D57).
+   */
+  readonly FAILURE_DAYS: number;
   readonly CREDIT_RATE: number;            // per tick on the drawn balance
   readonly CREDIT_ASSET_SHARE: number;     // credit limit as a multiple of capital assets
   readonly CREDIT_BASE: { readonly PRODUCER: number; readonly REFINER: number; readonly TRADER: number };   // $ added to the asset share
@@ -279,6 +287,14 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
     // distortion exactly (§12A.8). Acreage is valued on a long-run price rather than today's spot,
     // as it is in life: a bust does not reprice the ground under your feet overnight.
     NETBACK: 70, WORTH_SHARE: 0.15,
+    /**
+     * What a wound-up company's ground goes for, against new acreage of the same size. A bust hands
+     * its assets to whoever kept their powder dry, so it is cheap — but never cheaper than what a
+     * producer keeps in the bank, because it should still have to be bought on the line (owner,
+     * 2026-09-24). That floor is worked out from what the bidders are actually holding on the day.
+     */
+    DISTRESS_SHARE: 0.55,
+    WOUND_LOTS: 2,
     // Bidding strong clears the keenest rival, so it wins — and pays a third over the odds for the
     // privilege. Bidding steady wins only against a shy field. That is the decision (§12A.4).
     STRONG_SHARE: 1.3, STEADY_SHARE: 0.75,
@@ -410,6 +426,7 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
     MAX: 1.0,
   },
 
+  FAILURE_DAYS: 180,
   CREDIT_RATE: 0.0003,
   // A line of about what the company is worth, which is what a bank will lend against ground and
   // steel. It was five times capital assets, which came to 3.7 times net worth — and since nothing
