@@ -54,6 +54,8 @@ export function showNewGame(root: Element, hasSave: boolean, start: (s: GameSett
       <section class="newgame">
         <h1>HORMUZ</h1>
         <p class="lead">You run an oil company. The market runs itself; you make the big calls.</p>
+        <p class="narrow-note">This page reads anywhere, but the game itself needs a window about
+          1,024 pixels across — a laptop, or a tablet held sideways.</p>
         <button class="btn how-open" id="how">How it is played</button>
         <div class="seg" style="margin-bottom:20px">
           <button data-mode="CAMPAIGN" class="${campaign ? 'active' : ''}">Campaign</button>

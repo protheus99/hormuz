@@ -1816,10 +1816,15 @@ Open, and for the owner:
   without blocking anything else.
 
 **Recommended order:** not yet. §G10's staging is right — the game is still being balanced (stage 6),
-and a second interface built on a design that is still moving would have to be built twice. What is
-worth doing now is the cheap half of it: a breakpoint below 1024 that says plainly *this game wants a
-wider window*, rather than showing a 26-pixel map and a top bar with no clock. That is honest, it
-costs an hour, and it stops the first thing a phone visitor sees being a broken screen.
+and a second interface built on a design that is still moving would have to be built twice.
+
+**The cheap half is done (2026-09-25).** Below 1024 px the game screen is replaced by a notice
+saying what it needs and why, and the new-game page — which reads perfectly well at 375 px — keeps
+its scenario list and gains a line warning what is coming, so nobody starts a game they cannot play.
+CSS only; the shell stops being a three-row grid under the breakpoint so the notice can centre.
+Verified at 375, 768, 1023, 1024 and 1440: the notice appears at 1023 and not at 1024, nothing
+scrolls sideways at any of them, and the desktop layout is untouched (left column 1,004 px, right
+400 px, top bar 50 px).
 
 ## 13. Out of Scope & Deferred
 

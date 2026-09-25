@@ -56,6 +56,19 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
 
   mount(root, html`
     <div class="game">
+      <!-- Below 1024 px the game screen does not work and cannot be made to by resizing: the map,
+           the six tabs and the decisions sit side by side, and a phone shows one thing at a time
+           (§12B). Until there is a portrait interface, say so rather than showing a 26-pixel map
+           and a top bar with the clock pushed off the edge. -->
+      <section class="narrow" role="status">
+        <h1>This game wants a wider window</h1>
+        <p>The screen puts a world map, your company and the decisions waiting for you side by
+          side, so it needs about <strong>1,024 pixels</strong> across. This one has less.</p>
+        <p>A tablet held sideways is usually enough. A phone is not — a version made for one is
+          planned, and is a different screen rather than this one squeezed.</p>
+        <p class="small muted">Open it on a laptop or a desktop and it will pick up where you left
+          off. A saved game stays in the browser that played it.</p>
+      </section>
       <header class="topbar" id="top"></header>
       <div id="ticker"></div>
       <div class="body">
