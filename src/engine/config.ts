@@ -313,7 +313,13 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
   DRILL_COST: 20_000,
   DRILL_TICKS: 45,
   STORAGE_STEP: 5_000,
-  STORAGE_COST: 15,
+  /**
+   * A barrel of tank, built. Above-ground crude tankage runs $20–40 a barrel of capacity in life,
+   * and this was $15 — against a price range of $21–22 a barrel across an ordinary year, so one
+   * fill-and-empty paid a tank off in 250 days where a well takes 668. Storage was the best
+   * investment in the game by a factor of nearly three, and the cheapest (owner, 2026-09-25).
+   */
+  STORAGE_COST: 30,
   STORAGE_TICKS: 20,
 
   REFINERY_RESTART_COST: 2.00,

@@ -312,6 +312,28 @@ barrels per lease *and* per grade, so a second crude is something a field can ca
 still assumed one grade and now read the leases instead — an integrated major's internal transfer,
 and a seller's capacity for a deal, which had been wrong since 3b anyway.
 
+## Renting a tank costs nearly as much as building one (2026-09-25, belongs with the trader)
+
+Found while raising `STORAGE_COST`, which the owner was right about: a barrel of tank was $15
+against $20–40 in life, and paid for itself in 250 days on an ordinary year's price range where a
+well takes 668. It is $30 now.
+
+The worse number is beside it. Renting:
+
+```
+build a barrel of tank   $30     one off
+rent a barrel of tank    $21.90  a year   (LEASE_RATE 0.06/bbl/day)
+renting for a year costs 73% of building one for ever - it was 146%
+```
+
+In life, leased tank storage runs $3–7 a barrel a year against $20–40 to build — about **15%**. So
+`LEASE_RATE` is out by roughly five times, and nobody who can build should ever rent.
+
+It is left alone for now because it lands hardest on the trader: `LEASE_STORAGE` is their most
+frequent card, and T2 "Contango" is built on leasing space ahead of a glut. Cutting the rate to
+something defensible makes traders materially richer, which is a balance change that belongs in
+stage g with the rest of the trader's economics rather than as a lone config edit today.
+
 ## The idle bot can win the finale (2026-09-25, blocks the last of the retune)
 
 On seed `acceptance`, three years of the finale:

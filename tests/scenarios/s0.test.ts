@@ -81,8 +81,12 @@ describe('credit lines (spec G6, invariants 8 and 9)', () => {
     const w = s0();
     const cfg = w.config;
     const straits = w.agents.find((a) => a.agentId === 'Straits_Refining');
-    // Coastal_Asia labor 0.80: (20,000 + 3,000 + 5,000) × 8,000 plant + 15 × 25,000 tanks × 0.80.
-    expect(straits?.creditLimit).toBeCloseTo(cfg.CREDIT_ASSET_SHARE * (28_000 * 8_000 + 15 * 25_000) * 0.8 + cfg.CREDIT_BASE.REFINER, 6);
+    // Coastal_Asia labor 0.80: the plant at its tier cost over 8,000 bbl/day, plus 25,000 bbl of
+    // tank. Every price comes from the config, because this last held a tank at $15 written into
+    // the test and broke the day the real one moved (2026-09-25).
+    const plant = cfg.FACTORY_COST + cfg.TIER_COST.TO_TIER_2 + cfg.TIER_COST.TO_TIER_3;
+    const assets = (plant * 8_000 + cfg.STORAGE_COST * 25_000) * 0.8;
+    expect(straits?.creditLimit).toBeCloseTo(cfg.CREDIT_ASSET_SHARE * assets + cfg.CREDIT_BASE.REFINER, 6);
   });
 
   it('lends about what the company is worth, not several times over', () => {
