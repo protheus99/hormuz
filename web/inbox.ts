@@ -147,7 +147,15 @@ export function inboxPanel(view: PlayerView, answered: ReadonlyMap<string, strin
       </details>
       ${raised.map((c) => card(c, answered.get(c.id), openDetails.has(c.id)))}
       ${waiting === 0 && resume !== null ? html`<button class="btn primary continue" data-continue>Continue ▸${resume > 1 ? ` (×${resume})` : ''}</button>` : ''}
-    </section>` : ''}`;
+    </section>` : html`
+    <section class="panel quiet">
+      <h2>Nothing to decide today</h2>
+      <p>Your company is running itself on the settings you have given it — pumping, selling and
+        meeting its deals without needing you. Run the clock on, and this is where a decision will
+        appear when one is worth your time.</p>
+      <p class="small muted">The strip along the top carries the market meanwhile: prices, what
+        rivals are doing, and anything that has happened to you.</p>
+    </section>`}`;
 }
 
 

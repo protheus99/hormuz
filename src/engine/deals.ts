@@ -6,7 +6,7 @@
 // buyer SHORTFALL_RATE for any barrels it could not load. Deal trades never touch marker prices.
 
 import { acceptedGrades, averageCost, plantOf, wellOf } from './companies';
-import { drawFrom, heldIn, tanksFor } from './leases';
+import { drawFrom, heldIn, leaseCapacity, tanksFor } from './leases';
 import { freightRate, idleCharter } from './charters';
 import type { Config } from './config';
 import { FeeKind, type Grade, type Personality } from './enums';
@@ -284,7 +284,13 @@ function stockOf(seller: Agent, origin: RegionName, grade: Grade): { available: 
 /** What a seller can supply from an origin, per day; undefined if it cannot supply there at all. */
 function sellerCapacity(seller: Agent, origin: RegionName, grade: Grade): number | undefined {
   const well = wellOf(seller);
-  if (well) return seller.region === origin && well.grade === grade ? well.extractionCapacity : undefined;
+  if (well) {
+    // What this company can lift of that crude, at that quay — read off the ground it holds there
+    // rather than off the one grade and one region it started in (stage 3b, and 2026-09-25).
+    const here = well.leases.filter((l) => l.region === origin && l.grade === grade);
+    const rate = here.reduce((s, l) => s + leaseCapacity(l), 0);
+    return rate > 0 ? rate : undefined;
+  }
   if (seller.kind === 'TRADER') return seller.hubs[origin]?.capacity;
   return undefined;
 }

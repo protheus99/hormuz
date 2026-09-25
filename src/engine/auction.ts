@@ -73,10 +73,12 @@ export function leasableRegions(): RegionName[] {
  * a producer can work a second region, and sell what it lifts there from that region's quay.
  */
 export function mayWork(agent: Agent, lot: LeaseLot): boolean {
-  const field = wellOf(agent);
-  // A producer is set up for one crude — its wells, its buyers and its price are all that grade —
-  // but since stage 3b it can work that crude in any region it has the right to take ground in.
-  return field !== undefined && lot.grade === field.grade && mayBid(agent, lot.region);
+  // Anybody who may take ground here may bid for this, whatever crude they were set up for
+  // (owner, 2026-09-25). It used to have to match the company's own grade, which left a wound-up
+  // producer's blocks with exactly one eligible buyer — the company that had just lost them — and
+  // they could never sell. A field already holds its oil, posts its asks and prices its barrels per
+  // lease and per grade (stage 3b), so a second crude is something it can carry.
+  return wellOf(agent) !== undefined && mayBid(agent, lot.region);
 }
 
 /** Whether a company may bid for ground here: open to all, or licensed and it holds one. */
@@ -306,6 +308,9 @@ export function award(
     // be told; and it is carried at what this buyer paid, not at what the last owner did.
     if (lot.receivership !== undefined) {
       (lease as { acquiredFor: number }).acquiredFor = best.amount;
+      // The tanks come with the ground, or the buyer takes on the barrels and nowhere to put them.
+      field.storageCapacity += lease.tankage ?? 0;
+      delete (lease as { tankage?: number }).tankage;
       field.leases.push(lease);
       refreshStorage(field);
       refreshCapacity(field);

@@ -346,6 +346,13 @@ export interface Lease {
   readonly baseExtractionCost: number;
   /** What the company paid for it; this is all a lease is worth on the books (§12A.2). */
   readonly acquiredFor: number;
+  /**
+   * The tankage that stands on this ground, set only while it is waiting to be sold out of a
+   * receivership. Tanks are built where the oil comes out, so they go with the block: without this
+   * a buyer took on the barrels and none of the room to put them in, and the field ended the day
+   * holding 145,357 barrels in 145,000 of tank (found 2026-09-25).
+   */
+  tankage?: number;
   wells: Well[];
 }
 

@@ -24,7 +24,7 @@ import { FeeKind, type ChokepointStatus, type Grade, type Personality, type Prod
 import { runLogistics, type LogisticsReport } from './logistics';
 import { makeOrderId, type Agent, type AgentId, type Cargo, type Charter, type ChokepointName, type Deal, type Fill, type NodeName, type Order, type RegionName, type Tick } from './model';
 import { nextFloat, rngFor, type Rng } from './rng';
-import { advanceWells, capacityOf, refreshStorage } from './leases';
+import { advanceWells, capacityOf, refreshStorage, tankOf } from './leases';
 import { nameGround } from '../data/leasenames';
 import { aiBid, award, placeBid, surveyLots, type Auction , receivershipLots } from './auction';
 import { exposureDay, type Reckoning } from './exposure';
@@ -782,6 +782,11 @@ export function windUp(w: World, a: Agent, tick: Tick): { readonly name: string;
     const keep = field.leases.reduce((best, l) => (l.reserves > best.reserves ? l : best), field.leases[0] as GroundLease);
     const rest = field.leases.filter((l) => l !== keep);
     blocks = rest.length;
+    // Every share is worked out before anything moves, because each depends on the whole set. The
+    // tanks on a block go with it, so the seller's field loses that much room and the buyer gains it.
+    const shares = new Map(rest.map((l) => [l, tankOf(field, l)]));
+    for (const [l, tank] of shares) (l as { tankage: number }).tankage = tank;
+    field.storageCapacity = Math.max(0, field.storageCapacity - [...shares.values()].reduce((s, x) => s + x, 0));
     w.forSale.push(...rest);
     field.leases = [keep];
     refreshStorage(field);

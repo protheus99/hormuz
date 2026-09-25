@@ -301,43 +301,33 @@ comment rather than the code. When neither answer paid back inside two years bot
 the tie went to whichever looked less risky, and it bid $35M on ground its own card said would take
 56 months. Fixed.
 
-## Ground from a bust that nobody is allowed to buy (2026-09-24, blocks the rest of 6f)
+## ~~Ground from a bust that nobody is allowed to buy~~ — answered (2026-09-25)
 
-Winding up works: over twenty years a company runs out of road four to six times, its ground goes to
-the hammer with its wells and its oil, and some of it sells. Most of it does not, and the reason is
-structural rather than a number I can move.
+**"Any producer with rights can buy — if no one does, it's ok."** `mayWork` no longer asks what
+crude a company was set up for, only whether it may take ground in that region. Stranded blocks on a
+twenty-year run went from **19 to 6**, and a buyer went onto the credit line for one of them.
 
-A producer may only work **one crude, in the regions it has rights in** (`mayWork`). So when one
-fails, the companies allowed to buy its ground are the few with the same grade in the same region —
-and after a bust they are poor. Measured on one twenty-year run, of seventeen unsold blocks:
+It was smaller than feared: stage 3b already made a field hold its oil, post its asks and price its
+barrels per lease *and* per grade, so a second crude is something a field can carry. Two places
+still assumed one grade and now read the leases instead — an integrated major's internal transfer,
+and a seller's capacity for a deal, which had been wrong since 3b anyway.
+
+## The idle bot can win the finale (2026-09-25, blocks the last of the retune)
+
+On seed `acceptance`, three years of the finale:
 
 ```
-Gulf_of_Oman/MEDIUM      1 eligible: Dhofar Oil  (cash $5M) - the company that just lost it
-Russia_Far_East/MEDIUM   1 eligible: Amur Pacific (cash $5M) - likewise
-North_Sea/MEDIUM         7 eligible, including Volga Export at $1,396M
+FINALE  answers nothing     WON   rank 3 of 20
+FINALE  answers by meters   LOST  rank 13 of 20
 ```
 
-The North Sea ones now sell (a queue bug: the same two lots came up for ever and the rest were never
-offered). The other two kinds cannot ever sell: the only company permitted to work that crude there
-is the one that was just wound up, and it has $5M. The pool grows and never empties.
+Across three seeds the idle bot places 3rd, 5th and 11th, so it loses two in three and the D44 band
+holds — but only just, and the direction is wrong. Growing is the player's job (owner, 2026-09-25),
+which settles who is responsible; it does not explain why growing makes the meter-led bot *worse*.
 
-It does not affect play today — a scenario is at most three years and the first wind-up lands around
-year fifteen — but it is not a finished mechanism. Three ways out:
-
-1. **A licence that nobody works lapses.** After a few rounds unsold the ground goes back to the
-   state and leaves the world. Simple, real, and the pool stays bounded — but a bust then mostly
-   *destroys* acreage rather than handing it to whoever kept their powder dry, which was the point.
-2. **Let a receivership block be worked by any producer with rights in the region**, whatever crude
-   it is set up for. This needs `WellState.grade` to stop being one value per company, which is a
-   real change to the model, not a rule tweak.
-3. **More producers per grade per region in the portfolio**, so there is always somebody solvent who
-   could buy. Changes the cast rather than the rules.
-
-Related, and smaller: **the ground is not being bought on the line.** Every sale so far was paid in
-cash, against your "cheap is ok but still has to be worth enough to require borrowing". The reserve
-is `DISTRESS_SHARE` of what the same *undrilled* acreage is worth, and the wells already on it come
-free — which is where the bargain in a bust really lives. If it should bite harder, that is
-`DISTRESS_SHARE` upward, or bidders valuing the wells they are getting.
+Before 6e the answer was "drilling cannot pay". Drilling pays now, so this is something else, and it
+has not been diagnosed: what the meter bot spends on over three years, and what it gets back, needs
+the same treatment the finale got in 6a. Until then the finale's target cannot honestly be moved.
 
 ## Two things the economics package raised, for the owner (2026-09-24)
 

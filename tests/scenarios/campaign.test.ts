@@ -30,11 +30,13 @@ describe('scripted bots (spec G4.7 check 4, the D44 band)', () => {
   // sit close enough to the bar that the kindest seed let a player who answered nothing through
   // while the other five refused him. The band's claim is about the ordinary game, so it is checked
   // against the majority of a handful (2026-09-24).
-  // The finale takes one, because three years times three seeds is nine years of simulation for one
-  // assertion; its band is measured with `npm run campaign` instead.
+  // The finale takes all three too. It was given one to save nine years of simulation, and the one
+  // it was given turned out to be a seed where a player who answers nothing finishes third of
+  // twenty and wins it (2026-09-25). A single game is a single draw, and that is exactly what this
+  // band is supposed to see through.
   const SEEDS = ['acceptance', 'cal-1', 'cal-2'];
   it.each(SCENARIOS.map((s) => [s.id]))('a player who ignores everything loses %s', async (id) => {
-    const seeds = id === 'FINALE' ? SEEDS.slice(0, 1) : SEEDS;
+    const seeds = SEEDS;
     const results = [];
     for (const seed of seeds) results.push((await playScenario(id, 'NO', seed)).result);
     expect(results.filter((r) => r === 'LOST').length, results.join(', ')).toBeGreaterThanOrEqual(Math.ceil(seeds.length * 2 / 3));

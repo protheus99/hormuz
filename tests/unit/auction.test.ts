@@ -39,7 +39,7 @@ describe('who may take ground where', () => {
     expect(mayBid(boreal!, 'Middle_East')).toBe(false);
   });
 
-  it('sells a company ground in any region it may take ground in, of the crude it works', () => {
+  it('sells a company ground in any region it may take ground in, of any crude', () => {
     const w = world();
     const boreal = w.agents.find((a) => a.name === 'Boreal Shale');
     const lot = surveyLots(1, DEFAULT_CONFIG, rngFor('lots', 'wells'), w.agents)[0];
@@ -49,9 +49,22 @@ describe('who may take ground where', () => {
     const elsewhere: LeaseLot = { ...lot!, region: 'Guyana_Suriname', grade: 'LIGHT_SWEET' };
     expect(mayBid(boreal!, 'Guyana_Suriname')).toBe(true);
     expect(mayWork(boreal!, elsewhere)).toBe(true);
-    // A crude it is not set up for is still no use to it, wherever it lies.
-    const wrongGrade: LeaseLot = { ...lot!, region: 'US_Permian', grade: 'HEAVY_SOUR' };
-    expect(mayWork(boreal!, wrongGrade)).toBe(false);
+    // And a crude it was not set up for is ground it can carry too (owner, 2026-09-25). Requiring a
+    // match left a wound-up producer's blocks with one eligible buyer — the company that had just
+    // lost them — so they could never sell.
+    const otherCrude: LeaseLot = { ...lot!, region: 'US_Permian', grade: 'HEAVY_SOUR' };
+    expect(mayWork(boreal!, otherCrude)).toBe(true);
+  });
+
+  it('still sells nobody ground where they have no right to take any', () => {
+    const w = world();
+    const boreal = w.agents.find((a) => a.name === 'Boreal Shale');
+    const lot = surveyLots(1, DEFAULT_CONFIG, rngFor('lots', 'wells'), w.agents)[0];
+    const national = leasableRegions().find((r) => !mayBid(boreal!, r));
+    if (national !== undefined) expect(mayWork(boreal!, { ...lot!, region: national })).toBe(false);
+    // And a company with no wells at all can never work ground, whatever rights it holds.
+    const refiner = w.agents.find((a) => a.kind === 'REFINER');
+    expect(mayWork(refiner!, lot!)).toBe(false);
   });
 });
 

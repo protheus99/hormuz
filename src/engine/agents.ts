@@ -74,15 +74,25 @@ export function refine(company: Refiner | IntegratedMajor, plant: PlantState, si
  */
 export function internalTransfer(m: IntegratedMajor): number {
   const { well, plant } = m;
-  if (!acceptedGrades(plant.techTier).includes(well.grade)) return 0;
-  const room = plant.crudeStorageCapacity - total(plant.crudeStock);
-  // Only oil standing where the refinery is: crude in another region has a voyage to make, and a
-  // voyage is a sale, not a transfer (stage 3b).
-  const local = tanksFor(well, plant.region, well.grade);
-  const qty = Math.max(0, Math.min(heldIn(local), room));
-  drawFrom(well, local, qty);
-  plant.crudeStock[well.grade] += qty;
-  return qty;
+  const takes = acceptedGrades(plant.techTier);
+  let moved = 0;
+  // Every grade the field actually holds, not just the one it was set up for: a company may now buy
+  // ground of another crude out of a receivership (2026-09-25).
+  const grades = new Set(well.leases.filter((l) => l.region === plant.region && l.storage > 0).map((l) => l.grade));
+  for (const grade of grades) {
+    if (!takes.includes(grade)) continue;
+    const room = plant.crudeStorageCapacity - total(plant.crudeStock);
+    if (room <= 0) break;
+    // Only oil standing where the refinery is: crude in another region has a voyage to make, and a
+    // voyage is a sale, not a transfer (stage 3b).
+    const local = tanksFor(well, plant.region, grade);
+    const qty = Math.max(0, Math.min(heldIn(local), room));
+    if (qty <= 0) continue;
+    drawFrom(well, local, qty);
+    plant.crudeStock[grade] += qty;
+    moved += qty;
+  }
+  return moved;
 }
 
 // ─── Extraction (spec §4.8, §5 phase 1) ──────────────────────────────────────────────────────

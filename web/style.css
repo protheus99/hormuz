@@ -222,6 +222,12 @@ h3 { font-size: 14px; }
 .straits td { padding: 2px 6px 2px 0; }
 .lower { display: flex; flex-direction: column; overflow: hidden; }
 
+/* The decisions column when there is nothing in it. Quiet on purpose: it is telling you that
+   nothing needs you, so it should not look like something that does. */
+.panel.quiet { color: var(--text-2); }
+.panel.quiet h2 { color: var(--text); }
+.panel.quiet p { margin: 8px 0 0; max-width: 40ch; }
+
 /* ── Tables and bars ── */
 table { border-collapse: collapse; width: 100%; }
 th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }

@@ -53,6 +53,23 @@ describe('what winding up does', () => {
     expect(barrelsHeld(w.agents, w.cargo, w.forSale)).toBeCloseTo(oil, 6);
   });
 
+  it('sends the tanks with the ground, and takes them off the field that lost it', () => {
+    const w = world();
+    const a = producer(w);
+    const field = wellOf(a)!;
+    const room = field.storageCapacity;
+    windUp(w, a, w.tick);
+
+    // Tanks are built where the oil comes out, so they stand on the block and go with it. Without
+    // this a buyer took on the barrels and none of the room to put them in, and a field ended the
+    // day holding 145,357 barrels in 145,000 of tank (found 2026-09-25).
+    const gone = w.forSale.reduce((s, l) => s + (l.tankage ?? 0), 0);
+    expect(gone).toBeGreaterThan(0);
+    expect(field.storageCapacity).toBeCloseTo(room - gone, 6);
+    // And what the seller keeps is still enough for what it is still holding.
+    expect(field.storage + field.storageEscrow).toBeLessThanOrEqual(field.storageCapacity + 1e-6);
+  });
+
   it('writes off the debt, puts fresh money in, and counts it', () => {
     const w = world();
     const a = producer(w);
