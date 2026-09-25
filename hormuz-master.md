@@ -1,7 +1,7 @@
 # HORMUZ MASTER PLAN
 ## Game Design, Engine Specification & Build Plan
 
-**Status:** In build — engine Phases 0–7, the game session (Phase 8) and decision cards (Phase 9) complete; the Phase 10 interface and Phase 11 events, news, campaign and difficulty are built, Phase 12's first balance pass is done, the owner's first eight rounds of playtest notes are answered (D45–D52), and Phase 13 — producer leases, wells and the card philosophy — is designed in §12A and being built; the open balance and process questions are in `QUESTIONS.md`. This is the single source of truth for the Hormuz game and its market engine (GEMS, the Global Energy Market Simulator). It supersedes all earlier GEMS specifications and prototypes.
+**Status:** In build — engine Phases 0–7, the game session (Phase 8) and decision cards (Phase 9) complete; the Phase 10 interface and Phase 11 events, news, campaign and difficulty are built, Phase 12's first balance pass is done, the owner's first eight rounds of playtest notes are answered (D45–D52), and Phase 13 — producer leases, wells and the card philosophy — is designed in §12A and being built; the open balance and process questions are in `QUESTIONS.md`. **The game is playable at [hormuz.protheus99.workers.dev](https://hormuz.protheus99.workers.dev/) as of 2026-09-25** — the first half of §14's release phase (§14.2). This is the single source of truth for the Hormuz game and its market engine (GEMS, the Global Energy Market Simulator). It supersedes all earlier GEMS specifications and prototypes.
 **Build:** TypeScript. `src/engine/` in Phases 1–7, then `src/game/` and `web/` in Phases 8–13 (§14).
 
 Anything not written here is out of scope. Every number in this document — labor indices, tariffs, transit times, freight rates, capacities, costs, scenario targets — is an **illustrative placeholder** to be tuned for play, not market data. There are no open decisions (§12).
@@ -1806,7 +1806,7 @@ Each phase ends with its acceptance tests passing before the next begins. Phases
 | **11. Events, news, campaign & difficulty** | Event cards and stages, news templates, the ten campaign scenarios, difficulty presets, market reports, AI growth-card scoring | Every scenario is winnable and losable by scripted bots; the always-No bot loses every Medium and Hard scenario; the always-Yes bot does not reliably win; event stages behave as specified; all seven chokepoint profiles fire at their G7.1 rates across 100 simulated Sandbox years, and the deck rules hold |
 | **12. Balance & playtest** | Tuning with bots and human playtests | No dominant strategy for any play type; median time between cards is 7–14 days for each; win rates fall within agreed bands |
 | | **First pass done (2026-09-19):** trading made viable (D37), producer costs raised (D38), trader cards sized to the hub, scenario targets retuned. A player answering by the meters sees a card every 14–17 days in Sandbox, and the always-No bot loses every Medium and Hard scenario. Open: producer decision variety, neglect that does not bite hard enough, trader earnings, agreed win-rate bands, human playtests — all in `QUESTIONS.md` |
-| **13. Release stages 1–2** | Static web build and asset bundling, published to our own site, then to itch.io as a free, browser-playable demo | The web build runs on a static host with no runtime downloads, and its golden hash matches the Node CLI; the itch.io page is live and collecting playtest feedback |
+| **13. Release stages 1–2** | ◑ Static web build and asset bundling, **published to our own site ✅ (2026-09-25)**, then to itch.io as a free, browser-playable demo | ✅ The web build runs on a static host with no runtime downloads, and its golden hash matches the Node CLI; ○ the itch.io page is live and collecting playtest feedback |
 
 ### 14.2 Layout and module boundaries
 
@@ -2134,6 +2134,34 @@ One codebase, released from the easiest channel to the hardest. Each stage adds 
 
 The free web version stays available after Steam launches. Schools mostly use Chromebooks, which cannot run Steam, and many teenagers cannot buy on Steam without a parent, so the browser is how the game reaches its youngest players.
 
+### 14.2 Released
+
+**Stage 1 is live: the game runs outside this machine (2026-09-25).**
+[hormuz.protheus99.workers.dev](https://hormuz.protheus99.workers.dev/) — a Cloudflare Worker serving
+static assets, built from `main` on every push.
+
+There is no server, and there should not be: the engine, the session and the save all run in the
+browser, so a build is one HTML file and two hashed assets — 267 kB of JavaScript, 89 kB gzipped, and
+15 kB of CSS. `wrangler.jsonc` carries the whole deployment: an assets directory, single-page
+handling so any path serves the game, and no Worker code at all.
+
+Phase 13's first acceptance criterion, checked rather than asserted:
+
+| | |
+|---|---|
+| Runs on a static host with no runtime downloads | ✅ three same-origin requests, nothing external — no fonts, no CDN |
+| Golden hash matches the Node CLI | ✅ day 1, day 30 and final all identical in Chrome 152 and Node 24 |
+
+And played through, deployed: a Sandbox producer to 9 January at ×8, a decision from Ilhavera
+Refining taken, the strip crawling with prices and news, the economy reading Normal, six pumpjacks
+green and four slots empty. A 160 kB save written, survived a reload, and restored the exact day.
+
+**What being live changes.** A save is one `localStorage` slot on one browser on one device: clearing
+site data loses the game, and a phone and a laptop are two different games. That is fine for one
+player and it is the thing to revisit before anyone is asked to play for more than an evening.
+`index.html` is the only file not content-hashed, so it is what a returning player must re-fetch to
+see a new build.
+
 ## 15. Revision History
 
 | Rev | Date | Summary |
@@ -2144,6 +2172,7 @@ The free web version stays available after Steam launches. Schools mostly use Ch
 | 3.1 | 2026-09-18 | Closed the real-world framing decision as D32: real geography, fictional companies, faceless and non-violent event wording, coastline-only map. Renamed nine companies whose names matched or crowded real companies. Removed the refiner's "Buy an oilfield" card: only producers can become integrated. |
 | 3.2 | 2026-09-18 | Made every chokepoint a live risk: an event profile for each of the seven, deck rules, route cards that react to delays as well as tension, a campaign featuring six of the seven, verification runs S13–S17, and a property test that no single closure strands a region. |
 | 3.5 | 2026-09-19 | Phase 7 calibration: price discovery (bids climb towards value as tanks empty; unsold asks decay; closing offers published), refiners count the voyage in stock targets and tank space, credit lines, recoverable insolvency, AI output cuts, personality mixes, the global portfolio's cash and storage, and the D35 decisions. Global S0: markers about 78 / 71 / 63 in grade order on ~90% of days, no insolvencies. |
+| 5.0 | 2026-09-25 | **Released, stage 1: the game runs outside this machine** — [hormuz.protheus99.workers.dev](https://hormuz.protheus99.workers.dev/), a Cloudflare Worker serving static assets, rebuilt from `main` on every push. Phase 13's first acceptance criterion verified rather than asserted: three same-origin requests and nothing external, and the golden replay's day 1, day 30 and final hashes identical in Chrome 152 and Node 24. Two deploys failed first — a Vite config with no `plugins` array for Cloudflare's installer to edit, then its first-time setup wizard answering its own prompts on every CI build because no wrangler config was committed. Both fixed at the root: the array is there with a comment saying why, and the setup is done once and committed. |
 | 4.18 | 2026-09-24 | The news strip: one strip under the top bar in three states (crawling, a pinned item of the company's own, and a breaking band that halts it and offers Continue). It answers a reported bug — the engine already stopped the clock for a reckoning and already returned the sentence explaining it, and the interface read that as a true/false and threw the message away, so the game halted in silence. The crawl is built on fixed slots and patched in place, because rebuilding it sends it back to the left and the news alone was doing that every few days. |
 | 4.17 | 2026-09-24 | A reckoning says what it is for. The record carries which corner it was (`ExposureItem.because`, seven keys, no prose in the engine), through a part-settled escape and on a tainted lot, and the notice opens with it in the words of the card the player answered. |
 | 4.16 | 2026-09-24 | Two bugs in reckonings, from a player's own game. A settlement's cash penalty was uncapped: a corner worth $15M came back as a $121.8M bill against $12.6M of cash and left the company at minus $109M for good. And pulling a credit line set the limit to zero without regard to what was already drawn, breaking invariant 8. A settlement now takes every penny the company can raise and no more, and a withdrawn line comes down to what is outstanding and no further — a bank stops you drawing, it does not un-lend. Both reachable only since 6c made the line something companies actually use. |
