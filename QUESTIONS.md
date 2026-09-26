@@ -432,6 +432,60 @@ Three consequences fall out of those numbers, and each is a decision rather than
   and that is what makes breaking bulk a service worth paying for. Without it, parcels are lumpy but
   a small one is not expensive, and the trader still has nothing to sell.
 
+### The owner's case, measured: a Permian producer really does put 1,000 barrels a day to sea
+
+Asked 2026-09-26: does a Southeast Asian refiner buy 1,000-barrel parcels from the Permian, and is
+that a problem given tankers have minimum sizes? Measured with the cards running, a Permian producer,
+one year. Every term deal that has to cross an ocean:
+
+```
+lane                             bbl/day   voyage   freight   what sails
+US_Permian -> Southeast_Asia       1,000      38d    $6.00    1,000 bbl, every day
+US_Permian -> South_Asia           1,000      26d    $5.50    1,000 bbl, every day
+US_Permian -> Middle_East          1,000      25d    $5.70    1,000 bbl, every day  (x2)
+```
+
+**All four are at `DEAL_VOLUME.min`.** It is not an edge case, it is the default. And a deal delivers
+`qtyPerDay` as its own cargo every day, so that lane has about **38 separate 1,000-barrel voyages in
+progress at any moment** - 38,000 barrels spread over 38 imaginary ships - where the business would
+send one part cargo.
+
+For scale: 1,000 barrels is about 160 cubic metres, six road tanker loads. The smallest ship this game
+defines holds **50,000 bbl**; the smallest class in the owner's table holds **70,000**. So the model is
+sending a fiftieth of its own smallest ship, and a seventieth of the industry's, across the Pacific,
+daily.
+
+**The mechanism behind it: there are no ships.** Two things found in the code:
+
+- Freight is a per-barrel toll summed over lane segments - `totalFreight += c.freight` - with **no
+  quantity term anywhere**. Moving 1,000 barrels costs the same per barrel as moving a million. Nothing
+  in the model can express a minimum size, because nothing in the model is a vessel.
+- **Nobody ever charters one.** Zero charters in a year. `CHARTER_TANKER` is `raised: false`, so it is
+  only ever found by a player browsing a panel, and it appears in neither of the AI's tables
+  (`OPERATING`, `GROWTH`), so **no AI company can charter a ship at all.** The charter system, its two
+  classes and its rates are machinery nothing in the world reaches - the same shape as the credit line
+  before 6c and the lease grace before today.
+
+The per-barrel rates are not even wrong: $6.00 a barrel for Permian to Southeast Asia sits right in
+the table's GP band of $6.50-8.50. The game charges small-ship money for a parcel seventy times
+smaller than a small ship.
+
+**This reframes the fix.** A minimum trade size is a rule bolted on to forbid something. The thing that
+forbids it in life is that **a voyage costs what the ship costs, full or empty**: 1,000 barrels on a
+38-day GP charter is $1.1M, which is $1,100 a barrel, so nobody does it, and no rule had to say so.
+Consolidating many small parcels into one hull is then a service worth paying for, which is the
+trader's whole business. Three ways to get there:
+
+1. **Price the voyage, not the barrel, and invent small classes to match this world.** A coaster of
+   10,000 bbl alongside the existing two. No rescale, and it works at today's sizes - but the vessel
+   classes are then made up rather than the real ones in the table.
+2. **Rescale the world, then price the voyage with the real classes.** The table becomes literal and
+   every ratio stage 6 set survives, because it is a change of units (see below). My recommendation for
+   where this should end up.
+3. **Cheapest: a per-barrel surcharge that falls as the parcel grows.** Approximates voyage economics
+   with no vessel model at all, and could ship this week. Good as an interim, and it leaves the charter
+   machinery still unreachable.
+
 ### The number that decides the shape of this: no cargo is anywhere near a tanker
 
 Measured over a year of the game world, 3,822 cargoes:
