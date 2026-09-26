@@ -432,6 +432,19 @@ Three consequences fall out of those numbers, and each is a decision rather than
   and that is what makes breaking bulk a service worth paying for. Without it, parcels are lumpy but
   a small one is not expensive, and the trader still has nothing to sell.
 
+### Chosen and waiting on the rescale: cargo on the map (owner, 2026-09-26)
+
+Option **B** of three, from a working preview on real recorded cargo: the player's own cargo drawn as
+dots that glide between daily positions. Recorded as D63 and specified in §12C; it is built **after**
+the rescale so it is written against the sizes it will keep. Two findings from the preview belong with
+the shipping work below rather than with the drawing:
+
+- **A producer never has oil at sea.** It sells FOB, so the buyer owns the cargo and pays the freight.
+  Zero cargoes in 120 recorded days as a Permian producer. Anything built on cargo - this map, and any
+  card about a voyage - is a refiner and trader feature.
+- **Nearly every cargo is 1,000 barrels**, a term deal shipping its daily volume as its own parcel, so
+  one lane carries a queue of identical specks for weeks. The parcel problem, drawn.
+
 ### A world where shipping is the norm: the design, and what it costs (owner, 2026-09-26)
 
 The owner's direction: **long purchases move by ship.** That changes what a refiner has to do to get

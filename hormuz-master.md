@@ -1102,6 +1102,7 @@ The build proceeds on these. Changing one means updating the sections it names.
 | D25 | Disruptions are staged events (`RUMOR → TENSION → DISRUPTION → RECOVERY`), with a `TENSION` chokepoint status (G7.1) |
 | D35 | Owner decisions 2026-09-19: chokepoint throughput falls in steps with status (a closure stops 100% of the strait but redirection by bypass stays possible, so the bypasses keep their capacity); producers dump at a discount to the reference, not at cash cost; the AI trader arbitrages between regions with tariff-aware spreads, from two offices at lower running cost; starting cash raised and credit lines 10× larger; insolvency is recoverable, because the world has too few companies to lose them |
 | D34 | Refiners grow through processing units, tier upgrades, storage and one second refinery in another refining region (not the Gulf); rival buyouts are out of scope. Chosen over a single site, which left refiners no late game, and over acquisitions, which add valuation and merger rules a teenager should not need |
+| D63 | Owner, 2026-09-26, shown a working preview of three treatments on real recorded cargo: **draw the player's own cargo on the map, option B** — dots moved by a transition so a day's step reads as travel, rather than placed again each day (A) or given wakes and a hover card (C). C waits for the rescale, because sizing a dot by its barrels says nothing while nearly every parcel is the same 1,000 bbl, and its wakes crowd the map at the 70–99 cargoes a refiner really has at sea. Rivals' cargo is never drawn (G5). The preview also established that a **producer never has oil at sea at all** — it sells FOB, so the buyer owns the cargo — which makes this a refiner-and-trader feature and keeps the tutorial from leaning on it (§12C) |
 | D62 | Owner, 2026-09-26: **a World tab, three more chokepoints, and the economic climate gets its full name.** The summary is for reading the shape of the world at a glance while debugging: every region's roles, capacity, what it is actually running, crude in store and last price by grade. `Weather` was renamed `EconomicClimate` throughout — longer, and precise — which freed *weather conditions* to mean the sea. Three weather-prone passages were added: the Gulf of Mexico, the Cape of Good Hope and Cape Horn (§3.5). A fourth, between South America and Africa, was asked for and **dropped**: Brazil, Argentina and West Africa all terminal into the same waypoint, so there is no lane between the continents to put one on, and expressing it means splitting the South Atlantic — a graph redesign that moves transit times, landed costs and the merit order, not a chokepoint. Two lanes came with the three: the Straits of Florida, because a chokepoint on the Gulf's only exit stranded Houston and Campeche and §14.6 forbids that; and Cape Horn itself |
 | D59 | Owner, 2026-09-25: **rivals stay reckless.** The AI buys ground and drills on fixed per-look odds and does not read the payback a player is shown, so a competent player is out-grown by companies making a worse decision than they are. Asked whether to teach `chooseForAi` the same number; the answer was to keep it as is, and to set the D44 band against rivals that do not think rather than against rivals that do. It is also true to the industry, where the reckless operator is a real competitor and not a modelling error |
 | D60 | Owner, 2026-09-25, on P3: **no named rival.** `AHEAD_OF` now measures against the typical company of the player's own kind rather than Qasr Petroleum, because one idle run turned on $11 per bbl/day out of $8,300 — a single rival's year, which is the same trap as tuning a bar on one seed. The owner also asked for the goal to be judged on operating profit rather than net-worth gain; measurement said no, and it was **not built**: P3 is 2/3 for the meter bot and 0/3 for the idle one, the export share does all the separating, and the one loss was a company that drilled itself insolvent. What was actually wrong was the wording — the goal said "earn more per barrel of capacity" for a number that measures growth — so the words now describe the measure |
@@ -1833,6 +1834,46 @@ Measured: day 1 and day 30 of the golden replay are untouched by the whole stage
 identical to the last decimal — the property the first step was designed to have while every
 producer still worked one region, and still true after the second, because the lots that now change
 hands across a border are bought empty. Calibration unchanged.
+
+## 12C. Your Cargo on the Map (chosen, to build — D63)
+
+The map shows where everything **is**; it has never shown where anything is **going**. Cargo already
+carries everything needed to draw it — `route.edges`, the `leg` it is crossing and the `ticksLeft` on
+that leg — so a cargo's position is computable today and no engine change is needed.
+
+Three options were built as a working preview on real data (the real map geometry, and 70 recorded
+days of a Sandbox refiner in East Asia), and the owner chose **B** on 2026-09-26.
+
+| | What it is | Work |
+|---|---|---|
+| A | A circle per cargo, placed again each day. Colour by status. | ~150 lines |
+| **B** | **The same dots, moved by a CSS transition so a day's step reads as travel.** | **+10 lines** |
+| C | Adds a wake, a radius that grows with the barrels, and a hover card. | +half a day |
+
+A alone reads as a flicker at ×8 speed; B reads as traffic, for ten lines more. C is the version that
+makes the map a tool, but at the 70–99 cargoes a refiner actually has at sea the wakes crowd the
+Indian Ocean, and its barrel-sizing carries almost no information while nearly every parcel is the
+same 1,000 bbl. C is worth revisiting **after** the rescale, when parcels differ in size.
+
+**Only the player's own cargo is ever drawn.** Spec G5 publishes a set of accounts and nothing else:
+what a rival is shipping, and to whom, is exactly the private information the view exists to withhold.
+
+**Two things the preview turned up, and both matter more than the drawing.**
+
+- **A producer sees an empty map.** Captured as a Permian producer first: *zero* cargoes in 120 days.
+  A producer sells FOB, so the buyer owns the cargo and pays the freight, and a producer never has oil
+  at sea. This is a refiner-and-trader feature, and the producer scenarios are the tutorial path — so
+  it earns its place late in a game rather than early, and the tutorial cannot lean on it.
+- **Nearly every dot is 1,000 barrels**, because a term deal ships its daily volume as its own cargo.
+  One lane carries a queue of identical specks for weeks. It is the parcel problem drawn in picture
+  form — see "a world where shipping is the norm" in QUESTIONS.md — and the clearest argument yet for
+  the rescale.
+
+**What it needs:** a `{lane, progress, direction}` field on the cargo view (the view stays free of
+pixels; the map converts to a point), a helper that walks a lane's polyline — which is already split
+at the date line, so a lane that crosses the Pacific edge works without special handling — and a
+`<circle>` per cargo with a transition. Build it **after** the rescale, so it is written against the
+sizes it will keep.
 
 ## 12B. Playing on a Phone (reviewed; deferred, D58)
 
