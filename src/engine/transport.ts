@@ -9,13 +9,14 @@
 // shipping company is skipped, so once the Oman bypass fills, the next route offered is the Red
 // Sea bypass. Clearing asks again whenever a route runs out (clearing.ts).
 
-import { CHOKEPOINT_NAMES } from '../data/chokepoints';
+import { CHOKEPOINT_NAMES, stormSeasonOf } from '../data/chokepoints';
 import { LANES, type PlaceName } from '../data/lanes';
 import { REGIONS } from '../data/regions';
 import type { Config } from './config';
 import { CHOKEPOINT_STATUSES, ChokepointStatus, EdgeMode, type RiskSetting } from './enums';
 import { MinHeap } from './heap';
-import { asEdgeId, type AgentId, type Cargo, type ChokepointName, type EdgeId, type RegionName, type Route } from './model';
+import { nextFloat, type Rng } from './rng';
+import { asEdgeId, type AgentId, type Cargo, type ChokepointName, type EdgeId, type RegionName, type Route, type Tick } from './model';
 import type { RouteProvider } from './routes';
 
 export interface ChokepointState {
@@ -24,6 +25,14 @@ export interface ChokepointState {
   delayTicks: number;
   /** Extra $/bbl (war-risk insurance) while TENSION or DELAYED. */
   freightSurcharge: number;
+  /**
+   * True while it is the weather holding this passage, and false the moment anything else sets it.
+   * Comparing the status alone is not enough: a storm that closed the water and a government that
+   * closed it look identical, and the storm would lift the government's closure when it blew out
+   * (found by test, 2026-09-26). Absent in saves written before storms existed, which reads as
+   * false - the right answer, since nothing there was ever set by weather.
+   */
+  byWeather?: boolean;
 }
 
 export interface Edge {
@@ -59,7 +68,7 @@ export interface LaneGraph {
 export function buildLaneGraph(config: Config): LaneGraph {
   const chokepoints = {} as Record<ChokepointName, ChokepointState>;
   const shares = config.CHOKEPOINT_THROUGHPUT;
-  for (const c of CHOKEPOINT_NAMES) chokepoints[c] = { status: ChokepointStatus.OPEN, delayTicks: 0, freightSurcharge: 0 };
+  for (const c of CHOKEPOINT_NAMES) chokepoints[c] = { status: ChokepointStatus.OPEN, delayTicks: 0, freightSurcharge: 0, byWeather: false };
   return {
     edges: LANES.map((l) => ({
       id: asEdgeId(l.id), a: l.a, b: l.b, mode: l.mode, transit: l.transit, freight: l.freight,
@@ -73,9 +82,58 @@ export function buildLaneGraph(config: Config): LaneGraph {
 }
 
 /** Changes a chokepoint's status, as events do (spec G7.1). Takes effect for routes found afterwards. */
-export function setChokepoint(g: LaneGraph, name: ChokepointName, status: ChokepointStatus, delayTicks = 0, freightSurcharge = 0): void {
+/** A passage shut or slowed by weather conditions, until `untilTick`. */
+export interface Storm {
+  readonly chokepoint: ChokepointName;
+  readonly untilTick: Tick;
+}
+
+/**
+ * One day of weather at sea (§3.5). Storms start only on water that is otherwise open, run a few
+ * days, and lift themselves. Nothing here is a decision and nothing is announced in advance: a
+ * player finds out the way an operator does, by the cargo taking longer.
+ *
+ * Deliberately named apart from the economic climate (§12A.8 B), which is what the market is doing.
+ * This is what the sea is doing, and the two have nothing to say to each other.
+ */
+export function advanceStorms(
+  g: LaneGraph, storms: readonly Storm[], rng: Rng, config: Config, tick: Tick,
+): Storm[] {
+  const running: Storm[] = [];
+  for (const s of storms) {
+    if (s.untilTick >= tick) { running.push(s); continue; }
+    // Only lift what the weather is still holding. Anything else that has set this passage since
+    // has cleared the flag, and its closure is not the weather's to lift.
+    if (g.chokepoints[s.chokepoint].byWeather === true) setChokepoint(g, s.chokepoint, ChokepointStatus.OPEN);
+  }
+  for (const name of CHOKEPOINT_NAMES) {
+    const weather = stormSeasonOf(name);
+    if (weather === undefined) continue;
+    if (running.some((s) => s.chokepoint === name)) continue;
+    if (g.chokepoints[name].status !== ChokepointStatus.OPEN) continue;
+    const odds = inSeason(tick, weather.season) ? weather.odds : weather.odds * config.WEATHER.OFF_SEASON;
+    if (nextFloat(rng) >= odds) continue;
+    const shut = weather.worst === 'CLOSED' && nextFloat(rng) < config.WEATHER.CLOSE_SHARE;
+    const status = shut ? ChokepointStatus.CLOSED : ChokepointStatus.DELAYED;
+    const span = config.WEATHER.DAYS.MAX - config.WEATHER.DAYS.MIN + 1;
+    const days = config.WEATHER.DAYS.MIN + Math.floor(nextFloat(rng) * span);
+    setChokepoint(g, name, status, shut ? 0 : config.WEATHER.DELAY, config.WEATHER.SURCHARGE, true);
+    running.push({ chokepoint: name, untilTick: (tick + days - 1) as Tick });
+  }
+  return running;
+}
+
+/** Whether a tick's day of the year falls inside a season, which may wrap the new year. */
+function inSeason(tick: Tick, [from, to]: readonly [number, number]): boolean {
+  const day = ((tick % 365) + 365) % 365;
+  return from <= to ? day >= from && day <= to : day >= from || day <= to;
+}
+
+export function setChokepoint(
+  g: LaneGraph, name: ChokepointName, status: ChokepointStatus, delayTicks = 0, freightSurcharge = 0, byWeather = false,
+): void {
   if (delayTicks < 0 || freightSurcharge < 0) throw new Error(`${name}: delay and surcharge cannot be negative`);
-  g.chokepoints[name] = { status, delayTicks, freightSurcharge };
+  g.chokepoints[name] = { status, delayTicks, freightSurcharge, byWeather };
   for (const e of g.edges) if (e.chokepoint === name) e.throughputShare = g.throughputShares[status];
 }
 

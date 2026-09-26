@@ -93,8 +93,21 @@ export function relevantChokepoints(w: World, from: readonly RegionName[], kind:
       for (const c of route?.chokepoints ?? []) found.add(c);
     }
   }
-  return (Object.keys(CHOKEPOINTS) as ChokepointName[]).filter((c) => found.has(c));
+  // Only the ones this deck can do anything with. A route through the Gulf of Mexico or a cape is
+  // as relevant to a player as any other, but the weather runs those and the deck has no plan for
+  // them (§3.5).
+  return (Object.keys(CHOKEPOINTS) as ChokepointName[]).filter((c) => found.has(c) && profileOf(c) !== undefined);
 }
+
+/**
+ * A chokepoint's event profile, or undefined where it has none. Three of the ten are closed by the
+ * weather rather than by anybody (§3.5), so they have no political profile to plan from, and every
+ * caller has to be able to hear that. Reading the table directly instead crashed the event deck and
+ * the finale the day those three were added (2026-09-26): both enumerated chokepoints and assumed a
+ * profile came back.
+ */
+export const profileOf = (c: ChokepointName): EventProfile | undefined =>
+  EVENT_PROFILES[c as keyof typeof EVENT_PROFILES] as EventProfile | undefined;
 
 const between = (rng: Rng, [lo, hi]: Range) => lo + Math.floor(nextFloat(rng) * (hi - lo + 1));
 const dayOfYear = (tick: number) => ((tick % 365) + 365) % 365;
@@ -215,10 +228,13 @@ export function deckDay(w: World, deck: DeckState, script: readonly ScriptedEven
     const yearStart = tick - RELEVANCE_DAY;
     const touched = [...deck.past, ...deck.active.map((e) => ({ chokepoint: e.chokepoint, start: e.startedTick }))]
       .some((e) => e.start >= yearStart && deck.relevant.includes(e.chokepoint));
-    const candidates = deck.relevant.filter((c) => EVENT_PROFILES[c as keyof typeof EVENT_PROFILES].season === null && !deck.active.some((e) => e.chokepoint === c) && !conflicts(deck, c));
+    // `profileOf` rather than the table: a deck saved before the weather chokepoints were filtered
+    // out of `relevant` still carries them, and they have no profile.
+    const candidates = deck.relevant.filter((c) => profileOf(c)?.season === null && !deck.active.some((e) => e.chokepoint === c) && !conflicts(deck, c));
     if (!touched && candidates.length > 0) {
       const c = candidates[Math.floor(nextFloat(deck.rng) * candidates.length)] as ChokepointName;
-      start(w, deck, c, planFor(EVENT_PROFILES[c as keyof typeof EVENT_PROFILES], deck.rng, d.rumor), tick, false);
+      const profile = profileOf(c);
+      if (profile) start(w, deck, c, planFor(profile, deck.rng, d.rumor), tick, false);
     }
   }
 }

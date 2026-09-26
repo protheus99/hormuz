@@ -30,7 +30,7 @@ import { aiBid, award, placeBid, surveyLots, type Auction , receivershipLots } f
 import { exposureDay, type Reckoning } from './exposure';
 import { decideOrders, recordSales, rememberMarkers, updateOutput, updateThrottle, type MarketView } from './rules';
 import { placeOrder, releaseEscrow, settleFills } from './settlement';
-import { avoidFor, buildLaneGraph, edgeCapacity, LaneRouteProvider, setChokepoint, type LaneGraph } from './transport';
+import { advanceStorms, avoidFor, buildLaneGraph, edgeCapacity, LaneRouteProvider, setChokepoint, type LaneGraph, type Storm } from './transport';
 import { NODE_NAMES } from '../data/nodes';
 import { REGIONS } from '../data/regions';
 import { PRODUCER_CASH, REFINER_CASH_PER_BBL_DAY, TRADER_CASH, type PlantData, type PortfolioEntry } from '../data/portfolios';
@@ -90,7 +90,9 @@ export interface World {
   nodes: Record<NodeName, ExchangeNode>;
   graph: LaneGraph;
   sink: RetailSink;
-  rng: { events: Rng; ai: Rng; wells: Rng; climate: Rng };
+  rng: { events: Rng; ai: Rng; wells: Rng; climate: Rng; storms: Rng };
+  /** Passages shut or slowed by weather conditions today (§3.5). Almost always empty. */
+  storms: Storm[];
   /** Cumulative total; entries hold only the current tick's fees. */
   ledger: FeeLedger;
   cargo: Cargo[];
@@ -184,7 +186,8 @@ export function createWorld(s: WorldSettings): World {
     nodes,
     graph: buildLaneGraph(config),
     sink: createRetailSink(s.seed, config),
-    rng: { events: rngFor(s.seed, 'events'), ai, wells: rngFor(s.seed, 'wells'), climate: rngFor(s.seed, 'climate') },
+    rng: { events: rngFor(s.seed, 'events'), ai, wells: rngFor(s.seed, 'wells'), climate: rngFor(s.seed, 'climate'), storms: rngFor(s.seed, 'storms') },
+    storms: [],
     ledger: createLedger(),
     cargo: [],
     deals: [],
@@ -229,6 +232,9 @@ export function step(w: World): TickReport {
 
   // Phase 0: scheduled events, capital projects, product prices, plant upkeep, field decline, empty pipelines.
   applyEvents(w, byId);
+  // Weather at sea, after the scheduled events, so a storm never starts on water somebody has just
+  // closed and a closure landing today always wins.
+  w.storms = advanceStorms(w.graph, w.storms, w.rng.storms, cfg, tick);
   advanceProjects(w);
   w.charters = expireCharters(w.charters, w.cargo, tick);
   byId = new Map<AgentId, Agent>(w.agents.map((a) => [a.agentId, a]));   // a finished refinery may have replaced a producer

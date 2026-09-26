@@ -82,12 +82,37 @@ export const LANES: readonly LaneData[] = [
   { id: 'malacca', a: 'W_INDIAN_OCEAN', b: 'W_S_CHINA_SEA', mode: SEA, transit: 6, freight: 0.90, chokepoint: 'MALACCA', throughput: 40_000 },
   { id: 'lombok', a: 'W_INDIAN_OCEAN', b: 'W_S_CHINA_SEA', mode: SEA, transit: 9, freight: 1.20 },
   { id: 'indian_cape', a: 'W_INDIAN_OCEAN', b: 'W_CAPE', mode: SEA, transit: 10, freight: 1.20 },
-  { id: 'cape_s_atlantic', a: 'W_CAPE', b: 'W_S_ATLANTIC', mode: SEA, transit: 8, freight: 1.00 },
+  // Every rounding of Africa crosses this: W_CAPE joins nothing but the Indian Ocean and the
+  // South Atlantic, so one chokepoint on this side catches them all.
+  { id: 'cape_s_atlantic', a: 'W_CAPE', b: 'W_S_ATLANTIC', mode: SEA, transit: 8, freight: 1.00, chokepoint: 'CAPE_OF_GOOD_HOPE', throughput: 30_000 },
   { id: 's_n_atlantic', a: 'W_S_ATLANTIC', b: 'W_N_ATLANTIC', mode: SEA, transit: 9, freight: 1.00 },
   { id: 's_atlantic_caribbean', a: 'W_S_ATLANTIC', b: 'W_CARIBBEAN', mode: SEA, transit: 7, freight: 0.90 },
   { id: 'n_atlantic_caribbean', a: 'W_N_ATLANTIC', b: 'W_CARIBBEAN', mode: SEA, transit: 7, freight: 0.90 },
-  { id: 'caribbean_gulf', a: 'W_CARIBBEAN', b: 'W_GULF_MEXICO', mode: SEA, transit: 3, freight: 0.40 },
+  // The Gulf's main way out, by the Yucatán Channel. Sized well above the traffic so an open Gulf
+  // never binds, and congested rather than sealed by weather (see chokepoints.ts).
+  { id: 'caribbean_gulf', a: 'W_CARIBBEAN', b: 'W_GULF_MEXICO', mode: SEA, transit: 3, freight: 0.40, chokepoint: 'GULF_OF_MEXICO', throughput: 40_000 },
+  // The Gulf's other way out, by the Straits of Florida, which the model had left out. Without it
+  // the Gulf had a single sea exit, so closing one chokepoint stranded Houston and Campeche - which
+  // §14.6 forbids, and the invariant test caught the moment a chokepoint went on the Yucatán lane.
+  // Priced a little above the Caribbean route so nothing reroutes in fair weather: it exists to be
+  // there when the other way is shut, which is what the second exit is for in life too.
+  { id: 'florida_straits', a: 'W_GULF_MEXICO', b: 'W_N_ATLANTIC', mode: SEA, transit: 11, freight: 1.50 },
   { id: 'panama', a: 'W_CARIBBEAN', b: 'W_N_PACIFIC', mode: SEA, transit: 20, freight: 4.50, chokepoint: 'PANAMA', throughput: 10_000 },
+  // The western way between the Atlantic and the Pacific. Not the only other way - a cargo shut out
+  // of the canal can always go east instead, round the Cape of Good Hope and through Malacca, and
+  // that route has been there all along. This one is the short way west for anything already in the
+  // southern cone, and the overflow when the canal is full.
+  //
+  // Priced so the canal normally wins and this is the fallback, which is what a bypass is. Routing
+  // costs freight + CARRY_RATE x transit, so at $2.50 the Horn came to $5.70 against the canal's
+  // $6.50 and took half the traffic between the oceans - measured 2026-09-26, and not what a bypass
+  // is for. At $3.80 it is $7.00: dearer overall than the canal, but cheaper in freight alone, so a
+  // cargo that values time pays the canal's toll and one that does not goes the long way. That is
+  // the trade the canal has sold since 1914.
+  //
+  // Measured at this price: **no** region pair, of 462, takes Cape Horn as its cheapest route, so the
+  // lane never bends ordinary trade. What crosses it is what the canal could not take that day.
+  { id: 'cape_horn', a: 'W_S_ATLANTIC', b: 'W_N_PACIFIC', mode: SEA, transit: 32, freight: 3.80, chokepoint: 'CAPE_HORN', throughput: 25_000 },
   { id: 'gibraltar', a: 'W_N_ATLANTIC', b: 'W_MEDITERRANEAN', mode: SEA, transit: 5, freight: 0.60 },
   { id: 'danish_straits', a: 'W_N_ATLANTIC', b: 'W_BALTIC', mode: SEA, transit: 4, freight: 0.50, chokepoint: 'DANISH_STRAITS', throughput: 15_000 },
   { id: 'bosphorus', a: 'W_MEDITERRANEAN', b: 'W_BLACK_SEA', mode: SEA, transit: 3, freight: 0.60, chokepoint: 'BOSPHORUS', throughput: 15_000 },

@@ -173,7 +173,7 @@ export class GameSession {
     // A save carries the world's settings as they were. A later version may have added one the save
     // has no value for — and a missing number quietly turns every sum that touches it into NaN — so
     // anything absent takes today's default, which is what the game would have used in any case.
-    const world = data.world as { config: Config; rng: { wells?: Rng; climate?: Rng } };
+    const world = data.world as { config: Config; rng: { wells?: Rng; climate?: Rng; storms?: Rng }; storms?: unknown[] };
     world.config = { ...DEFAULT_CONFIG, ...world.config };
     // The daily swing in what fields pump draws from its own stream, seeded from the game's seed,
     // so a save written before it existed carries on the same way every time it is loaded.
@@ -181,6 +181,10 @@ export class GameSession {
     // A save written before the economic climate existed starts it on an ordinary market, with its
     // own stream seeded from the game's seed so it runs the same way every time it is loaded.
     if (world.rng.climate === undefined) world.rng.climate = rngFor(data.settings.seed, 'climate');
+    // Weather at sea, likewise: a save written before storms existed starts with calm water and its
+    // own stream, so the same save always blows the same way.
+    if (world.rng.storms === undefined) world.rng.storms = rngFor(data.settings.seed, 'storms');
+    world.storms ??= [];
     const sink = data.world.sink as { climate?: number; economicClimate?: string };
     sink.climate ??= 0;
     sink.economicClimate ??= 'NORMAL';

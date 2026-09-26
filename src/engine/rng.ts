@@ -18,7 +18,7 @@ export interface Rng {
 }
 
 /** The independent streams the engine draws from (spec G10). */
-export type RngStream = 'products' | 'events' | 'ai' | 'wells' | 'climate';
+export type RngStream = 'products' | 'events' | 'ai' | 'wells' | 'climate' | 'storms';
 
 /**
  * A new generator for one stream of one game.

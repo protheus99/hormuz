@@ -2,7 +2,7 @@
 // types need, milestones and their rewards, and the result. A scenario ends as soon as its goal can
 // no longer be met, when the company goes bankrupt, or at its time limit.
 
-import { CHOKEPOINTS, type ChokepointName } from '../data/chokepoints';
+import { type ChokepointName } from '../data/chokepoints';
 import { applyAction } from '../engine/actions';
 import { plantOf, total, wellOf } from '../engine/companies';
 import type { Agent, AgentId, Fill } from '../engine/model';
@@ -10,6 +10,7 @@ import { nextFloat, rngFor } from '../engine/rng';
 import type { DealDelivery } from '../engine/deals';
 import { netWorth, type World } from '../engine/world';
 import { EVENT_PROFILES, type EventProfile } from '../content/events';
+import { profileOf } from './events';
 import { SCENARIO_BY_ID, type Condition, type ScenarioData, type ScenarioId, type ScriptEntry } from '../content/scenarios';
 import { grantReport, type AdvisorState } from './cards/advisor';
 import { planFor, type PlannedStage, type ScriptedEvent } from './events';
@@ -106,9 +107,14 @@ export function scriptFor(s: ScenarioData, seed: string): ScriptedEvent[] {
   }
   if (s.id === 'FINALE') {
     const rng = rngFor(`${seed}:finale`, 'events');
-    const others = (Object.keys(CHOKEPOINTS) as ChokepointName[]).filter((c) => c !== 'HORMUZ');
+    // Drawn from the chokepoints that have an event profile, not from every chokepoint there is:
+    // the finale's late crisis is somebody closing a strait, and the three the *weather* closes have
+    // no profile to draw a plan from. Taking the list from CHOKEPOINTS crashed the finale the day
+    // those three were added (2026-09-26), so it is taken from the profiles themselves - which
+    // cannot go stale, because the list and the lookup are now the same object.
+    const others = (Object.keys(EVENT_PROFILES) as ChokepointName[]).filter((c) => c !== 'HORMUZ');
     const c = others[Math.floor(nextFloat(rng) * others.length)] as ChokepointName;
-    const profile: EventProfile = EVENT_PROFILES[c as keyof typeof EVENT_PROFILES];
+    const profile = profileOf(c) as EventProfile;
     let plan: PlannedStage[] = planFor(profile, rng, null).filter((p) => p.stage === 'DISRUPTION' || p.stage === 'RECOVERY');
     if (plan.length === 0) plan = [{ stage: 'DISRUPTION', days: profile.disruption.days[1], status: profile.disruption.status, delay: profile.disruption.delay[1], surcharge: profile.surcharge }];
     out.push({ tick: 700 + Math.floor(nextFloat(rng) * 60), chokepoint: c, plan });

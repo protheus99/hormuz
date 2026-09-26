@@ -32,7 +32,7 @@ describe('default routes match the §3.5 sanity table', () => {
 
   it('US Gulf Coast → Coastal Asia: Panama ~26 ticks, and ~38 via the Cape when Panama closes', () => {
     const r = findRoute(g, 'US_Gulf_Coast', 'Coastal_Asia');
-    expect(r?.chokepoints).toEqual(['PANAMA']);
+    expect(r?.chokepoints).toEqual(['GULF_OF_MEXICO', 'PANAMA']);
     expect(r?.totalTransit).toBe(26);
     setChokepoint(g, 'PANAMA', 'CLOSED');
     const cape = findRoute(g, 'US_Gulf_Coast', 'Coastal_Asia');
@@ -46,6 +46,8 @@ describe('default routes match the §3.5 sanity table', () => {
     const r = findRoute(g, 'West_Africa', 'South_Asia');
     expect(ids(r)).toEqual(['West_Africa-W_S_ATLANTIC', 'cape_s_atlantic', 'indian_cape', 'arabian_indian', 'South_Asia-W_ARABIAN_SEA']);
     expect(r?.totalTransit).toBe(24);
+    // Rounding Africa is a named passage now, and the weather can shut it (§3.5).
+    expect(r?.chokepoints).toEqual(['CAPE_OF_GOOD_HOPE']);
   });
 
   it('Middle East → Southern Europe with Hormuz closed: East-West pipeline, Red Sea, Suez, ~8 ticks', () => {
@@ -70,9 +72,10 @@ describe('chokepoints (spec §3.5)', () => {
 
   it('reroutes via the Cape when Bab el-Mandeb closes (Phase 4 acceptance)', () => {
     setChokepoint(g, 'BAB_EL_MANDEB', 'CLOSED');
-    // South Asia has no bypass pipeline, so its Europe-bound crude must go round Africa.
+    // South Asia has no bypass pipeline, so its Europe-bound crude must go round Africa - which is
+    // a named passage since the weather was given somewhere to blow (§3.5).
     const r = findRoute(g, 'South_Asia', 'Southern_Europe');
-    expect(r?.chokepoints).toEqual([]);
+    expect(r?.chokepoints).toEqual(['CAPE_OF_GOOD_HOPE']);
     expect(ids(r)).toContain('indian_cape');
     // Gulf crude still reaches Suez through the Red Sea bypass — until that pipeline is full.
     expect(ids(findRoute(g, 'Middle_East', 'Southern_Europe'))?.[0]).toBe('bypass_red_sea');

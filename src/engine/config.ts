@@ -215,6 +215,21 @@ export interface Config {
   readonly CARD_MAX_OPEN: number;
   readonly CARD_COOLDOWN: number;          // ticks, per card type
   readonly CARD_DEADLINE: number;          // ticks
+  /**
+   * Weather conditions at sea (§3.5) - not the economic climate, which is §12A.8 B. A storm shuts or
+   * slows a passage for a few days at a time, on its own season, and nothing about it is a decision:
+   * it is the world being weather, and the decision is what a company does about it.
+   */
+  readonly WEATHER: {
+    readonly DAYS: { readonly MIN: number; readonly MAX: number };
+    /** Share of storms bad enough to close a passage outright rather than congest it. */
+    readonly CLOSE_SHARE: number;
+    /** Odds out of season, as a share of the season's own. */
+    readonly OFF_SEASON: number;
+    /** What cover costs while it blows, $/bbl, and the days it adds to a crossing. */
+    readonly SURCHARGE: number;
+    readonly DELAY: number;
+  };
   readonly PROJECTION_TICKS: number;
 }
 
@@ -478,6 +493,15 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
   CARD_MAX_OPEN: 3,
   CARD_COOLDOWN: 14,
   CARD_DEADLINE: 7,
+  WEATHER: {
+    // Two to six days: long enough to matter to a cargo, short enough that a season is many storms
+    // rather than one long outage. A fifth of them close the water outright.
+    DAYS: { MIN: 2, MAX: 6 },
+    CLOSE_SHARE: 0.2,
+    OFF_SEASON: 0.15,
+    SURCHARGE: 0.35,
+    DELAY: 2,
+  },
   PROJECTION_TICKS: 30,
 });
 

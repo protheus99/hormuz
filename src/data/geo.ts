@@ -28,6 +28,8 @@ export const WAYPOINT_POSITIONS: Readonly<Record<WaypointName, LonLat>> = {
 export const CHOKEPOINT_POSITIONS: Readonly<Record<ChokepointName, LonLat>> = {
   HORMUZ: [56.5, 26.5], BAB_EL_MANDEB: [43.4, 12.6], SUEZ: [32.5, 30], MALACCA: [100.5, 3],
   BOSPHORUS: [29, 41.1], DANISH_STRAITS: [11, 56], PANAMA: [-79.7, 9],
+  // The three the sea closes rather than a government: the way out of the Gulf, and the two capes.
+  GULF_OF_MEXICO: [-84, 23.5], CAPE_OF_GOOD_HOPE: [19, -35.5], CAPE_HORN: [-67, -56],
 };
 
 /** Low-detail land outlines, each a closed ring. */
