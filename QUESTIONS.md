@@ -432,6 +432,106 @@ Three consequences fall out of those numbers, and each is a decision rather than
   and that is what makes breaking bulk a service worth paying for. Without it, parcels are lumpy but
   a small one is not expensive, and the trader still has nothing to sell.
 
+### A world where shipping is the norm: the design, and what it costs (owner, 2026-09-26)
+
+The owner's direction: **long purchases move by ship.** That changes what a refiner has to do to get
+fed, and it makes the trader's business real - buying hulls in bulk, landing them in their own tanks in
+several regions, and selling in small pieces over time. The owner also notes the world has too few
+producers to fill ships. Measured, and it is worse than too few:
+
+```
+19 producers          world pumps  88,500 bbl/day   =  1.26 GP cargoes a day, for the whole planet
+13 refiners           world refines 99,000 bbl/day  (66,733 actually run)
+19 loading regions    so an average quay loads one GP cargo every 15 days
+traders' hub space    50,000 bbl in total, across every office in the world - 0.7 of one cargo
+```
+
+**The three facts that set the design:**
+
+- **Refiners are already the right size for cargoes.** A GP cargo of 70,000 bbl is **6.4 to 14 days** of
+  feed for the refineries in this world, which is what a cargo is in life. Their *tanks* are the problem:
+  6 of 13 cannot hold one cargo.
+- **Producers are far too small to be the unit of shipping.** The typical field takes **18-28 days** to
+  fill a GP cargo and **14 of 19 could not physically hold one**. If a ship has to be filled by one
+  company, most of this world can never ship anything.
+- **Traders cannot do the job the owner wants at all.** An office hub holds `OFFICE_HUB_CAPACITY` =
+  10,000 bbl. Buying a cargo and selling it in pieces needs one or two cargoes of tank, so this number
+  is out by a factor of ten to fifteen. It is the single most important number in the whole design.
+
+### The model
+
+**1. A voyage hires a hull, and you pay for the hull.** Sea legs stop being a per-barrel toll and become
+`days x day rate / barrels loaded`. Nothing needs a minimum cargo rule: a part load pays for the empty
+space, so 1,000 barrels on a 38-day voyage prices itself out at about **$1,100 a barrel** and nobody
+does it. Pipelines keep their per-barrel tariff, which is what a pipeline is.
+
+**2. Classes, with a small one this world needs.** The owner's table is the shape - bigger is cheaper per
+barrel, and its own efficiency index puts a GP at **3.2x a VLCC per barrel**, which is the number the
+whole design rests on. Its absolute figures do not quite agree with each other (a GP at $1.0-1.4M for
+30 days over 70,000 bbl is $14-20 a barrel, not the $6.50-8.50 in the next column), so the ratios are
+what should be taken and the rates set to make them true in the game. A **coaster of ~20,000 bbl** has
+to be added: short-sea trade at this world's size has nothing else to use.
+
+**3. Cargo is assembled at a quay, not at a company.** This is the piece that makes the rest possible. A
+buyer fills a hull from whatever sellers have barrels at that loading region, so a 2,500 bbl/day field
+is still in the business - it sells into the terminal rather than filling a ship. Stage 3b already built
+most of what this needs: a lease holds its own oil, posts its own ask at its own quay, and prices its
+barrels per grade. The quay is already there; nothing aggregates across it yet.
+
+**4. An office becomes a terminal.** `OFFICE_HUB_CAPACITY` 10,000 -> **150,000 bbl** (two GP cargoes, or
+one MR). A trader lands a hull into its own tank and sells from it in any size, in any region it has an
+office. That is the business the owner is describing, and it is currently impossible by a factor of
+fifteen.
+
+**5. Why it pays - the trader's margin is the difference between a big ship and a small one.**
+
+```
+buy a VLCC parcel, ocean crossing        ~$2.25/bbl of freight
+what the buyer would have paid for a GP  ~$12.86/bbl
+gross advantage                           $10.61/bbl
+less carrying it 30 days at STORAGE_CARRY $1.80/bbl
+less the hub's rent and the price risk    the trader's actual job
+```
+
+**That gap is the whole reason the trade exists**, and the owner's table hands it to us directly. No
+contrivance is needed to make traders matter: make freight depend on the hull and the margin appears.
+
+**6. Refiners shop around, and it becomes a real decision.** Covering next month's feed offers three
+genuinely different shapes: a whole cargo from a distant quay at $3-4 a barrel of freight but thirty
+days out and a large cash outlay; a parcel from a trader's tank nearby, dearer per barrel but available
+tomorrow and in the size you want; or a coaster from a regional producer. That is a card with three
+answers that are not versions of each other - which is what section 12A.8 has been asking for.
+
+### What it costs, honestly
+
+- **Production has to roughly triple.** For a refiner to have real choices a quay should load every 3-5
+  days rather than every 15, which is **2.5-3x** today's 88,500 bbl/day. The owner's instinct to add
+  producers rather than enlarge them is the right one: it also thickens the auction and the leaderboard.
+  19 -> about 45 producers, with refining raised to match.
+- **That slows everything down.** 32 companies today; about 60 after. The full check is already 440s and
+  clearing is per node per day, so expect something near double. Worth deciding before, not after.
+- **The merit order becomes size-dependent, and that is the real implementation risk.** `previousClose`
+  and `refinerQuote` rank origins by landed cost per barrel. Once freight depends on how much you buy,
+  there is no single landed price for an origin any more - only a landed price *for a parcel of a given
+  size*. Every rule that compares origins has to be told how much is being bought. This is the piece
+  most likely to be underestimated.
+- **Two dead systems come back to life**, which is the cheerful part: charters (0 in a year, and no AI
+  company can reach them) and the storage-lease pool both become load-bearing.
+
+### Build order, measured at each step
+
+1. **Vessel classes and voyage pricing**, per-barrel freight kept for pipelines. Measure what it does to
+   landed costs and to refining margin before anything else moves.
+2. **Tanks**: producers and refiners to at least one cargo, trader hubs to two. Nothing can ship before
+   there is somewhere to put it.
+3. **Cargo assembled at a quay** across sellers.
+4. **More producers**, to the cargo-every-3-5-days target, then one recalibration.
+5. **The refiner's shopping card and the trader's bulk-and-break business**, which is stage g finally
+   having something underneath it.
+
+Steps 1 and 2 are the ones that prove or kill the idea, and neither needs the rescale question answered
+first.
+
 ### The owner's case, measured: a Permian producer really does put 1,000 barrels a day to sea
 
 Asked 2026-09-26: does a Southeast Asian refiner buy 1,000-barrel parcels from the Permian, and is
