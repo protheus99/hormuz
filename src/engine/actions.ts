@@ -163,9 +163,8 @@ export function actionCost(w: World, agentId: AgentId, action: Action): { readon
       return { now: 0, total: rate * action.capacity * action.days };
     }
     case 'RENEW_LEASE': {
-      const held = w.leases.filter((l) => l.agentId === agentId && l.region === action.region)
-        .reduce((s, l) => s + l.capacity, 0);
-      return { now: 0, total: leaseRate(w, action.region) * held * action.days };
+      const soonest = endingSoonest(w, agentId, action.region);
+      return { now: 0, total: soonest === undefined ? 0 : leaseRate(w, action.region) * soonest.capacity * action.days };
     }
     case 'OPEN_OFFICE':
       return { now: cfg.OFFICE_COST.OPEN, total: cfg.OFFICE_COST.OPEN };
@@ -380,14 +379,13 @@ export function applyAction(w: World, agentId: AgentId, action: Action): void {
       // Extends the term of space the company already has. Renting a second lot instead would pay
       // for the same barrels twice over the days that overlap, and then give half of it back.
       // The rate is struck again at today's scarcity, as a new term would be.
-      if (!w.leases.some((l) => l.agentId === agentId && l.region === action.region)) {
-        throw new Error(`${a.name} has no leased space in ${action.region}`);
-      }
       const rate = leaseRate(w, action.region);
       const days = Math.max(action.days, cfg.LEASE_MIN_TICKS);
+      const soonest = endingSoonest(w, agentId, action.region);
+      if (soonest === undefined) throw new Error(`${a.name} has no leased space in ${action.region}`);
       // A term still running is extended from the day it would have ended; one already in grace
       // starts again from today, today counting as the first of the new days.
-      w.leases = w.leases.map((l) => (l.agentId === agentId && l.region === action.region
+      w.leases = w.leases.map((l) => (l === soonest
         ? { ...l, rate, grace: false, untilTick: (l.grace === true ? tick + days - 1 : l.untilTick + days) as Tick }
         : l));
       return;
@@ -592,6 +590,17 @@ export function leaseRegions(): RegionName[] {
 }
 
 /** Today's lease fee in a region: dearer as its pool fills (spec §7.4), fixed at signing. */
+/**
+  * The parcel of rented space in a region whose term runs out first. A company can hold several at
+  * once - a trader was measured holding six in one region - so anything about "the lease ending" has
+  * to mean one of them, and the one ending first is the only one there is anything to decide today.
+  */
+export function endingSoonest(w: World, agentId: AgentId, region: RegionName): Lease | undefined {
+  return w.leases
+    .filter((l) => l.agentId === agentId && l.region === region)
+    .reduce<Lease | undefined>((best, l) => (best === undefined || l.untilTick < best.untilTick ? l : best), undefined);
+}
+
 export function leaseRate(w: World, region: RegionName): number {
   const used = w.leases.filter((l) => l.region === region).reduce((s, l) => s + l.capacity, 0);
   return w.config.LEASE_RATE * (1 + w.config.LEASE_SCARCITY * used / w.config.LEASE_POOL_CAPACITY);

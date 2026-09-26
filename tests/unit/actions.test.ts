@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { GLOBAL_PORTFOLIO } from '../../src/data/portfolios';
 import { wages } from '../../src/engine/agents';
-import { actionCost, applyAction, projectCost, type Action } from '../../src/engine/actions';
+import { actionCost, applyAction, leaseRate, projectCost, type Action } from '../../src/engine/actions';
 import { plantOf, wellOf } from '../../src/engine/companies';
 import { fillTanks, refreshStorage } from '../../src/engine/leases';
 import type { WellState } from '../../src/engine/model';
@@ -272,6 +272,25 @@ describe('trading actions (spec G4.4)', () => {
     expect(wellOf(get(w, 'Qasr_Petroleum'))?.storageCapacity).toBe(owned + 20_000);
     expect(w.leases[0]?.untilTick).toBe(ends + 30);
     expect(() => act(w, 'Tarvale_Sands', { kind: 'RENEW_LEASE', region: 'Middle_East', days: 30 })).toThrow(/no leased space/);
+  });
+
+  it('renews only the parcel whose term is running out, where a company holds several', () => {
+    const w = fresh();
+    // A trader was measured holding six parcels of rented space in one region, so "the lease in this
+    // region" is not one thing, and renewing had extended every one of them at once.
+    act(w, 'Qasr_Petroleum', { kind: 'LEASE', region: 'Middle_East', capacity: 10_000, days: 60 });
+    act(w, 'Qasr_Petroleum', { kind: 'LEASE', region: 'Middle_East', capacity: 10_000, days: 20 });
+    const longer = w.leases.find((l) => l.untilTick === Math.max(...w.leases.map((x) => x.untilTick)));
+    const shorter = w.leases.find((l) => l.untilTick === Math.min(...w.leases.map((x) => x.untilTick)));
+    const wasLonger = longer?.untilTick ?? 0;
+    const wasShorter = shorter?.untilTick ?? 0;
+    // One parcel's worth, at today's scarcity rate rather than the base one: a renewal is a new term.
+    expect(actionCost(w, 'Qasr_Petroleum' as AgentId, { kind: 'RENEW_LEASE', region: 'Middle_East', days: 30 }).total)
+      .toBeCloseTo(leaseRate(w, 'Middle_East') * 10_000 * 30, 6);
+    expect(leaseRate(w, 'Middle_East')).toBeGreaterThan(cfg.LEASE_RATE);
+    act(w, 'Qasr_Petroleum', { kind: 'RENEW_LEASE', region: 'Middle_East', days: 30 });
+    const ends = w.leases.map((l) => l.untilTick).sort((a, b) => a - b);
+    expect(ends).toEqual([wasLonger, wasShorter + 30].sort((a, b) => a - b));
   });
 
   it('opens a trading office with a hub', () => {

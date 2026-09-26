@@ -432,6 +432,50 @@ Three consequences fall out of those numbers, and each is a decision rather than
   and that is what makes breaking bulk a service worth paying for. Without it, parcels are lumpy but
   a small one is not expensive, and the trader still has nothing to sell.
 
+### The number that decides the shape of this: no cargo is anywhere near a tanker
+
+Measured over a year of the game world, 3,822 cargoes:
+
+```
+every cargo            min 1,000 bbl   median 5,000   90th 15,000   max 51,000
+freight actually paid  min $0.00/bbl   median $2.40   90th $4.70    max $7.50
+
+cargoes that would meet the smallest class in the table (GP, 70,000 bbl):  0.0%
+```
+
+**Not one cargo in a year reaches even the smallest tanker.** The largest that ever sailed was 51,000
+barrels, against a GP's 70,000 floor, and the median was 5,000. So a cross-region minimum of one
+tanker would not make trade lumpy - it would stop cross-region trade entirely. The freight paid
+already spans the table's range ($0-7.50 against $2.80-14.50), but it is set by the lane, and knows
+nothing about how much is in the ship.
+
+The reason is scale. The average field in this world pumps 4,142 bbl/day, so a single GP cargo is
+**eight to thirty-five days of a whole company's output**. In life a Gulf producer pumps hundreds of
+thousands of barrels a day and a refinery runs 100,000-400,000. The game is built two orders of
+magnitude below the industry it is about, and the minimums are a symptom of that rather than the
+disease.
+
+Two ways out, and it is the owner's call:
+
+- **A. Price small parcels instead of banning them.** No hard floor on a voyage; freight per barrel
+  comes from how full the ship is, so 5,000 barrels pays GP-like money and a consolidated 70,000 pays
+  a third of it. Traders then exist to consolidate, which is the role they have in life, and nothing
+  in the world is forbidden. Cheap, and it does not disturb a single tuned number.
+- **B. Rescale the world to the industry, and take the table literally.** Capacities, tanks, cargoes
+  and company cash all multiply by the same factor (something like 20-50x). **This is cheaper than it
+  sounds:** almost every constant in the config is already *per barrel* or *per bbl/day* and so is
+  scale-free - `DRILL_COST`, `STORAGE_COST`, `FACTORY_COST`, the tariffs, the freight. What needs
+  multiplying is the absolute figures: starting cash, `CREDIT_BASE`, `OFFICE_COST`, `LOT_SIZE`,
+  `DEAL_VOLUME`, the charter capacities and the lease pool. Done uniformly it is a **change of units**:
+  every ratio in the game stays exactly where stage 6 put it, and nothing needs rebalancing. What it
+  buys is that the tanker table, the train, the 100,000 bbl tank and the 30,000 bbl parcel all become
+  the natural sizes they are in life instead of numbers the world has to be bent around.
+
+**Recommendation: B, then A on top of it.** B alone makes the minimums sensible; A is what makes a
+trader necessary, and it needs B first or the smallest ship in the table is still bigger than anything
+anyone ships. Doing A alone works and is much less effort, but it leaves a world whose fields are a
+fiftieth of the size of the fields it names.
+
 ### The trader's role: what I would do
 
 The owner asked four questions. The shape that answers all of them at once is **the trader breaks
