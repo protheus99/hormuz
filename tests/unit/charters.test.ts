@@ -9,6 +9,7 @@ import { charterCost, freightRate, idleCharter, newCharter } from '../../src/eng
 import { DEFAULT_CONFIG } from '../../src/engine/config';
 import { asAgentId, asCargoId, asCharterId, newCargo, type Cargo, type Route, type Tick } from '../../src/engine/model';
 import { createWorld, step, type World } from '../../src/engine/world';
+import { freightPerBarrel } from '../../src/data/vessels';
 
 const owner = asAgentId('Qasr_Petroleum');
 const route: Route = { edges: [], totalFreight: 9.8, totalSurcharge: 2, totalTransit: 4, chokepoints: ['HORMUZ'] };
@@ -37,8 +38,27 @@ describe('hiring a tanker (spec §7.4)', () => {
   });
 
   it('pays the war-risk surcharge but no freight per barrel', () => {
-    expect(freightRate(route, null)).toBe(9.8);
-    expect(freightRate(route, asCharterId('ch-1'))).toBe(2);
+    // On the open market a parcel pays the rate its hull earns; on a ship the company has already
+    // hired it pays only the war-risk surcharge, whatever it loads (§7.4, D65).
+    expect(freightRate(route, null, 70_000)).toBeCloseTo(freightPerBarrel(9.8, 70_000), 10);
+    expect(freightRate(route, asCharterId('ch-1'), 70_000)).toBe(2);
+  });
+
+  it('charges a big parcel less a barrel than a small one, and a chartered cargo neither', () => {
+    // The hire is paid whether the ship is full or not, so the same voyage is far dearer a barrel in
+    // a small hull. This difference is the whole reason consolidating cargo is a business.
+    const coaster = freightRate(route, null, 20_000);
+    const gp = freightRate(route, null, 70_000);
+    const vlcc = freightRate(route, null, 2_000_000);
+    expect(coaster).toBeGreaterThan(gp);
+    expect(vlcc).toBeLessThan(gp);
+    expect(vlcc / gp).toBeCloseTo(0.31, 2);
+    // Anything bigger than the largest hull travels in several of them, at the same rate a barrel.
+    expect(freightRate(route, null, 50_000_000)).toBeCloseTo(freightRate(route, null, 3_000_000), 10);
+    // A company that has already bought the ship pays the surcharge whatever it loads.
+    for (const qty of [20_000, 70_000, 2_000_000]) {
+      expect(freightRate(route, asCharterId('ch-1'), qty)).toBe(2);
+    }
   });
 });
 
@@ -77,9 +97,10 @@ describe('a charter in a running world', () => {
       const loaded = w.cargo.filter((c) => c.ownerId === buyer.agentId && c.dispatchTick === w.tick);
       const chartered = loaded.find((c) => c.charterId !== null);
       if (chartered === undefined) continue;
-      // What the day's freight should have come to: full freight for anything on a hired ship,
-      // and for the cargo on its own charter the war-risk surcharge alone.
-      const expected = loaded.reduce((t, c) => t + c.qty * (c.charterId === null ? c.route.totalFreight : c.route.totalSurcharge), 0);
+      // What the day's freight should have come to. Asked of `freightRate` rather than worked out
+      // again here: it is the one definition of what a company pays to move a barrel, and it now
+      // depends on the size of the parcel as well as the distance (§7.4, D65).
+      const expected = loaded.reduce((t, c) => t + c.qty * freightRate(c.route, c.charterId, c.qty), 0);
       const paid = w.ledger.entries.filter((e) => e.kind === 'FREIGHT' && e.agentId === buyer.agentId).reduce((t, e) => t + e.amount, 0);
       expect(paid).toBeCloseTo(expected, 6);
       expect(chartered.route.totalFreight).toBeGreaterThan(chartered.route.totalSurcharge);

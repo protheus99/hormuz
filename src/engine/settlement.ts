@@ -67,7 +67,7 @@ export function settleFills(
 
     const charter = idleCharter(charters, [...atSea, ...cargo], buyer.agentId, f.qty, f.tick);
     const goods = f.fobPrice * f.qty;
-    const freight = freightRate(f.route, charter?.charterId ?? null) * f.qty;
+    const freight = freightRate(f.route, charter?.charterId ?? null, f.qty) * f.qty;
     // A region's infrastructure tariff is paid once, when crude enters it. Crude leaving a trading
     // hub it was delivered into has already paid, so its resale pays no origin tariff (spec §7.1).
     const fromHub = seller.kind === 'TRADER' && seller.hubs[f.originRegion] !== undefined;

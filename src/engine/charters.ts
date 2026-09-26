@@ -6,6 +6,7 @@
 import type { Config } from './config';
 import type { AgentId, Cargo, Charter, CharterId, CharterSize, Route, Tick } from './model';
 import { asCharterId } from './model';
+import { freightPerBarrel } from '../data/vessels';
 
 /** What hiring a ship of this class costs in all, over the days it is hired. */
 export function charterCost(config: Config, size: CharterSize, days: number): number {
@@ -34,9 +35,14 @@ export function idleCharter(charters: readonly Charter[], cargo: readonly Cargo[
 /**
  * What a company pays to move a cargo, $/bbl: the whole freight on the open market, or only the
  * war-risk surcharge when it travels on a ship the company has already hired (spec §7.4).
+ *
+ * On the open market the rate depends on how much is being moved, because a ship's hire is paid
+ * whether it is full or not: a parcel travels in the smallest hull that holds it, and a small hull
+ * costs far more a barrel than a large one (§7.4, D65). A chartered cargo pays only the surcharge,
+ * as it always did - the company has already bought the ship, and its size is its own problem.
  */
-export function freightRate(route: Route, charterId: CharterId | null): number {
-  return charterId === null ? route.totalFreight : route.totalSurcharge;
+export function freightRate(route: Route, charterId: CharterId | null, qty: number): number {
+  return charterId === null ? freightPerBarrel(route.totalFreight, qty) : route.totalSurcharge;
 }
 
 /** Charters whose hire has run out and which are carrying nothing are handed back (spec §5 phase 0). */

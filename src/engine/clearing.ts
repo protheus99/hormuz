@@ -14,6 +14,7 @@ import {
   type AgentId, type Ask, type Bid, type ChokepointName, type Fill, type NodeName, type Order, type RegionName, type Route, type Tick,
 } from './model';
 import type { RouteProvider } from './routes';
+import { freightPerBarrel } from '../data/vessels';
 
 export interface ExchangeNode {
   readonly name: NodeName;
@@ -79,6 +80,12 @@ interface Candidate {
   readonly tariff: number;
   /** ask + freight + destination tariff: what the buyer pays if the trade prints at the ask. */
   readonly landed: number;
+  /**
+   * What a barrel of this parcel costs to move, at the rate its size earns (§7.4, D65). Carried on
+   * the candidate rather than worked out again at the fill, so the price the match was made at and
+   * the price the buyer is charged can never differ.
+   */
+  readonly freight: number;
   /** bid − landed: the value the trade creates, split evenly between buyer and seller. */
   readonly surplus: number;
   /** Whose pipeline space the cargo uses: the buyer's, or the seller's reservation (spec G4.4). */
@@ -137,9 +144,13 @@ export function clear(node: ExchangeNode, ctx: ClearContext): Fill[] {
       sellerId: c.ask.agentId,
       qty,
       fobPrice,
-      freight: c.route.totalFreight,
+      // The rate the parcel's own size earns it, which is what settlement will charge. Recording
+      // the lane's base rate here instead would put the day book at odds with the cash.
+      // The rate the candidate was priced at, not one worked out again from the filled quantity: a
+      // partial fill must not be charged a small-parcel rate the match never offered.
+      freight: c.freight,
       destinationTariff: c.tariff,
-      landedPrice: fobPrice + c.route.totalFreight + c.tariff,
+      landedPrice: fobPrice + c.freight + c.tariff,
       originRegion: c.ask.originRegion,
       deliveryRegion: c.bid.deliveryRegion,
       route: c.route,
@@ -182,9 +193,20 @@ function candidateFor(bid: Bid, ask: Ask, ctx: ClearContext): Candidate | null {
   }
   if (route === null) return null;
   const tariff = REGIONS[bid.deliveryRegion].infrastructureTariff;
-  const landed = ask.limitPrice + route.totalFreight + tariff;
+  // The parcel this pair would trade, so the voyage is priced at the rate settlement will really
+  // charge for it (§7.4, D65). Pricing the match at a flat lane rate instead let a buyer pay above
+  // its own bid the moment a hull cost more than that rate, which §8 rule 4 forbids outright - found
+  // by test the day vessel classes went in. The merit order is therefore size-dependent, as it is in
+  // life: a seller far away is worth more to a buyer taking a full cargo than to one taking a sliver.
+  // What will really ship together, capacity included - a fill becomes one cargo, and that cargo is
+  // the parcel a hull is booked for. Pricing on the pair's full intent instead discounted every
+  // capacity-limited trade as though a bigger ship had carried it, and took a third off the world's
+  // freight bill (measured 2026-09-26).
+  const qty = Math.min(bid.qtyRemaining, ask.qtyRemaining, ctx.routes.capacityLeft(route, shipper));
+  const landed = ask.limitPrice + freightPerBarrel(route.totalFreight, qty) + tariff;
   const surplus = bid.limitPrice - landed;
-  return surplus >= 0 ? { bid, ask, route, tariff, landed, surplus, shipper } : null;
+  const freight = freightPerBarrel(route.totalFreight, qty);
+  return surplus >= 0 ? { bid, ask, route, tariff, landed, surplus, shipper, freight } : null;
 }
 
 function byRank(a: Candidate, b: Candidate): number {

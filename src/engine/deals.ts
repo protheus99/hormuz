@@ -243,7 +243,7 @@ function dispatch(
     const qty = routes.reserve(route, c.qty, owner.agentId);
     if (qty <= 0) return;
     const charter = charters === undefined ? undefined : idleCharter(charters, cargo, owner.agentId, qty, tick);
-    const freight = freightRate(route, charter?.charterId ?? null) * qty;
+    const freight = freightRate(route, charter?.charterId ?? null, qty) * qty;
     owner.cash -= freight;
     recordFee(ledger, { tick, agentId: owner.agentId, kind: FeeKind.FREIGHT, amount: freight });
 

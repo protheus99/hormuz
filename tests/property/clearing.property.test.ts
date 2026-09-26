@@ -9,6 +9,7 @@ import { DEFAULT_CONFIG } from '../../src/engine/config';
 import { REGIONS } from '../../src/data/regions';
 import { asAgentId, asEdgeId, makeOrderId, type ChokepointName, type Order, type RegionName } from '../../src/engine/model';
 import { StubRouteProvider } from '../../src/engine/routes';
+import { freightPerBarrel } from '../../src/data/vessels';
 
 const PIPELINE_CAPACITY = 6000;
 
@@ -155,7 +156,11 @@ describe('clearing properties (spec §8, §14.6)', () => {
             if (a.side !== 'ASK' || a.qtyRemaining < lot || a.agentId === b.agentId) continue;
             const route = routes.route(a.originRegion, b.deliveryRegion, b.avoidChokepoints);
             if (route === null || routes.capacityLeft(route, b.agentId) < lot) continue;
-            const landed = a.limitPrice + route.totalFreight + REGIONS[b.deliveryRegion].infrastructureTariff;
+            // Judged the way the market judges it: what a voyage costs depends on the size of the
+            // parcel the pair would trade, not on the lane alone (§7.4, D65).
+            const parcel = Math.min(b.qtyRemaining, a.qtyRemaining);
+            const landed = a.limitPrice + freightPerBarrel(route.totalFreight, parcel)
+              + REGIONS[b.deliveryRegion].infrastructureTariff;
             expect(b.limitPrice - landed, `${b.orderId} vs ${a.orderId}`).toBeLessThan(0);
           }
         }

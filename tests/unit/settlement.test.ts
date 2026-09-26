@@ -6,6 +6,7 @@ import { createLedger, recordFee, type FeeLedger } from '../../src/engine/econom
 import { makeOrderId, type Agent, type AgentId, type Ask, type Bid, type Producer, type Refiner, type Trader } from '../../src/engine/model';
 import { StubRouteProvider } from '../../src/engine/routes';
 import { placeOrder, releaseEscrow, settleFills } from '../../src/engine/settlement';
+import { freightPerBarrel } from '../../src/data/vessels';
 
 let qasr: Producer;
 let straits: Refiner;
@@ -96,11 +97,16 @@ describe('a full trading day (spec §5 phases 5b–6)', () => {
   }
 
   it('moves cash as the spec’s worked example says', () => {
-    // 5,000 barrels at FOB 58.60, freight 9.80, Gulf origin tariff 0.20.
+    // 100,000 barrels at FOB 58.60, over a lane worth $9.80 a barrel, charged at the rate a parcel
+    // that size earns - a Medium Range hull (§7.4, D65). Gulf origin tariff 0.20.
     tradeOneDay();
-    expect(straits.cash).toBeCloseTo(60_000_000 - 100_000 * (58.6 + 9.8), 6);
-    expect(qasr.cash).toBeCloseTo(40_000_000 + 100_000 * (58.6 - 0.2), 6);
-    expect(ledger.total).toBeCloseTo(100_000 * (9.8 + 0.2), 6);
+    // The buyer bid 70 against an ask of 58 landed, and the surplus is split evenly - so what the
+    // cargo costs to move changes the price it prints at, not only the freight bill.
+    const moved = freightPerBarrel(9.8, 100_000);
+    const fob = 58 + (70 - (58 + moved + 1.0)) / 2;
+    expect(straits.cash).toBeCloseTo(60_000_000 - 100_000 * (fob + moved), 6);
+    expect(qasr.cash).toBeCloseTo(40_000_000 + 100_000 * (fob - 0.2), 6);
+    expect(ledger.total).toBeCloseTo(100_000 * (moved + 0.2), 6);
   });
 
   it('ships the barrels as cargo owned by the buyer, and counts them as inbound', () => {

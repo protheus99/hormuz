@@ -6,6 +6,7 @@ import { DEFAULT_CONFIG } from '../../src/engine/config';
 import { asAgentId, makeOrderId, type Ask, type Bid, type RegionName } from '../../src/engine/model';
 import { StubRouteProvider } from '../../src/engine/routes';
 import { buildLaneGraph, LaneRouteProvider, setChokepoint } from '../../src/engine/transport';
+import { freightPerBarrel } from '../../src/data/vessels';
 
 const ask = (agent: number, price: number, qty: number, origin: RegionName): Ask => ({
   orderId: makeOrderId(agent, 1), agentId: asAgentId(`co-${agent}`), node: 'DME', side: 'ASK',
@@ -31,9 +32,19 @@ describe('rerouting when a route fills', () => {
         { origin: 'Middle_East', destination: 'Coastal_Asia', freight: 4.0, transit: 20 },
       ]),
     };
-    // Ask 60, bid 70, Coastal_Asia tariff 1.00. Pipeline: surplus 7, FOB 63.5. Sea: surplus 5, FOB 62.5.
+    // Ask 60, bid 70, Coastal_Asia tariff 1.00. Each leg is priced at the rate its own parcel earns,
+    // so the cheap pipeline's 60,000 bbl and the sea route's 100,000 bbl pay different multiples of
+    // their lane's freight (§7.4, D65), and each prints at its own surplus.
     const fills = run([ask(1, 60, 160_000, 'Middle_East'), bid(2, 70, 160_000, 'Coastal_Asia')], ctx);
-    expect(fills.map((f) => [f.qty, f.freight, f.fobPrice])).toEqual([[60_000, 2, 63.5], [100_000, 4, 62.5]]);
+    // Priced on what actually ships: the pipeline takes 60,000 of the 160,000 on offer, and that
+    // 60,000 is the cargo a hull is booked for, so it pays a General Purpose rate. The remainder
+    // goes round by sea as its own parcel.
+    const pipe = freightPerBarrel(2.0, 60_000);
+    const sea = freightPerBarrel(4.0, 100_000);
+    expect(fills.map((f) => [f.qty, f.freight, f.fobPrice])).toEqual([
+      [60_000, pipe, 60 + (70 - (60 + pipe + 1.0)) / 2],
+      [100_000, sea, 60 + (70 - (60 + sea + 1.0)) / 2],
+    ]);
   });
 
   it('lets a better pair take the cheap route first, and sends the other one round', () => {
@@ -45,7 +56,12 @@ describe('rerouting when a route fills', () => {
       ]),
     };
     const fills = run([ask(1, 60, 120_000, 'Middle_East'), bid(2, 72, 60_000, 'Coastal_Asia'), bid(3, 70, 60_000, 'Coastal_Asia')], ctx);
-    expect(fills.map((f) => [String(f.buyerId), f.qty, f.freight])).toEqual([['co-2', 60_000, 2], ['co-3', 60_000, 4]]);
+    // Each pair is a 60,000 bbl parcel - a General Purpose hull - so both pay that class's rate on
+    // their own lane (§7.4, D65).
+    expect(fills.map((f) => [String(f.buyerId), f.qty, f.freight])).toEqual([
+      ['co-2', 60_000, freightPerBarrel(2.0, 60_000)],
+      ['co-3', 60_000, freightPerBarrel(4.0, 60_000)],
+    ]);
   });
 
   it('drops a pair whose next route leaves no surplus', () => {

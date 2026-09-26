@@ -5,6 +5,7 @@ import {
   asAgentId, asDealId, makeOrderId, type Ask, type Bid, type ChokepointName, type Fill, type NodeName, type RegionName,
 } from '../../src/engine/model';
 import { StubRouteProvider } from '../../src/engine/routes';
+import { freightPerBarrel } from '../../src/data/vessels';
 
 // Stub network. Destination tariffs come from the real region data: Coastal_Asia 1.00, South_Asia 1.20.
 // DME's marker region is Middle_East.
@@ -47,14 +48,22 @@ describe('batch clearing (spec §8)', () => {
     const [f] = fills;
     expect(f?.sellerId).toBe(cheap.agentId);
     expect(f?.qty).toBe(100_000);
-    expect(f?.fobPrice).toBeCloseTo(58.6, 10);      // 58 + (70 − 68.80) / 2
-    expect(f?.landedPrice).toBeCloseTo(69.4, 10);   // 58.60 + 9.80 + 1.00
-    expect(dear.qtyRemaining).toBe(100_000);           // 62 + 9.80 + 1.00 = 72.80 > 70: never trades
+    // 100,000 bbl rides a Medium Range hull, so the lane's $9.80 is charged at that class's rate.
+    const moved = freightPerBarrel(9.8, 100_000);
+    expect(f?.fobPrice).toBeCloseTo(58 + (70 - (58 + moved + 1)) / 2, 10);
+    expect(f?.landedPrice).toBeCloseTo((f?.fobPrice ?? 0) + moved + 1, 10);
+    expect(dear.qtyRemaining).toBe(100_000);           // 62 + freight + 1.00 > 70: never trades
   });
 
   it('compares origins on landed cost, not FOB price', () => {
-    const farAndCheap = ask(1, 60, 100_000, 'West_Africa');     // 60 + 11.00 + 1.00 = 72.00
-    const nearAndDear = ask(2, 69, 100_000, 'Russia_Far_East'); // 69 +  1.15 + 1.00 = 71.15
+    // Cheaper at the quay, dearer delivered. The prices are picked against the rate a 100,000 bbl
+    // parcel earns, because a discount on freight is worth more to the distant seller in absolute
+    // terms and can turn the order around (§7.4, D65).
+    const far = freightPerBarrel(11.0, 100_000);
+    const near = freightPerBarrel(1.15, 100_000);
+    const farAndCheap = ask(1, 65, 100_000, 'West_Africa');     // 65 at the quay, dearest delivered
+    const nearAndDear = ask(2, 69, 100_000, 'Russia_Far_East'); // 69 at the quay, cheapest delivered
+    expect(65 + far).toBeGreaterThan(69 + near);
     const { fills } = clearBook([bid(9, 72, 100_000, 'Coastal_Asia'), farAndCheap, nearAndDear]);
     expect(fills.map((f) => f.sellerId)).toEqual([nearAndDear.agentId]);
   });
@@ -81,10 +90,13 @@ describe('batch clearing (spec §8)', () => {
   });
 
   it('trades at exactly zero surplus, at the seller’s price', () => {
-    const { fills } = clearBook([bid(9, 72, 100_000, 'Coastal_Asia'), ask(1, 60, 100_000, 'West_Africa')]);
+    // Zero surplus means the bid sits exactly on what the cargo lands at, so it is derived from the
+    // rate this parcel's own size earns rather than written down (§7.4, D65).
+    const exact = 60 + freightPerBarrel(11.0, 100_000) + 1.0;
+    const { fills } = clearBook([bid(9, exact, 100_000, 'Coastal_Asia'), ask(1, 60, 100_000, 'West_Africa')]);
     expect(fills).toHaveLength(1);
     expect(fills[0]?.fobPrice).toBeCloseTo(60, 10);
-    expect(fills[0]?.landedPrice).toBeCloseTo(72, 10);
+    expect(fills[0]?.landedPrice).toBeCloseTo(exact, 10);
   });
 
   it('skips pairs with no usable route', () => {
@@ -95,7 +107,9 @@ describe('batch clearing (spec §8)', () => {
   it('breaks exact ties by order ID, never by arrival order', () => {
     const later = ask(5, 58, 60_000, 'Middle_East');
     const earlier = ask(2, 58, 60_000, 'Middle_East');
-    const { fills } = clearBook([bid(9, 70, 60_000, 'Coastal_Asia'), later, earlier]);
+    // 60,000 bbl is a General Purpose parcel; the bid has to clear what one costs to move.
+    const enough = 58 + freightPerBarrel(9.8, 60_000) + 1.0 + 0.5;
+    const { fills } = clearBook([bid(9, enough, 60_000, 'Coastal_Asia'), later, earlier]);
     expect(fills.map((f) => f.sellerId)).toEqual([earlier.agentId]);
   });
 
@@ -117,7 +131,7 @@ describe('batch clearing (spec §8)', () => {
   it('records the full trade: route, freight, tariff, tick, and no deal', () => {
     const { fills } = clearBook([bid(9, 70, 100_000, 'Coastal_Asia'), ask(1, 58, 100_000, 'Middle_East')]);
     expect(fills[0]).toMatchObject({
-      tick: 5, node: 'DME', freight: 9.8, destinationTariff: 1.0,
+      tick: 5, node: 'DME', freight: freightPerBarrel(9.8, 100_000), destinationTariff: 1.0,
       originRegion: 'Middle_East', deliveryRegion: 'Coastal_Asia', dealId: null,
       route: { chokepoints: ['HORMUZ'], totalTransit: 16 },
     });
@@ -175,9 +189,13 @@ describe('self-trade prevention (spec §8, rule 2)', () => {
 
 describe('marker price and previous close (spec §3.3, §8 rule 7)', () => {
   it('publishes the volume-weighted price of the day’s fills, converted to the marker region', () => {
-    // Gulf fill: 5,000 at FOB 58.60 (surplus 1.20), already in the marker region.
-    // Oman fill: pairs with the 69.80 bid at surplus 0.80, so FOB 59.40, plus 0.80 freight = 60.20.
-    // Average = (58.60 + 60.20) / 2 = 59.40.
+    // Both parcels are 100,000 bbl, so both ride a Medium Range hull and pay that class's rate.
+    // Gulf fill: bid 70 against 58 landed, the surplus split evenly. Oman fill: bid 69.80 against 59
+    // landed, likewise, then carried to the marker region at that leg's own rate - a conversion for
+    // valuation, not a charge, so it is not sized (§3.3).
+    const gulfFob = 58 + (70 - (58 + freightPerBarrel(9.8, 100_000) + 1.0)) / 2;
+    const omanFob = 59 + (69.8 - (59 + freightPerBarrel(9.0, 100_000) + 1.0)) / 2;
+    const expected = (gulfFob + (omanFob + 0.8)) / 2;
     const { node } = clearBook([
       bid(8, 70, 100_000, 'Coastal_Asia'),
       bid(9, 69.8, 100_000, 'Coastal_Asia'),
@@ -185,7 +203,7 @@ describe('marker price and previous close (spec §3.3, §8 rule 7)', () => {
       ask(2, 59, 100_000, 'Gulf_of_Oman'),
     ]);
     expect(node.fills).toHaveLength(2);
-    expect(node.markerPrice).toBeCloseTo(59.4, 10);
+    expect(node.markerPrice).toBeCloseTo(expected, 10);
   });
 
   it('keeps yesterday’s marker on a day with no trades', () => {
@@ -210,8 +228,12 @@ describe('marker price and previous close (spec §3.3, §8 rule 7)', () => {
     const node = createNode('DME');
     clearBook([bid(9, 70, 100_000, 'Coastal_Asia'), ask(1, 58, 100_000, 'Middle_East')], node);
     clearBook([bid(9, 71, 100_000, 'Coastal_Asia'), ask(2, 60, 100_000, 'Russia_Far_East')], node);
-    expect(node.lastFobByOrigin.Middle_East).toBeCloseTo(58.6, 10);                     // from day one
-    expect(node.lastFobByOrigin.Russia_Far_East).toBeCloseTo(60 + (71 - 62.15) / 2, 10); // from day two
+    // Each close is the ask plus half the surplus the trade created, and the surplus depends on what
+    // moving that parcel cost - a Medium Range hull for 100,000 bbl (§7.4, D65).
+    expect(node.lastFobByOrigin.Middle_East)
+      .toBeCloseTo(58 + (70 - (58 + freightPerBarrel(9.8, 100_000) + 1.0)) / 2, 10);
+    expect(node.lastFobByOrigin.Russia_Far_East)
+      .toBeCloseTo(60 + (71 - (60 + freightPerBarrel(1.15, 100_000) + 1.0)) / 2, 10);
   });
 
   it('quotes each origin delivered to a destination, cheapest first', () => {

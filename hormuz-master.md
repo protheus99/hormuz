@@ -861,11 +861,41 @@ With these defaults each product's noise has a long-run standard deviation of ab
 
 ### 7.4 Constants
 
-Placeholders for balancing. "× labor" scales with the region's `labor_cost_index`.
+Placeholders for balancing. "× labor" scales with the region's `labor_cost_index`. Every absolute
+quantity below is after the ×20 rescale of 2026-09-26 (D64).
+
+**Vessel classes (D65).** A lane's `freight` is what a barrel costs to carry that distance. What it
+actually pays depends on the parcel it travels in, because a ship's hire runs whether the hull is
+full or not — so `data/vessels.ts` carries eight classes, and `freightPerBarrel(laneFreight, qty)`
+is the one definition of the rate. A parcel takes the smallest class that holds it.
+
+| Class | Holds | Rate |
+|---|---|---|
+| Coaster | 20,000 bbl | ×1.40 |
+| General Purpose | 70,000 | ×1.00 |
+| Medium Range | 270,000 | ×0.88 |
+| Panamax | 380,000 | ×0.69 |
+| Aframax | 600,000 | ×0.56 |
+| Suezmax | 850,000 | ×0.44 |
+| VLCC | 2,000,000 | ×0.31 |
+| ULCC | 3,000,000 | ×0.27 |
+
+The rates are the owner's own cost index divided through by the General Purpose class, so a GP parcel
+pays exactly what a barrel paid before and every larger hull pays less. Across a year the world's
+freight bill falls about **21%**, which is kept rather than neutralised: the world ships in bigger
+parcels since the rescale and bigger parcels genuinely cost less a barrel. Trying to hold the total
+flat instead broke the market — see D65.
+
+The size is the parcel that **actually ships**, capacity included, since a fill becomes one cargo.
+Clearing therefore prices the voyage on that same parcel (`candidateFor`), so the price a match is
+struck at and the price the buyer is charged can never differ; pricing the match on a flat lane rate
+let a buyer pay above its own bid, which §8 rule 4 forbids. **The merit order is size-dependent as a
+result**, and that is true to life: a distant seller is worth more to a buyer taking a full cargo
+than to one taking a sliver, and an origin that was dearest delivered can become cheapest.
 
 | Constant | Default | Use |
 |---|---|---|
-| `LOT_SIZE` | 1,000 bbl | All orders and deals |
+| `LOT_SIZE` | 20,000 bbl | All orders and deals |
 | `CARRY_RATE` | $0.10 per bbl per tick | Route cost, refiner pricing |
 | `MIN_MARGIN`, `SKEW`, `DUMP_THRESHOLD` | 1.00, 0.10, 0.90 (Balanced) | Producer asks (§6.1, G4.2) |
 | `ASK_DECAY` | 2% per consecutive day unsold | Producer asks come down when nothing sells (§6.1) |
@@ -1104,6 +1134,7 @@ The build proceeds on these. Changing one means updating the sections it names.
 | D25 | Disruptions are staged events (`RUMOR → TENSION → DISRUPTION → RECOVERY`), with a `TENSION` chokepoint status (G7.1) |
 | D35 | Owner decisions 2026-09-19: chokepoint throughput falls in steps with status (a closure stops 100% of the strait but redirection by bypass stays possible, so the bypasses keep their capacity); producers dump at a discount to the reference, not at cash cost; the AI trader arbitrages between regions with tariff-aware spreads, from two offices at lower running cost; starting cash raised and credit lines 10× larger; insolvency is recoverable, because the world has too few companies to lose them |
 | D34 | Refiners grow through processing units, tier upgrades, storage and one second refinery in another refining region (not the Gulf); rival buyouts are out of scope. Chosen over a single site, which left refiners no late game, and over acquisitions, which add valuation and merger rules a teenager should not need |
+| D65 | Owner, 2026-09-26: **shipping becomes the norm for long purchases, starting with vessel classes.** What a barrel costs to move now depends on the size of the parcel it moves in, because a ship's hire is paid whether it is full or not — eight classes from a 20,000 bbl coaster to a 3,000,000 bbl ULCC, taken from the owner's own cost index (`data/vessels.ts`). This is the keystone of the shipping stage: it is where a trader's margin comes from, and it makes the charter system reachable rather than dead. **Two calibrations were tried and measured before this one stuck.** Holding the *world's* freight bill flat needed the small and middle classes lifted about half, and since a lot is 20,000 bbl — a coaster — the smallest tradeable parcel took the worst of it: the §9 invariant that no profitable pair goes unmatched failed on a one-lot counterexample and the §10.3 storage calibration broke. And pricing a voyage on the parcel the two sides *agreed* rather than the one that actually ships discounted every capacity-limited trade as though a bigger hull had carried it, taking a third off the world's freight. As built, a General Purpose parcel pays exactly the old flat rate, every larger hull less, and the world's freight falls about **21%** — kept, not engineered away, because a world that ships in bigger parcels genuinely pays less a barrel. One real consequence: **the merit order can flip**, since a freight discount is worth more to a distant seller in absolute terms |
 | D64 | Owner, 2026-09-26: **rescale the world ×20, as a change of units.** The world was built about two orders of magnitude below the industry it is about — the average field pumped 4,142 bbl/day and the largest cargo that ever sailed was 51,000 bbl, against 70,000 for the smallest tanker in the owner's table — so cargo-sized parcels could not be expressed at all. Every absolute quantity multiplies: barrels, bbl/day, and the dollar figures that are not per-unit. Every rate, share, probability and day count stays exactly where it is, so no ratio the six stages of tuning settled is disturbed. Prices were the thing that made it possible: `baselineOutput` is derived from the world's own refining capacity and `supplyFactor` compares a ratio, so the price model is scale-free. **Proven rather than asserted:** the golden replay comes back with the same 1,146 fills, exactly ×20 the barrels refined and ×20 the fees. Refineries now run 100,000–500,000 bbl/day, a median cargo is ~100,000 bbl, and `LOT_SIZE` is 20,000 |
 | D63 | Owner, 2026-09-26, shown a working preview of three treatments on real recorded cargo: **draw the player's own cargo on the map, option B** — dots moved by a transition so a day's step reads as travel, rather than placed again each day (A) or given wakes and a hover card (C). C waits for the rescale, because sizing a dot by its barrels says nothing while nearly every parcel is the same 1,000 bbl, and its wakes crowd the map at the 70–99 cargoes a refiner really has at sea. Rivals' cargo is never drawn (G5). The preview also established that a **producer never has oil at sea at all** — it sells FOB, so the buyer owns the cargo — which makes this a refiner-and-trader feature and keeps the tutorial from leaning on it (§12C) |
 | D62 | Owner, 2026-09-26: **a World tab, three more chokepoints, and the economic climate gets its full name.** The summary is for reading the shape of the world at a glance while debugging: every region's roles, capacity, what it is actually running, crude in store and last price by grade. `Weather` was renamed `EconomicClimate` throughout — longer, and precise — which freed *weather conditions* to mean the sea. Three weather-prone passages were added: the Gulf of Mexico, the Cape of Good Hope and Cape Horn (§3.5). A fourth, between South America and Africa, was asked for and **dropped**: Brazil, Argentina and West Africa all terminal into the same waypoint, so there is no lane between the continents to put one on, and expressing it means splitting the South Atlantic — a graph redesign that moves transit times, landed costs and the merit order, not a chokepoint. Two lanes came with the three: the Straits of Florida, because a chokepoint on the Gulf's only exit stranded Houston and Campeche and §14.6 forbids that; and Cape Horn itself |

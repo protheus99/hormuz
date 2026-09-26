@@ -9,6 +9,7 @@ import { cancelDeal, dealCommitments, deliverDeals, priceDeal, signDeal, splitDe
 import { createLedger, type FeeLedger } from '../../src/engine/economics';
 import { asEdgeId, type Agent, type AgentId, type Cargo, type Deal, type Producer, type Refiner } from '../../src/engine/model';
 import { buildLaneGraph, LaneRouteProvider, setChokepoint, setReservation, type LaneGraph } from '../../src/engine/transport';
+import { freightPerBarrel } from '../../src/data/vessels';
 
 let qasr: Producer;
 let malabar: Refiner;
@@ -96,8 +97,9 @@ describe('daily delivery (spec §5 phase 5a)', () => {
     const deal = sign();
     expect(deliver([deal], 11)).toEqual([{ dealId: deal.dealId, delivered: 100_000, shortfall: 0, held: 0 }]);
     expect(qasr.storage).toBe(300_000);
-    // Middle_East → South_Asia through Hormuz: $1.00 freight. Middle_East export tariff $0.20.
-    expect(malabar.cash).toBeCloseTo(60_000_000 - 100_000 * 60 - 100_000 * 1.0, 6);
+    // Middle_East → South_Asia through Hormuz: $1.00 of lane freight, charged at the rate a
+    // 100,000 bbl parcel earns - a Medium Range hull (§7.4, D65). Middle_East export tariff $0.20.
+    expect(malabar.cash).toBeCloseTo(60_000_000 - 100_000 * 60 - 100_000 * freightPerBarrel(1.0, 100_000), 6);
     expect(qasr.cash).toBeCloseTo(40_000_000 + 100_000 * 60 - 100_000 * 0.2, 6);
     expect(malabar.inboundBarrels).toBe(100_000);
     expect(cargo).toHaveLength(1);
