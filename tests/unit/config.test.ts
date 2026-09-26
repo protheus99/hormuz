@@ -14,13 +14,13 @@ function numbers(value: unknown, path = ''): [string, number][] {
 
 describe('DEFAULT_CONFIG (spec §7.4)', () => {
   it('carries the spec values that the design rests on', () => {
-    expect(c.LOT_SIZE).toBe(1000);
+    expect(c.LOT_SIZE).toBe(20_000);
     expect(c.FIXED_COST_RATE).toEqual({ PRODUCER: 7, REFINER: 4 });
     expect(c.DEAL_MAX_SHARE).toBe(0.8);
     expect(c.DEAL_TERMS).toEqual([30, 90]);
     expect(c.CARD_MAX_OPEN).toBe(3);
     expect(c.PROJECTION_TICKS).toBe(30);
-    expect(c.UNIT_CAPACITY).toBe(2500);
+    expect(c.UNIT_CAPACITY).toBe(50_000);
   });
 
   it('holds only finite, non-negative numbers', () => {

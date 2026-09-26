@@ -142,11 +142,11 @@ describe('pipeline capacity (spec §8 rule 5, Phase 4 acceptance)', () => {
     const routes = new LaneRouteProvider(g);
     const first = routes.route('Middle_East', 'South_Asia', [], straits);
     expect(ids(first)?.[0]).toBe('bypass_oman');
-    expect(routes.reserve(first as Route, 5000, straits)).toBe(3000);   // the pipe holds 3,000
+    expect(routes.reserve(first as Route, 100_000, straits)).toBe(60_000);   // the pipe holds 3,000
 
     const second = routes.route('Middle_East', 'South_Asia', [], straits);
     expect(ids(second)?.[0]).toBe('bypass_red_sea');
-    expect(routes.reserve(second as Route, 8000, straits)).toBe(6000);
+    expect(routes.reserve(second as Route, 160_000, straits)).toBe(120_000);
 
     expect(routes.route('Middle_East', 'South_Asia', [], straits)).toBeNull();
     routes.resetTick();
@@ -157,25 +157,25 @@ describe('pipeline capacity (spec §8 rule 5, Phase 4 acceptance)', () => {
     const routes = new LaneRouteProvider(g);
     const out = routes.route('Middle_East', 'Gulf_of_Oman') as Route;
     const back = routes.route('Gulf_of_Oman', 'Middle_East') as Route;
-    routes.reserve(out, 2000, qasr);
-    expect(routes.capacityLeft(back, straits)).toBe(1000);
+    routes.reserve(out, 40_000, qasr);
+    expect(routes.capacityLeft(back, straits)).toBe(20_000);
   });
 
   it('keeps reserved space for its holder and shares the rest', () => {
     const oman = asEdgeId('bypass_oman');
-    setReservation(g, oman, qasr, 1500, DEFAULT_CONFIG);
+    setReservation(g, oman, qasr, 30_000, DEFAULT_CONFIG);
     const edge = g.edges.find((e) => e.id === oman);
     if (!edge) throw new Error('edge expected');
-    expect(edgeCapacityLeft(edge, qasr)).toBe(3000);
-    expect(edgeCapacityLeft(edge, straits)).toBe(1500);
-    edge.usedBy[straits] = 1500;   // the shared pool is now full
+    expect(edgeCapacityLeft(edge, qasr)).toBe(60_000);
+    expect(edgeCapacityLeft(edge, straits)).toBe(30_000);
+    edge.usedBy[straits] = 30_000;   // the shared pool is now full
     expect(edgeCapacityLeft(edge, straits)).toBe(0);
-    expect(edgeCapacityLeft(edge, qasr)).toBe(1500);
+    expect(edgeCapacityLeft(edge, qasr)).toBe(30_000);
   });
 
   it('limits a reservation to MAX_RESERVATION_SHARE of the pipeline (invariant 7)', () => {
-    expect(() => setReservation(g, asEdgeId('bypass_oman'), qasr, 2000, DEFAULT_CONFIG)).toThrow(/between 0 and 1500/);
-    expect(() => setReservation(g, asEdgeId('hormuz'), qasr, 1000, DEFAULT_CONFIG)).toThrow(/not a pipeline/);
+    expect(() => setReservation(g, asEdgeId('bypass_oman'), qasr, 40_000, DEFAULT_CONFIG)).toThrow(/between 0 and 30000/);
+    expect(() => setReservation(g, asEdgeId('hormuz'), qasr, 20_000, DEFAULT_CONFIG)).toThrow(/not a pipeline/);
   });
 
   it('caches plain routes while chokepoints are unchanged, and refreshes as soon as one changes', () => {
@@ -192,9 +192,9 @@ describe('pipeline capacity (spec §8 rule 5, Phase 4 acceptance)', () => {
   it('survives a save and load mid-tick', () => {
     const routes = new LaneRouteProvider(g);
     setChokepoint(g, 'HORMUZ', 'CLOSED');
-    routes.reserve(routes.route('Middle_East', 'Gulf_of_Oman') as Route, 2000, qasr);
+    routes.reserve(routes.route('Middle_East', 'Gulf_of_Oman') as Route, 40_000, qasr);
     const restored = new LaneRouteProvider(JSON.parse(JSON.stringify(g)) as LaneGraph);
-    expect(restored.capacityLeft(restored.route('Middle_East', 'Gulf_of_Oman') as Route, straits)).toBe(1000);
+    expect(restored.capacityLeft(restored.route('Middle_East', 'Gulf_of_Oman') as Route, straits)).toBe(20_000);
   });
 });
 
@@ -202,15 +202,15 @@ describe('chokepoint throughput by status (spec §3.5)', () => {
   it('lets an open strait carry its full throughput, and scales it down step by step as the status worsens', () => {
     const hormuz = () => g.edges.find((e) => e.id === asEdgeId('hormuz'));
     const cap = () => { const e = hormuz(); return e ? edgeCapacity(e) : NaN; };
-    expect(cap()).toBe(30_000);
+    expect(cap()).toBe(600_000);
     setChokepoint(g, 'HORMUZ', 'TENSION');
-    expect(cap()).toBe(22_500);
+    expect(cap()).toBe(450_000);
     setChokepoint(g, 'HORMUZ', 'DELAYED', 3);
-    expect(cap()).toBe(15_000);
+    expect(cap()).toBe(300_000);
     setChokepoint(g, 'HORMUZ', 'CLOSED');
     expect(cap()).toBe(0);
     setChokepoint(g, 'HORMUZ', 'OPEN');
-    expect(cap()).toBe(30_000);
+    expect(cap()).toBe(600_000);
   });
 
   it('redirects cargo once a narrowed strait is full: Gulf crude moves to the bypass pipelines', () => {
@@ -218,7 +218,7 @@ describe('chokepoint throughput by status (spec §3.5)', () => {
     const routes = new LaneRouteProvider(g);
     const first = routes.route('Middle_East', 'South_Asia', [], straits) as Route;
     expect(first.chokepoints).toEqual(['HORMUZ']);
-    expect(routes.reserve(first, 20_000, straits)).toBe(15_000);   // half of 30,000
+    expect(routes.reserve(first, 400_000, straits)).toBe(300_000);   // half of 30,000
     const next = routes.route('Middle_East', 'South_Asia', [], straits);
     expect(ids(next)?.[0]).toMatch(/^bypass_/);
   });

@@ -162,6 +162,13 @@ function sameKind(w: World, me: Agent): [Agent['kind'], Agent[]] {
   return [kind, w.agents.filter((a) => a !== me && (a.kind === kind || (kind === 'PRODUCER' && a.kind === 'INTEGRATED')))];
 }
 
+/**
+ * A reward as a player reads it. Thousands up to a million, then millions: before the world was
+ * rescaled nothing here reached seven figures, so this said "$5000K" the moment one did.
+ */
+const money = (cash: number): string =>
+  (cash >= 1_000_000 ? `$${(cash / 1_000_000).toFixed(1)}M` : `$${Math.round(cash / 1000)}K`);
+
 /** The middle of a list, so one company's good year cannot set a scenario's bar. */
 function median(xs: readonly number[]): number {
   const s = [...xs].sort((a, b) => a - b);
@@ -342,7 +349,7 @@ export function campaignView(w: World, c: CampaignState): CampaignView {
   return {
     id: c.id, title: s.title, goal: s.goalText, daysLeft: Math.max(0, c.lengthDays - w.tick),
     conditions: s.goal.map((g, i) => ({ label: `Goal ${i + 1}`, ...evaluate(g, { ...c, sticky: [...c.sticky] }, w, me, final && w.tick >= c.lengthDays, `g${i}`) })),
-    milestones: s.milestones.map((m, i) => ({ label: m.label, done: c.milestones[i] ?? false, reward: 'cash' in m.reward ? `$${Math.round(m.reward.cash / 1000)}K` : 'a free market report' })),
+    milestones: s.milestones.map((m, i) => ({ label: m.label, done: c.milestones[i] ?? false, reward: 'cash' in m.reward ? money(m.reward.cash) : 'a free market report' })),
     result: c.result, reason: c.reason,
   };
 }

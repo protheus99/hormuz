@@ -24,8 +24,8 @@ describe('starting a game (spec G2, G8)', () => {
     const volga = w.agents.find((a) => a.agentId === 'Volga_Export');
     expect(player).toMatchObject({ name: 'Northwind Oil', region: 'Russia_West', controller: 'HUMAN', personality: null, kind: 'PRODUCER' });
     // 17.5% of 9,000 is 1,500; the 2,000 floor applies, so the player can hold a deal (G4.7).
-    expect(wellOf(player as never)?.extractionCapacity).toBe(2000);
-    expect(wellOf(volga as never)?.extractionCapacity).toBe(7000);
+    expect(wellOf(player as never)?.extractionCapacity).toBe(40_000);
+    expect(wellOf(volga as never)?.extractionCapacity).toBe(140_000);
   });
 
   it('leaves the world’s total production and refining unchanged (spec §10.3)', () => {
@@ -37,7 +37,7 @@ describe('starting a game (spec G2, G8)', () => {
   it('starts a refiner in a region with no rival refiner at the standard size', () => {
     const w = newGameWorld({ seed: 'g', playType: 'REFINER', region: 'North_Sea', companyName: 'Fjord Refining', techTier: 1 });
     const player = w.agents.find((a) => a.agentId === PLAYER_ID);
-    expect(player).toMatchObject({ kind: 'REFINER', processingCapacity: 5000, techTier: 1 });
+    expect(player).toMatchObject({ kind: 'REFINER', processingCapacity: 100_000, techTier: 1 });
   });
 
   it('refuses a region the play type cannot start in, and a blank name', () => {

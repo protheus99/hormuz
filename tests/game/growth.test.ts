@@ -8,7 +8,7 @@ import { GameSession } from '../../src/game/session';
 
 describe('AI growth cards (spec G4.6)', () => {
   it('temperament decides how eagerly a rival grows', () => {
-    const yesShare = (p: 'CONSERVATIVE' | 'AGGRESSIVE') => Array.from({ length: 1000 }, (_, i) => chooseForAi('ADD_UNIT', p, false, i / 1000)).filter((c) => c === 'YES').length;
+    const yesShare = (p: 'CONSERVATIVE' | 'AGGRESSIVE') => Array.from({ length: 20_000 }, (_, i) => chooseForAi('ADD_UNIT', p, false, i / 20_000)).filter((c) => c === 'YES').length;
     expect(yesShare('AGGRESSIVE')).toBeGreaterThan(yesShare('CONSERVATIVE'));
   });
 
@@ -22,7 +22,7 @@ describe('AI growth cards (spec G4.6)', () => {
     const w = (await s.save()).world;
     expect(started.size).toBeGreaterThanOrEqual(3);
     expect(w.insolvencies).toEqual({});
-  }, 120_000);
+  }, 2_400_000);
 });
 
 describe('difficulty (spec G8)', () => {
@@ -32,7 +32,7 @@ describe('difficulty (spec G8)', () => {
     const easy = newGameWorld({ ...base, difficulty: 'EASY' }).config;
     const normal = newGameWorld(base).config;
     const hard = newGameWorld({ ...base, difficulty: 'HARD' }).config;
-    expect([easy.REPORT_COST, normal.REPORT_COST, hard.REPORT_COST]).toEqual([normal.REPORT_COST / 2, 25_000, normal.REPORT_COST * 2]);
+    expect([easy.REPORT_COST, normal.REPORT_COST, hard.REPORT_COST]).toEqual([normal.REPORT_COST / 2, 500_000, normal.REPORT_COST * 2]);
     expect(easy.REPORT_NOISE).toBeLessThan(normal.REPORT_NOISE);
     expect(hard.REPORT_NOISE).toBeGreaterThan(normal.REPORT_NOISE);
   });

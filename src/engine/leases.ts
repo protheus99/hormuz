@@ -116,13 +116,13 @@ export function unreached(lease: Lease): number {
  * well empties fast — the band, not a separate constant, is where that now lives.
  */
 export function leaseShapeFor(capacity: number, shale = false): { wells: number; maxWells: number; band: LeaseBand } {
-  // 6 wells at 2,000 bbl/day, 12 at 10,000 and above.
-  const span = Math.min(1, Math.max(0, (capacity - 2_000) / 8_000));
+  // 6 wells at 40_000 bbl/day, 12 at 200_000 and above.
+  const span = Math.min(1, Math.max(0, (capacity - 40_000) / 160_000));
   const wells = Math.round(STARTING_WELLS.MIN + span * (STARTING_WELLS.MAX - STARTING_WELLS.MIN));
-  const big = capacity >= 7_000;
+  const big = capacity >= 140_000;
   const band = shale
     ? (big ? LeaseBand.MEDIUM : LeaseBand.LOW)
-    : (big ? LeaseBand.HIGH : capacity >= 3_500 ? LeaseBand.MEDIUM : LeaseBand.LOW);
+    : (big ? LeaseBand.HIGH : capacity >= 70_000 ? LeaseBand.MEDIUM : LeaseBand.LOW);
   return { wells, maxWells: Math.min(STARTING_WELLS.MAX + 4, wells + 4), band };
 }
 

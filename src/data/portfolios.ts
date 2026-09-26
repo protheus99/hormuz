@@ -46,41 +46,41 @@ export type PortfolioEntry =
  */
 export const CORE_PORTFOLIO: readonly PortfolioEntry[] = [
   {
-    kind: 'PRODUCER', id: 'Boreal_Shale', name: 'Boreal Shale', region: 'US_Permian', cash: 1_000_000,
-    well: { grade: 'LIGHT_SWEET', extractionCapacity: 6_000, baseExtractionCost: 34, storageCapacity: 12_000 },
+    kind: 'PRODUCER', id: 'Boreal_Shale', name: 'Boreal Shale', region: 'US_Permian', cash: 20_000_000,
+    well: { grade: 'LIGHT_SWEET', extractionCapacity: 120_000, baseExtractionCost: 34, storageCapacity: 240_000 },
   },
   {
-    kind: 'PRODUCER', id: 'Fennrick_Offshore', name: 'Fennrick Offshore', region: 'North_Sea', cash: 1_000_000,
-    well: { grade: 'MEDIUM', extractionCapacity: 3_500, baseExtractionCost: 41, storageCapacity: 15_000 },
+    kind: 'PRODUCER', id: 'Fennrick_Offshore', name: 'Fennrick Offshore', region: 'North_Sea', cash: 20_000_000,
+    well: { grade: 'MEDIUM', extractionCapacity: 70_000, baseExtractionCost: 41, storageCapacity: 300_000 },
   },
   {
-    kind: 'REFINER', id: 'Metro_Refine', name: 'Metro Refine', region: 'Coastal_Asia', cash: 3_000_000,
-    plant: { techTier: 1, processingCapacity: 6_000, crudeStorageCapacity: 20_000, startingStock: { LIGHT_SWEET: 10_000 } },
+    kind: 'REFINER', id: 'Metro_Refine', name: 'Metro Refine', region: 'Coastal_Asia', cash: 60_000_000,
+    plant: { techTier: 1, processingCapacity: 120_000, crudeStorageCapacity: 400_000, startingStock: { LIGHT_SWEET: 200_000 } },
   },
   {
-    kind: 'INTEGRATED', id: 'Skaldmark_Integrated', name: 'Skaldmark Integrated', region: 'North_Sea', cash: 5_000_000,
-    well: { grade: 'MEDIUM', extractionCapacity: 8_000, baseExtractionCost: 31, storageCapacity: 20_000 },
-    plant: { techTier: 2, processingCapacity: 5_000, crudeStorageCapacity: 15_000, startingStock: { MEDIUM: 7_500 } },
+    kind: 'INTEGRATED', id: 'Skaldmark_Integrated', name: 'Skaldmark Integrated', region: 'North_Sea', cash: 100_000_000,
+    well: { grade: 'MEDIUM', extractionCapacity: 160_000, baseExtractionCost: 31, storageCapacity: 400_000 },
+    plant: { techTier: 2, processingCapacity: 100_000, crudeStorageCapacity: 300_000, startingStock: { MEDIUM: 150_000 } },
   },
   {
-    kind: 'INTEGRATED', id: 'Sabkhar_Integrated', name: 'Sabkhar Integrated', region: 'Middle_East', cash: 5_000_000,
-    well: { grade: 'HEAVY_SOUR', extractionCapacity: 4_000, baseExtractionCost: 26, storageCapacity: 10_000 },
-    plant: { techTier: 3, processingCapacity: 9_000, crudeStorageCapacity: 25_000, startingStock: { HEAVY_SOUR: 12_500 } },
+    kind: 'INTEGRATED', id: 'Sabkhar_Integrated', name: 'Sabkhar Integrated', region: 'Middle_East', cash: 100_000_000,
+    well: { grade: 'HEAVY_SOUR', extractionCapacity: 80_000, baseExtractionCost: 26, storageCapacity: 200_000 },
+    plant: { techTier: 3, processingCapacity: 180_000, crudeStorageCapacity: 500_000, startingStock: { HEAVY_SOUR: 250_000 } },
   },
   {
-    kind: 'PRODUCER', id: 'Qasr_Petroleum', name: 'Qasr Petroleum', region: 'Middle_East', cash: 2_000_000,
-    well: { grade: 'HEAVY_SOUR', extractionCapacity: 9_000, baseExtractionCost: 24, storageCapacity: 30_000 },
+    kind: 'PRODUCER', id: 'Qasr_Petroleum', name: 'Qasr Petroleum', region: 'Middle_East', cash: 40_000_000,
+    well: { grade: 'HEAVY_SOUR', extractionCapacity: 180_000, baseExtractionCost: 24, storageCapacity: 600_000 },
   },
   {
-    kind: 'REFINER', id: 'Straits_Refining', name: 'Straits Refining', region: 'Coastal_Asia', cash: 3_000_000,
-    plant: { techTier: 3, processingCapacity: 8_000, crudeStorageCapacity: 25_000, startingStock: { HEAVY_SOUR: 12_500 } },
+    kind: 'REFINER', id: 'Straits_Refining', name: 'Straits Refining', region: 'Coastal_Asia', cash: 60_000_000,
+    plant: { techTier: 3, processingCapacity: 160_000, crudeStorageCapacity: 500_000, startingStock: { HEAVY_SOUR: 250_000 } },
   },
   {
-    kind: 'TRADER', id: 'Tidemere_Trading', name: 'Tidemere Trading', region: 'Middle_East', cash: 2_000_000,
+    kind: 'TRADER', id: 'Tidemere_Trading', name: 'Tidemere Trading', region: 'Middle_East', cash: 40_000_000,
     offices: [
-      { region: 'US_Permian', capacity: 16_000 },
-      { region: 'North_Sea', capacity: 17_000 },
-      { region: 'Middle_East', capacity: 17_000 },
+      { region: 'US_Permian', capacity: 320_000 },
+      { region: 'North_Sea', capacity: 340_000 },
+      { region: 'Middle_East', capacity: 340_000 },
     ],
   },
 ];
@@ -103,8 +103,8 @@ const STORAGE_DAYS: Partial<Record<RegionName, number>> = { Western_Canada: 15 }
 const storageDaysFor = (region: RegionName): number => STORAGE_DAYS[region] ?? PRODUCER_STORAGE_DAYS;
 
 /** Starting cash for producers and traders in the game world, generous so rivals survive a bad start. */
-export const PRODUCER_CASH = 5_000_000;
-export const TRADER_CASH = 5_000_000;
+export const PRODUCER_CASH = 100_000_000;
+export const TRADER_CASH = 100_000_000;
 
 const producer = (id: string, region: RegionName, grade: Grade, capacity: number, cost: number): PortfolioEntry => ({
   kind: 'PRODUCER', id, name: id.replace(/_/g, ' '), region, cash: PRODUCER_CASH,
@@ -131,7 +131,7 @@ const refiner = (id: string, region: RegionName, techTier: 1 | 2 | 3, capacity: 
 });
 
 /**
- * The core eight plus the 23 companies of §10.2: 88,500 bbl/day of production against 99,000 of
+ * The core eight plus the 23 companies of §10.2: 1,770,000 bbl/day of production against 1,980,000 of
  * refining, a 5.2% surplus at BASE_UTILIZATION (§10.3).
  */
 export const GLOBAL_PORTFOLIO: readonly PortfolioEntry[] = [
@@ -142,7 +142,7 @@ export const GLOBAL_PORTFOLIO: readonly PortfolioEntry[] = [
     if (p.kind === 'REFINER') return { ...p, cash: REFINER_CASH_PER_BBL_DAY * p.plant.processingCapacity };
     if (p.kind === 'TRADER') {
       // Two offices, cash and hub space to match: enough to move crude between the Gulf and Europe.
-      return { ...p, cash: TRADER_CASH, offices: [{ region: 'North_Sea', capacity: 25_000 }, { region: 'Middle_East', capacity: 25_000 }] };
+      return { ...p, cash: TRADER_CASH, offices: [{ region: 'North_Sea', capacity: 500_000 }, { region: 'Middle_East', capacity: 500_000 }] };
     }
     const cash = p.kind === 'PRODUCER' ? Math.max(p.cash, PRODUCER_CASH) : p.cash;
     if ((p.kind === 'PRODUCER' || p.kind === 'INTEGRATED') && p.region !== 'Middle_East') {
@@ -150,27 +150,27 @@ export const GLOBAL_PORTFOLIO: readonly PortfolioEntry[] = [
     }
     return { ...p, cash };
   }),
-  refiner('Marshaven_Refining', 'US_Gulf_Coast', 3, 10_000),
-  producer('Tarvale_Sands', 'Western_Canada', 'HEAVY_SOUR', 5_000, 41),
-  producer('Campeche_Energia', 'Mexico_Gulf', 'HEAVY_SOUR', 4_000, 36),
-  refiner('Veracruz_Refining', 'Mexico_Gulf', 1, 5_000),
-  producer('Orinoco_Heavy', 'Venezuela_Orinoco', 'HEAVY_SOUR', 3_000, 36),
-  producer('Andes_Crudo', 'Colombia_Andean', 'MEDIUM', 2_500, 41),
-  producer('Demerara_Offshore', 'Guyana_Suriname', 'LIGHT_SWEET', 4_000, 41),
-  producer('Atlantica_Presalt', 'Brazil_Presalt', 'MEDIUM', 7_000, 40),
-  refiner('Ilhavera_Refining', 'Brazil_Presalt', 2, 6_000),
-  producer('Patagonia_Shale', 'Argentina_Vaca_Muerta', 'LIGHT_SWEET', 2_500, 45),
-  refiner('Levant_Refining', 'Southern_Europe', 2, 7_000),
-  producer('Volga_Export', 'Russia_West', 'MEDIUM', 9_000, 31),
-  refiner('Baltic_Refining', 'Russia_West', 2, 8_000),
-  producer('Amur_Pacific', 'Russia_Far_East', 'MEDIUM', 3_000, 37),
-  producer('Steppe_Caspian', 'Caspian', 'LIGHT_SWEET', 4_000, 34),
-  producer('Sahara_Light', 'North_Africa', 'LIGHT_SWEET', 3_500, 32),
-  producer('Guinea_Deepwater', 'West_Africa', 'LIGHT_SWEET', 6_000, 41),
-  producer('Dhofar_Oil', 'Gulf_of_Oman', 'MEDIUM', 2_500, 27),
-  producer('Borneo_Petro', 'Southeast_Asia', 'LIGHT_SWEET', 2_000, 40),
-  refiner('Seralang_Refining', 'Southeast_Asia', 2, 7_000),
-  refiner('Huanghai_Petrochem', 'Coastal_Asia', 2, 11_000),
-  refiner('Malabar_Refining', 'South_Asia', 3, 9_000),
-  refiner('Rannvar_Refining', 'South_Asia', 3, 8_000),
+  refiner('Marshaven_Refining', 'US_Gulf_Coast', 3, 200_000),
+  producer('Tarvale_Sands', 'Western_Canada', 'HEAVY_SOUR', 100_000, 41),
+  producer('Campeche_Energia', 'Mexico_Gulf', 'HEAVY_SOUR', 80_000, 36),
+  refiner('Veracruz_Refining', 'Mexico_Gulf', 1, 100_000),
+  producer('Orinoco_Heavy', 'Venezuela_Orinoco', 'HEAVY_SOUR', 60_000, 36),
+  producer('Andes_Crudo', 'Colombia_Andean', 'MEDIUM', 50_000, 41),
+  producer('Demerara_Offshore', 'Guyana_Suriname', 'LIGHT_SWEET', 80_000, 41),
+  producer('Atlantica_Presalt', 'Brazil_Presalt', 'MEDIUM', 140_000, 40),
+  refiner('Ilhavera_Refining', 'Brazil_Presalt', 2, 120_000),
+  producer('Patagonia_Shale', 'Argentina_Vaca_Muerta', 'LIGHT_SWEET', 50_000, 45),
+  refiner('Levant_Refining', 'Southern_Europe', 2, 140_000),
+  producer('Volga_Export', 'Russia_West', 'MEDIUM', 180_000, 31),
+  refiner('Baltic_Refining', 'Russia_West', 2, 160_000),
+  producer('Amur_Pacific', 'Russia_Far_East', 'MEDIUM', 60_000, 37),
+  producer('Steppe_Caspian', 'Caspian', 'LIGHT_SWEET', 80_000, 34),
+  producer('Sahara_Light', 'North_Africa', 'LIGHT_SWEET', 70_000, 32),
+  producer('Guinea_Deepwater', 'West_Africa', 'LIGHT_SWEET', 120_000, 41),
+  producer('Dhofar_Oil', 'Gulf_of_Oman', 'MEDIUM', 50_000, 27),
+  producer('Borneo_Petro', 'Southeast_Asia', 'LIGHT_SWEET', 40_000, 40),
+  refiner('Seralang_Refining', 'Southeast_Asia', 2, 140_000),
+  refiner('Huanghai_Petrochem', 'Coastal_Asia', 2, 220_000),
+  refiner('Malabar_Refining', 'South_Asia', 3, 180_000),
+  refiner('Rannvar_Refining', 'South_Asia', 3, 160_000),
 ];

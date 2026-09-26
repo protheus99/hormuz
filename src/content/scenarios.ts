@@ -86,7 +86,7 @@ export const SCENARIOS: readonly ScenarioData[] = [
     goalText: 'Make a profit three months in a row, and sign one deal.',
     goal: [{ kind: 'PROFITABLE_MONTHS', months: 3 }, { kind: 'OWN', what: 'DEAL', atLeast: 1 }],
     milestones: [
-      { label: 'Sign a deal in your first two months', condition: { kind: 'OWN', what: 'DEAL', atLeast: 1, by: 60 }, reward: { cash: 250_000 } },
+      { label: 'Sign a deal in your first two months', condition: { kind: 'OWN', what: 'DEAL', atLeast: 1, by: 60 }, reward: { cash: 5_000_000 } },
       { label: 'Drill new wells', condition: { kind: 'OWN', what: 'DRILLING', atLeast: 1 }, reward: { report: true } },
     ],
   },
@@ -108,7 +108,7 @@ export const SCENARIOS: readonly ScenarioData[] = [
     // ×3.15 was from before capital cost anything; nothing in a year of this world comes near it.
     goal: [{ kind: 'NET_WORTH', times: 1.15 }],
     milestones: [
-      { label: 'Lock in a deal before day 90', condition: { kind: 'OWN', what: 'DEAL', atLeast: 1, by: 90 }, reward: { cash: 500_000 } },
+      { label: 'Lock in a deal before day 90', condition: { kind: 'OWN', what: 'DEAL', atLeast: 1, by: 90 }, reward: { cash: 10_000_000 } },
       { label: 'Stay solvent all year', condition: { kind: 'SOLVENT' }, reward: { report: true } },
     ],
   },
@@ -123,7 +123,7 @@ export const SCENARIOS: readonly ScenarioData[] = [
     goalText: 'Keep at least half your output flowing while Hormuz is closed, and grow your company by more, for its size, than most Gulf producers.',
     goal: [{ kind: 'EXPORT_SHARE', chokepoint: 'HORMUZ', atLeast: 0.5 }, { kind: 'AHEAD_OF' }],
     milestones: [
-      { label: 'Reserve bypass pipeline space', condition: { kind: 'OWN', what: 'RESERVATION', atLeast: 1 }, reward: { cash: 500_000 } },
+      { label: 'Reserve bypass pipeline space', condition: { kind: 'OWN', what: 'RESERVATION', atLeast: 1 }, reward: { cash: 10_000_000 } },
       { label: 'Sign a deal', condition: { kind: 'OWN', what: 'DEAL', atLeast: 1 }, reward: { report: true } },
     ],
   },
@@ -141,8 +141,8 @@ export const SCENARIOS: readonly ScenarioData[] = [
     goalText: 'Sign a supply deal, and stay solvent.',
     goal: [{ kind: 'OWN', what: 'DEAL', atLeast: 1 }, { kind: 'SOLVENT' }],
     milestones: [
-      { label: 'Sign a supply deal', condition: { kind: 'OWN', what: 'DEAL', atLeast: 1 }, reward: { cash: 250_000 } },
-      { label: 'Buy a market report', condition: { kind: 'OWN', what: 'REPORT', atLeast: 1 }, reward: { cash: 25_000 } },
+      { label: 'Sign a supply deal', condition: { kind: 'OWN', what: 'DEAL', atLeast: 1 }, reward: { cash: 5_000_000 } },
+      { label: 'Buy a market report', condition: { kind: 'OWN', what: 'REPORT', atLeast: 1 }, reward: { cash: 500_000 } },
     ],
   },
   {
@@ -157,9 +157,9 @@ export const SCENARIOS: readonly ScenarioData[] = [
     goalText: 'Make a profit of at least $3M in the last quarter, with no more than 2 days out of crude.',
     // Three seeds each: a refiner who answers by the meters makes $3.63M, $5.66M and $7.50M in the
     // last quarter, one who answers nothing $2.06M at best. $1M was inside the idle bot's range.
-    goal: [{ kind: 'PROFIT', atLeast: 3_000_000, from: 274, to: 365 }, { kind: 'STOCKOUT_DAYS', atMost: 2 }],
+    goal: [{ kind: 'PROFIT', atLeast: 60_000_000, from: 274, to: 365 }, { kind: 'STOCKOUT_DAYS', atMost: 2 }],
     milestones: [
-      { label: 'Sign a supply deal', condition: { kind: 'OWN', what: 'DEAL', atLeast: 1 }, reward: { cash: 500_000 } },
+      { label: 'Sign a supply deal', condition: { kind: 'OWN', what: 'DEAL', atLeast: 1 }, reward: { cash: 10_000_000 } },
       { label: 'Upgrade to Tier 3', condition: { kind: 'OWN', what: 'TIER', atLeast: 3 }, reward: { report: true } },
     ],
   },
@@ -178,12 +178,12 @@ export const SCENARIOS: readonly ScenarioData[] = [
     goal: [{ kind: 'STOCKOUT_DAYS', atMost: 5 }, { kind: 'NET_WORTH', times: 1.15 }],
     milestones: [
       { label: 'Stay solvent', condition: { kind: 'SOLVENT' }, reward: { report: true } },
-      { label: 'Sign a second supply deal', condition: { kind: 'OWN', what: 'DEAL', atLeast: 2 }, reward: { cash: 500_000 } },
+      { label: 'Sign a second supply deal', condition: { kind: 'OWN', what: 'DEAL', atLeast: 2 }, reward: { cash: 10_000_000 } },
     ],
   },
   {
     id: 'T1', title: 'Buy Low', tutorial: true, level: 'EASY', playType: 'TRADER', region: 'North_Sea', lengthDays: 90, difficulty: 'EASY', randomEvents: false,
-    setup: { cash: 2_000_000 },
+    setup: { cash: 40_000_000 },
     blurb: 'You have one office in the North Sea and $2M. A grounded ship is about to block Suez.',
     script: [{ tick: 30, chokepoint: 'SUEZ', stages: [{ stage: 'DISRUPTION', days: 7, status: 'CLOSED' }] }],
     // Likewise: the trader tutorial teaches buying low and spreading out, not hitting a number that
@@ -191,8 +191,8 @@ export const SCENARIOS: readonly ScenarioData[] = [
     goalText: 'Open a second office, and stay solvent.',
     goal: [{ kind: 'OWN', what: 'OFFICES', atLeast: 2 }, { kind: 'SOLVENT' }],
     milestones: [
-      { label: 'Buy a market report', condition: { kind: 'OWN', what: 'REPORT', atLeast: 1 }, reward: { cash: 25_000 } },
-      { label: 'Open your second office by day 45', condition: { kind: 'OWN', what: 'OFFICES', atLeast: 2, by: 45 }, reward: { cash: 100_000 } },
+      { label: 'Buy a market report', condition: { kind: 'OWN', what: 'REPORT', atLeast: 1 }, reward: { cash: 500_000 } },
+      { label: 'Open your second office by day 45', condition: { kind: 'OWN', what: 'OFFICES', atLeast: 2, by: 45 }, reward: { cash: 2_000_000 } },
     ],
   },
   {
@@ -211,9 +211,9 @@ export const SCENARIOS: readonly ScenarioData[] = [
     // Measured over six seeds rather than one: a trader who answers nothing makes $-0.07M to $0.79M
     // here, and one who answers by the meters $0.01M to $1.68M. A bar of $0.75M sat inside the idle
     // bot's range, so on the kindest seed doing nothing won (2026-09-24).
-    goal: [{ kind: 'PROFIT', atLeast: 900_000 }],
+    goal: [{ kind: 'PROFIT', atLeast: 18_000_000 }],
     milestones: [
-      { label: 'Lease extra storage', condition: { kind: 'OWN', what: 'LEASE', atLeast: 1 }, reward: { cash: 100_000 } },
+      { label: 'Lease extra storage', condition: { kind: 'OWN', what: 'LEASE', atLeast: 1 }, reward: { cash: 2_000_000 } },
       { label: 'Stay solvent', condition: { kind: 'SOLVENT' }, reward: { report: true } },
     ],
   },
@@ -223,9 +223,9 @@ export const SCENARIOS: readonly ScenarioData[] = [
     blurb: 'The southern Red Sea is closed to shipping. Every cargo between Europe and Asia goes around Africa.',
     script: [{ tick: 3, chokepoint: 'BAB_EL_MANDEB', stages: [{ stage: 'DISRUPTION', days: 170, status: 'CLOSED', surcharge: 1.5 }] }],
     goalText: 'Make $1M profit, with no cargo held at sea for more than 10 days.',
-    goal: [{ kind: 'PROFIT', atLeast: 1_000_000 }, { kind: 'MAX_HELD_DAYS', atMost: 10 }],
+    goal: [{ kind: 'PROFIT', atLeast: 20_000_000 }, { kind: 'MAX_HELD_DAYS', atMost: 10 }],
     milestones: [
-      { label: 'Open a third office', condition: { kind: 'OWN', what: 'OFFICES', atLeast: 3 }, reward: { cash: 250_000 } },
+      { label: 'Open a third office', condition: { kind: 'OWN', what: 'OFFICES', atLeast: 3 }, reward: { cash: 5_000_000 } },
       { label: 'Stay solvent', condition: { kind: 'SOLVENT' }, reward: { report: true } },
     ],
   },
@@ -240,7 +240,7 @@ export const SCENARIOS: readonly ScenarioData[] = [
     goal: [{ kind: 'RANK_TOP', places: 3 }],
     milestones: [
       { label: 'Stay solvent for five years', condition: { kind: 'SOLVENT' }, reward: { report: true } },
-      { label: 'Double your net worth', condition: { kind: 'NET_WORTH', times: 2 }, reward: { cash: 1_000_000 } },
+      { label: 'Double your net worth', condition: { kind: 'NET_WORTH', times: 2 }, reward: { cash: 20_000_000 } },
     ],
   },
 ];

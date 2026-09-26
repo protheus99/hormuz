@@ -41,7 +41,7 @@ describe('configFor (spec G4.2)', () => {
     const deep = configFor({ ...middle, stockpile: 'DEEP' }, DEFAULT_CONFIG);
     expect([deep.TARGET_DAYS, deep.URGENCY]).toEqual([20, 0.05]);
     const high = configFor({ ...middle, appetite: 'HIGH' }, DEFAULT_CONFIG);
-    expect([high.MAX_RISK_LIMIT, high.HALF_SPREAD]).toEqual([10_000_000, 0.25]);
+    expect([high.MAX_RISK_LIMIT, high.HALF_SPREAD]).toEqual([200_000_000, 0.25]);
   });
 
   it('leaves the defaults unchanged for the middle options, and never alters the base', () => {

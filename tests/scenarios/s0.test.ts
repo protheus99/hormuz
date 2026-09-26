@@ -19,8 +19,8 @@ describe('S0 baseline (spec §11.2)', () => {
     const csv = toCsv(recorder);
     expect(csv.split('\n')[0]).toMatch(/^tick,marker_NYMEX,marker_NC,marker_DME,price_GASOLINE/);
     expect(csv.trimEnd().split('\n')).toHaveLength(366);
-    expect(w.totals.extracted).toBeGreaterThan(1_000_000);
-    expect(w.totals.refined).toBeGreaterThan(1_000_000);
+    expect(w.totals.extracted).toBeGreaterThan(20_000_000);
+    expect(w.totals.refined).toBeGreaterThan(20_000_000);
   });
 
   it('is deterministic: the same seed gives the same world, another seed a different one', () => {
@@ -83,9 +83,9 @@ describe('credit lines (spec G6, invariants 8 and 9)', () => {
     const straits = w.agents.find((a) => a.agentId === 'Straits_Refining');
     // Coastal_Asia labor 0.80: the plant at its tier cost over 8,000 bbl/day, plus 25,000 bbl of
     // tank. Every price comes from the config, because this last held a tank at $15 written into
-    // the test and broke the day the real one moved (2026-09-25).
+    // the test and broke the day the real one moved (40_520-09-25).
     const plant = cfg.FACTORY_COST + cfg.TIER_COST.TO_TIER_2 + cfg.TIER_COST.TO_TIER_3;
-    const assets = (plant * 8_000 + cfg.STORAGE_COST * 25_000) * 0.8;
+    const assets = (plant * 160_000 + cfg.STORAGE_COST * 500_000) * 0.8;
     expect(straits?.creditLimit).toBeCloseTo(cfg.CREDIT_ASSET_SHARE * assets + cfg.CREDIT_BASE.REFINER, 6);
   });
 
@@ -105,16 +105,16 @@ describe('credit lines (spec G6, invariants 8 and 9)', () => {
     const w = s0();
     const metro = w.agents.find((a) => a.agentId === 'Metro_Refine');
     if (!metro) throw new Error('Metro expected');
-    metro.cash -= 5_000_000;
-    (w.totals as { startingCash: number }).startingCash -= 5_000_000;
+    metro.cash -= 100_000_000;
+    (w.totals as { startingCash: number }).startingCash -= 100_000_000;
     step(w);
     expect(metro.cash).toBeGreaterThanOrEqual(0);
     expect(metro.creditDrawn).toBeGreaterThan(0);
     const drawn = metro.creditDrawn;
     step(w);
     expect(w.ledger.entries.some((e) => e.kind === 'CREDIT_INTEREST' && e.agentId === metro.agentId)).toBe(true);
-    metro.cash += 500_000_000;
-    (w.totals as { startingCash: number }).startingCash += 500_000_000;
+    metro.cash += 10_000_000_000;
+    (w.totals as { startingCash: number }).startingCash += 10_000_000_000;
     step(w);
     expect(metro.creditDrawn).toBe(0);
     expect(drawn).toBeGreaterThan(0);
@@ -126,7 +126,7 @@ describe('invariants and insolvency (spec §9, G6)', () => {
     const w = s0();
     run(w, 5);
     const qasr = w.agents.find((a) => a.agentId === 'Qasr_Petroleum');
-    if (qasr?.kind === 'PRODUCER') fillTanks(qasr, 1000);
+    if (qasr?.kind === 'PRODUCER') fillTanks(qasr, 20_000);
     expect(() => checkInvariants(w)).toThrow(/Invariant broken at tick 5: barrels held/);
   });
 
@@ -143,8 +143,8 @@ describe('invariants and insolvency (spec §9, G6)', () => {
     const metro = w.agents.find((a) => a.agentId === 'Metro_Refine');
     if (!metro) throw new Error('Metro expected');
     metro.creditLimit = 0;   // no credit line to fall back on
-    metro.cash = -1_000_000;
-    (w.totals as { startingCash: number }).startingCash -= 4_000_000;   // keep invariant 2 balanced for this test
+    metro.cash = -20_000_000;
+    (w.totals as { startingCash: number }).startingCash -= 80_000_000;   // keep invariant 2 balanced for this test
     run(w, 2);
     expect(metro.insolvent).toBe(false);
     step(w);
@@ -158,12 +158,12 @@ describe('invariants and insolvency (spec §9, G6)', () => {
     const metro = w.agents.find((a) => a.agentId === 'Metro_Refine');
     if (!metro) throw new Error('Metro expected');
     metro.creditLimit = 0;
-    metro.cash = -1_000_000;
-    (w.totals as { startingCash: number }).startingCash -= 4_000_000;
+    metro.cash = -20_000_000;
+    (w.totals as { startingCash: number }).startingCash -= 80_000_000;
     run(w, 3);
     expect(metro.insolvent).toBe(true);
-    metro.cash += 5_000_000;
-    (w.totals as { startingCash: number }).startingCash += 5_000_000;
+    metro.cash += 100_000_000;
+    (w.totals as { startingCash: number }).startingCash += 100_000_000;
     step(w);
     expect(metro.insolvent).toBe(false);
     expect(w.insolvencies[metro.agentId]).toBe(3);

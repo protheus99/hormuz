@@ -35,13 +35,13 @@ describe('lane table (spec §3.5)', () => {
       expect(l.freight, l.id).toBeGreaterThan(0);
       if (l.capacity !== undefined) {
         expect(l.mode, l.id).toBe('PIPELINE');
-        expect(l.capacity % 1000, l.id).toBe(0);   // whole lots
+        expect(l.capacity % 20_000, l.id).toBe(0);   // whole lots
       }
     }
   });
 
   it('sets the Gulf bypasses below Gulf exports, so they bind in a Hormuz closure (spec §10.2)', () => {
     const cap = (id: string) => LANES.find((l) => l.id === id)?.capacity;
-    expect([cap('bypass_red_sea'), cap('bypass_oman')]).toEqual([6000, 3000]);
+    expect([cap('bypass_red_sea'), cap('bypass_oman')]).toEqual([120_000, 60_000]);
   });
 });

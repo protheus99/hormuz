@@ -149,7 +149,11 @@ describe('the world every producer already lives in', () => {
     expect(reservesOf(w.agents.flatMap((a) => wellOf(a)?.leases ?? []))).toBeGreaterThan(0);
     for (let d = 0; d < 365; d++) step(w);
     const now = w.agents.flatMap((a) => wellOf(a)?.leases ?? []);
-    for (const l of now) expect(l.reserves + l.produced).toBeCloseTo(l.originalReserves, 6);
+    // Relative, not absolute: at hundreds of millions of barrels the float drift on a sum of two
+    // numbers exceeds any fixed tolerance, and what matters is that nothing is minted or lost.
+    for (const l of now) {
+      expect(Math.abs(l.reserves + l.produced - l.originalReserves) / l.originalReserves).toBeLessThan(1e-12);
+    }
     // A year of the world's pumping came out of the ground, not out of nowhere. Measured against
     // what the leases say they lifted, since ground bought at auction brings its own reserves in.
     expect(now.reduce((t, l) => t + l.produced, 0)).toBeCloseTo(w.totals.extracted, 4);

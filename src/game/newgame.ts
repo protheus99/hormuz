@@ -45,14 +45,14 @@ export const PLAYER_ID = 'player' as AgentId;
 export const PLAYER_SHARE = 0.175;
 
 /** Standard starting sizes where the region has no rival of the same type, bbl/day. */
-const DEFAULT_PRODUCER_CAPACITY = 3_000;
-const DEFAULT_REFINER_CAPACITY = 5_000;
+const DEFAULT_PRODUCER_CAPACITY = 60_000;
+const DEFAULT_REFINER_CAPACITY = 100_000;
 /**
  * The smallest starting company, bbl/day, even where 17.5% of the region is less: a smaller
  * producer could never hold a deal (DEAL_VOLUME.min over DEAL_MAX_SHARE), and so would see almost
  * no decisions (spec G4.7).
  */
-const MIN_START_CAPACITY = { PRODUCER: 2_000, REFINER: 2_500 } as const;
+const MIN_START_CAPACITY = { PRODUCER: 40_000, REFINER: 50_000 } as const;
 
 /** Spec G8. `report` scales the market report's cost and its error. */
 export const DIFFICULTY: Readonly<Record<Difficulty, { readonly cash: number; readonly credit: number; readonly mix: PersonalityMix; readonly report: { readonly cost: number; readonly noise: number } }>> = {
@@ -100,8 +100,8 @@ function withPlayer(global: readonly PortfolioEntry[], s: GameSettings, cashFact
   const portfolio = [...global];
 
   if (s.playType === 'TRADER') {
-    const offices = [{ region: s.region, capacity: 25_000 }];
-    if (s.secondOffice !== undefined && s.secondOffice !== s.region) offices.push({ region: s.secondOffice, capacity: 25_000 });
+    const offices = [{ region: s.region, capacity: 500_000 }];
+    if (s.secondOffice !== undefined && s.secondOffice !== s.region) offices.push({ region: s.secondOffice, capacity: 500_000 });
     return { portfolio, player: { ...common, kind: 'TRADER', cash: TRADER_CASH * cashFactor, offices } };
   }
 

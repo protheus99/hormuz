@@ -114,7 +114,7 @@ export type Action =
 export type ActionKind = Action['kind'];
 
 /** New office hubs start with this much storage, bbl. */
-export const OFFICE_HUB_CAPACITY = 10_000;
+export const OFFICE_HUB_CAPACITY = 200_000;
 
 /**
  * The wells a company would pull off next, longest since their last service first, and what pulling

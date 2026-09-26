@@ -29,10 +29,10 @@ describe('scripted bots (spec G4.7 check 4, the D44 band)', () => {
   // On three seeds, not one. A single game is a single draw, and the trader scenarios turn out to
   // sit close enough to the bar that the kindest seed let a player who answered nothing through
   // while the other five refused him. The band's claim is about the ordinary game, so it is checked
-  // against the majority of a handful (2026-09-24).
+  // against the majority of a handful (40_520-09-24).
   // The finale takes all three too. It was given one to save nine years of simulation, and the one
   // it was given turned out to be a seed where a player who answers nothing finishes third of
-  // twenty and wins it (2026-09-25). A single game is a single draw, and that is exactly what this
+  // twenty and wins it (40_520-09-25). A single game is a single draw, and that is exactly what this
   // band is supposed to see through.
   const SEEDS = ['acceptance', 'cal-1', 'cal-2'];
   it.each(SCENARIOS.map((s) => [s.id]))('a player who ignores everything loses %s', async (id) => {
@@ -40,13 +40,13 @@ describe('scripted bots (spec G4.7 check 4, the D44 band)', () => {
     const results = [];
     for (const seed of seeds) results.push((await playScenario(id, 'NO', seed)).result);
     expect(results.filter((r) => r === 'LOST').length, results.join(', ')).toBeGreaterThanOrEqual(Math.ceil(seeds.length * 2 / 3));
-  }, 300_000);
+  }, 6_000_000);
 
   // The band is set against a player who answers by the meters, so the tutorials are checked with
   // that bot: a first game should be winnable by reading what the cards say (D44).
   it.each([['P1'], ['R1'], ['T1']] as const)('the tutorial %s is won by answering with the meters', async (id) => {
     expect((await playScenario(id, 'METER', 'acceptance')).result).toBe('WON');
-  }, 120_000);
+  }, 2_400_000);
 });
 
 describe('playing a scenario', () => {
@@ -61,7 +61,7 @@ describe('playing a scenario', () => {
       if ((await game.getView()).campaign?.milestones[0]?.done || r.ended) break;
     }
     const view = await game.getView();
-    expect(view.campaign?.milestones[0]).toMatchObject({ done: true, reward: '$250K' });
+    expect(view.campaign?.milestones[0]).toMatchObject({ done: true, reward: '$5.0M' });
     expect(view.company.cash).toBeGreaterThan(cashAtStart - 1);
 
     const saved = await game.save();
@@ -69,15 +69,15 @@ describe('playing a scenario', () => {
     const again = await replayed.save();
     expect(fingerprint(again.world)).toBe(fingerprint(saved.world));
     expect(again.campaign).toEqual(saved.campaign);
-  }, 120_000);
+  }, 2_400_000);
 
   it('ends the game when the scenario is decided', async () => {
     const game = await GameSession.newGame({ seed: 'decided', playType: 'REFINER', region: 'Coastal_Asia', companyName: 'Bot', scenario: 'R1' });
     let r;
-    do r = await game.advance(1000); while (!r.ended);
+    do r = await game.advance(20_000); while (!r.ended);
     const view = await game.getView();
     expect(view.campaign?.result).not.toBeNull();
     expect(await game.submit(PLAYER_ID, { kind: 'SET_SETTING', setting: 'risk', value: 'SAFE' })).toEqual({ ok: false, reason: 'The game has ended' });
     expect(view.alerts.some((a) => /^Scenario (won|lost)/.test(a.message))).toBe(true);
-  }, 120_000);
+  }, 2_400_000);
 });

@@ -9,20 +9,23 @@
 import { describe, expect, it } from 'vitest';
 import { runGoldenReplay } from './replay';
 
-// S0 through the real tick orchestrator, re-recorded in Node 24 on 2026-09-26 for weather at sea
-// (§3.5): storms shut or slow the Gulf of Mexico and the two capes for a few days at a time, which
-// reroutes cargo and holds some of it back, so the run really does differ. It differs by a little,
-// which is the right amount: fills 1,163 → 1,146, barrels refined 7,524,399 → 7,538,164, fees
-// $587.18M → $586.64M. A larger move would have meant the weather was doing too much.
+// S0 through the real tick orchestrator, re-recorded in Node 24 on 2026-09-26 for the ×20 rescale
+// (D64). This is the one re-recording that proves itself: a change of units must leave every
+// decision alone and only restate the numbers, so the run comes back with **the same 1,146 fills**,
+// **exactly ×20 the barrels refined** (7,538,164 → 150,763,284) and ×20 the fees ($586.64M →
+// $11,732.83M) to float precision. Any constant left behind would have shown up here as a different
+// number of trades.
+//
+// Recorded earlier the same day for weather at sea (§3.5), which moved fills 1,163 → 1,146.
 //
 // Re-recorded earlier the same day for the rename of the economic climate, which changed every hash
 // and nothing else: the fingerprint hashes object keys as well as values.
 // Last verified identical in Chrome 152 (`npm run golden:browser`) on 2026-09-19; re-check in a
 // browser at the end of each phase.
 const GOLDEN = {
-  day1: 'bea460e4fe4c11d96aa9049a370b6d55',
-  day30: 'd387bc4b484685dc2943c3f711f55113',
-  final: '147e70c1c261637daf097227dd719e48',
+  day1: 'd02c02efd746760055d2da69503528d8',
+  day30: '780d1a17e6c48cc834fba5418fc106c7',
+  final: 'dd7d4670cfc5f7ea776e810bfcff91fb',
 };
 
 describe('golden replay', () => {

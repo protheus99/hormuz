@@ -70,7 +70,7 @@ describe('capital projects (spec G4.4)', () => {
     const before = plantOf(get(w, 'Straits_Refining'))?.processingCapacity ?? 0;
     act(w, 'Straits_Refining', { kind: 'START_PROJECT', project: 'UNIT', steps: 1 });
     run(w, cfg.FACTORY_TICKS);
-    expect(plantOf(get(w, 'Straits_Refining'))?.processingCapacity).toBe(before + 2500);
+    expect(plantOf(get(w, 'Straits_Refining'))?.processingCapacity).toBe(before + 50_000);
   });
 
   it('turns a producer into an integrated major when its refinery is finished (spec G2)', () => {
@@ -79,7 +79,7 @@ describe('capital projects (spec G4.4)', () => {
     run(w, cfg.FACTORY_TICKS);
     const f = get(w, 'Fennrick_Offshore');
     expect(f.kind).toBe('INTEGRATED');
-    expect(plantOf(f)).toMatchObject({ techTier: 2, processingCapacity: 2500 });
+    expect(plantOf(f)).toMatchObject({ techTier: 2, processingCapacity: 50_000 });
     run(w, 5);   // and the world carries on with it
   });
 
@@ -168,7 +168,7 @@ describe('trading actions (spec G4.4)', () => {
     run(w, 10);
     const before = w.agents.find((a) => a.agentId === 'Straits_Refining');
     const inbound = plantOf(before as Agent)?.inboundBarrels ?? 0;
-    act(w, 'Straits_Refining', { kind: 'STANDING_ORDER', side: 'BID', node: 'DME', region: 'Coastal_Asia', price: 150, qty: 10_000, days: 1 });
+    act(w, 'Straits_Refining', { kind: 'STANDING_ORDER', side: 'BID', node: 'DME', region: 'Coastal_Asia', price: 150, qty: 200_000, days: 1 });
     step(w);
     expect(plantOf(get(w, 'Straits_Refining'))?.inboundBarrels).toBeGreaterThan(inbound);
     step(w);
@@ -180,11 +180,11 @@ describe('trading actions (spec G4.4)', () => {
     run(w, 3);
     act(w, 'Qasr_Petroleum', { kind: 'SIGN_DEAL', terms: {
       sellerId: 'Qasr_Petroleum' as AgentId, buyerId: 'Malabar_Refining' as AgentId, grade: 'HEAVY_SOUR', originRegion: 'Middle_East',
-      deliveryRegion: 'South_Asia', qtyPerDay: 4000, termDays: 30, price: 60, avoidChokepoints: [],
+      deliveryRegion: 'South_Asia', qtyPerDay: 80_000, termDays: 30, price: 60, avoidChokepoints: [],
     } });
     expect(w.deals).toHaveLength(1);
     act(w, 'Malabar_Refining', { kind: 'REROUTE_DEAL', dealId: w.deals[0]?.dealId as never, avoid: ['HORMUZ'], half: true });
-    expect(w.deals.filter((d) => d.status === 'ACTIVE').map((d) => [d.qtyPerDay, d.avoidChokepoints])).toEqual([[2000, []], [2000, ['HORMUZ']]]);
+    expect(w.deals.filter((d) => d.status === 'ACTIVE').map((d) => [d.qtyPerDay, d.avoidChokepoints])).toEqual([[40_000, []], [40_000, ['HORMUZ']]]);
     run(w, 5);
     const active = w.deals.find((d) => d.status === 'ACTIVE');
     act(w, 'Malabar_Refining', { kind: 'CANCEL_DEAL', dealId: active?.dealId as never });
@@ -320,7 +320,7 @@ describe('net worth (spec G6)', () => {
     const w = fresh();
     const a = get(w, 'Straits_Refining');
     const before = netWorth(w, a);
-    act(w, 'Straits_Refining', { kind: 'DRAW_CREDIT', amount: 1_000_000 });
+    act(w, 'Straits_Refining', { kind: 'DRAW_CREDIT', amount: 20_000_000 });
     expect(netWorth(w, a)).toBeCloseTo(before, 4);   // borrowed cash is owed
   });
 });

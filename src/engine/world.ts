@@ -311,6 +311,13 @@ export function step(w: World): TickReport {
     }
     // Orders cards added: emergency purchases, fire sales, committed capital (actions.ts).
     w.standingOrders.filter((o) => o.agentId === a.agentId).forEach((o, k) => {
+      // Whole lots, or the exchange refuses it and the refusal takes the tick down with it. A card
+      // can ask for any quantity it likes, and most happened to be round while a lot was small; at a
+      // larger lot they are not, and this threw outside the try below (found by the rescale,
+      // 2026-09-26). Rounding down here covers every source of a standing order at once.
+      const whole = Math.floor(o.qty / cfg.LOT_SIZE) * cfg.LOT_SIZE;
+      if (whole <= 0) return;
+      o = { ...o, qty: whole };
       const order: Order = o.side === 'BID'
         ? { orderId: makeOrderId(index, 500 + k), agentId: a.agentId, node: o.node, side: 'BID', limitPrice: o.price, qty: o.qty, qtyRemaining: o.qty, deliveryRegion: o.region, avoidChokepoints: avoidFor(a.settings.risk, w.graph) }
         : { orderId: makeOrderId(index, 500 + k), agentId: a.agentId, node: o.node, side: 'ASK', limitPrice: o.price, qty: o.qty, qtyRemaining: o.qty, originRegion: o.region };
@@ -466,12 +473,19 @@ export function checkInvariants(w: World, deliveries: readonly DealDelivery[] = 
 
   // 11. Leases (§12A.2): oil left in the ground plus everything lifted from it is what it held, and
   // a company's field is exactly what its pumping wells make. A leak here would mint barrels.
+  //
+  // The tolerance has to scale with the barrels, as invariant 1's does: float error accumulates with
+  // what has flowed through a sum, not with what is left in it. A block holding 796 million barrels
+  // carries about 1.1e-6 of drift after 271 days, which a fixed 1e-6 called a leak the moment the
+  // world was rescaled (found 2026-09-26). The relative term is what makes the check independent of
+  // the units the world happens to be counted in.
   for (const a of w.agents) {
     const field = wellOf(a);
     if (field === undefined) continue;
     for (const lease of field.leases) {
-      if (lease.reserves < -1e-6) fail(`${lease.leaseId} has been overdrawn to ${lease.reserves} bbl`);
-      if (Math.abs(lease.reserves + lease.produced + lease.lost - lease.originalReserves) > 1e-6) {
+      const slack = 1e-6 + 1e-12 * lease.originalReserves;
+      if (lease.reserves < -slack) fail(`${lease.leaseId} has been overdrawn to ${lease.reserves} bbl`);
+      if (Math.abs(lease.reserves + lease.produced + lease.lost - lease.originalReserves) > slack) {
         fail(`${lease.leaseId} holds ${lease.reserves} + lifted ${lease.produced} + lost ${lease.lost} ≠ ${lease.originalReserves} bbl`);
       }
       if (lease.wells.length > lease.maxWells) fail(`${lease.leaseId} has ${lease.wells.length} wells, over its ${lease.maxWells}`);

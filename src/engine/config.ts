@@ -244,7 +244,7 @@ export type DeepPartial<T> = {
 };
 
 export const DEFAULT_CONFIG: Config = deepFreeze({
-  LOT_SIZE: 1_000,
+  LOT_SIZE: 20_000,
   CARRY_RATE: 0.10,
   MIN_MARGIN: 1.00,
   SKEW: 0.10,
@@ -258,7 +258,7 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
   STORAGE_CARRY: 0.06,
   TRADER_CLEAR_FILL: 0.90,
   HOLD_TICKS: 30,
-  MAX_RISK_LIMIT: 5_000_000,
+  MAX_RISK_LIMIT: 100_000_000,
 
   SHUT_IN_THRESHOLD: 0.25,
   RESTART_COST: 3.00,
@@ -326,7 +326,7 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
    * made growth a coin flip and the finale unable to tell a grower from an idler (2026-09-25).
    */
   DRY_HOLE: { FIRST: 0.95, PER_ATTEMPT: 0.03, FLOOR: 0.75 },
-  DRILL_STEP: 500,
+  DRILL_STEP: 10_000,
   // A barrel of a well's life costs this much to put on the books: $20,000 a bbl/day of capacity,
   // over the barrels a well delivers with dry holes counted, is $8.60 a barrel against shale's
   // $8–15. It was $0.73, which is why growth was nearly free and why nothing in this world could
@@ -335,7 +335,7 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
   // pays back in 668 days, in the middle of the industry's 1.5–3 years.
   DRILL_COST: 20_000,
   DRILL_TICKS: 45,
-  STORAGE_STEP: 5_000,
+  STORAGE_STEP: 100_000,
   /**
    * A barrel of tank, built. Above-ground crude tankage runs $20–40 a barrel of capacity in life,
    * and this was $15 — against a price range of $21–22 a barrel across an ordinary year, so one
@@ -354,7 +354,7 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
   // three to seven. It was ten months (§12A.8, A).
   FACTORY_COST: 20_000,
   FACTORY_TICKS: 90,
-  UNIT_CAPACITY: 2_500,
+  UNIT_CAPACITY: 50_000,
   MAINT_TICKS: 5,
   MAINT_COST: 0.50,
   MAINT_INTERVAL: 120,
@@ -368,11 +368,11 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
   CHOKEPOINT_THROUGHPUT: { OPEN: 1, TENSION: 0.75, DELAYED: 0.5, CLOSED: 0 },
   RESERVATION_COST: 1_500,
   RESERVATION_TICKS: 30,
-  LEASE_STEP: 10_000,
+  LEASE_STEP: 200_000,
   LEASE_MIN_TICKS: 10,
   LEASE_RATE: 0.06,
   LEASE_SCARCITY: 2.0,
-  LEASE_POOL_CAPACITY: 200_000,
+  LEASE_POOL_CAPACITY: 4_000_000,
   MAX_LEASE_SHARE: 0.40,
   LEASE_WARN_TICKS: 10,
   LEASE_GRACE_TICKS: 5,
@@ -381,13 +381,13 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
   DEMURRAGE_MAX_TICKS: 15,
   DISTRESS_DISCOUNT: 0.20,
   CHARTER: {
-    SMALL: { RATE: 6_000, CAPACITY: 50_000 },
-    LARGE: { RATE: 15_000, CAPACITY: 200_000 },
+    SMALL: { RATE: 120_000, CAPACITY: 1_000_000 },
+    LARGE: { RATE: 300_000, CAPACITY: 4_000_000 },
   },
   CHARTER_MIN_TICKS: 30,
-  OFFICE_COST: { OPEN: 250_000, PER_TICK: 1_000 },
+  OFFICE_COST: { OPEN: 5_000_000, PER_TICK: 20_000 },
 
-  DEAL_VOLUME: { min: 1_000, max: 10_000 },
+  DEAL_VOLUME: { min: 20_000, max: 200_000 },
   DEAL_TERMS: [30, 90],
   DEAL_MAX_SHARE: 0.80,
   SHORTFALL_RATE: 0.15,
@@ -464,10 +464,10 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
   // nothing dearer (measured 2026-09-24, `npm run credit`).
   CREDIT_ASSET_SHARE: 1.5,
   // A trader owns almost no steel, so its line is nearly all base: it borrows against the cargo.
-  CREDIT_BASE: { PRODUCER: 4_000_000, REFINER: 6_000_000, TRADER: 12_000_000 },
+  CREDIT_BASE: { PRODUCER: 80_000_000, REFINER: 120_000_000, TRADER: 240_000_000 },
   CREDIT_CUSHION_DAYS: 30,
   CREDIT_WORKING_DAYS: 5,
-  REPORT_COST: 25_000,
+  REPORT_COST: 500_000,
   REPORT_LAG: 5,
   REPORT_NOISE: 0.15,
   INTEGRATE_THRESHOLD: 3,
@@ -549,9 +549,9 @@ const STOCKPILE: Readonly<Record<StockpileSetting, DeepPartial<Config>>> = {
   DEEP: { TARGET_DAYS: 20, URGENCY: 0.05 },
 };
 const APPETITE: Readonly<Record<AppetiteSetting, DeepPartial<Config>>> = {
-  LOW: { MAX_RISK_LIMIT: 2_000_000, HALF_SPREAD: 0.60 },
-  MEDIUM: { MAX_RISK_LIMIT: 5_000_000, HALF_SPREAD: 0.40 },
-  HIGH: { MAX_RISK_LIMIT: 10_000_000, HALF_SPREAD: 0.25 },
+  LOW: { MAX_RISK_LIMIT: 40_000_000, HALF_SPREAD: 0.60 },
+  MEDIUM: { MAX_RISK_LIMIT: 100_000_000, HALF_SPREAD: 0.40 },
+  HIGH: { MAX_RISK_LIMIT: 200_000_000, HALF_SPREAD: 0.25 },
 };
 
 /**

@@ -11,9 +11,9 @@ import { decideOrders, OUTPUT_CUT_DAYS, recordSales, updateOutput } from '../../
 import { buildLaneGraph, LaneRouteProvider } from '../../src/engine/transport';
 
 const routes = () => new LaneRouteProvider(buildLaneGraph(DEFAULT_CONFIG));
-const qasr = (storage = 15_000): Producer => createProducer({
+const qasr = (storage = 300_000): Producer => createProducer({
   id: 'qasr', name: 'Qasr', region: 'Middle_East', grade: 'HEAVY_SOUR', cash: 2e6,
-  extractionCapacity: 9000, baseExtractionCost: 10, storageCapacity: 30_000, storage,
+  extractionCapacity: 180_000, baseExtractionCost: 10, storageCapacity: 600_000, storage,
 });
 const ask = (price: number, qty: number): Ask => ({
   orderId: makeOrderId(1, 1), agentId: qasr().agentId, node: 'DME', side: 'ASK', limitPrice: price, qty, qtyRemaining: qty, originRegion: 'Middle_East',
@@ -47,7 +47,7 @@ describe('closing offers (spec §8 rule 7)', () => {
   it('publishes each origin’s lowest unsold ask, and buyers see the lower of close and offer', () => {
     const node = createNode('DME');
     node.lastFobByOrigin.Middle_East = 70;
-    submit(node, ask(45, 5000), DEFAULT_CONFIG);
+    submit(node, ask(45, 100_000), DEFAULT_CONFIG);
     clear(node, { routes: routes(), tick: 1, config: DEFAULT_CONFIG });
     expect(node.lastOfferByOrigin).toEqual({ Middle_East: 45 });
     expect(referencePrice(node, 'Middle_East')).toBe(45);
@@ -57,7 +57,7 @@ describe('closing offers (spec §8 rule 7)', () => {
 
   it('replaces the offers every day, so a sold-out origin stops showing one', () => {
     const node = createNode('DME');
-    submit(node, ask(45, 5000), DEFAULT_CONFIG);
+    submit(node, ask(45, 100_000), DEFAULT_CONFIG);
     clear(node, { routes: routes(), tick: 1, config: DEFAULT_CONFIG });
     clear(node, { routes: routes(), tick: 2, config: DEFAULT_CONFIG });
     expect(node.lastOfferByOrigin).toEqual({});
@@ -65,10 +65,10 @@ describe('closing offers (spec §8 rule 7)', () => {
 
   it('does not publish an ask that sold in full', () => {
     const node = createNode('DME');
-    const buyer = createRefiner({ id: 'r', name: 'R', region: 'South_Asia', cash: 1e7, techTier: 3, processingCapacity: 9000, crudeStorageCapacity: 30_000 });
-    submit(node, ask(45, 5000), DEFAULT_CONFIG);
+    const buyer = createRefiner({ id: 'r', name: 'R', region: 'South_Asia', cash: 1e7, techTier: 3, processingCapacity: 180_000, crudeStorageCapacity: 600_000 });
+    submit(node, ask(45, 100_000), DEFAULT_CONFIG);
     submit(node, {
-      orderId: makeOrderId(2, 1), agentId: buyer.agentId, node: 'DME', side: 'BID', limitPrice: 60, qty: 5000, qtyRemaining: 5000,
+      orderId: makeOrderId(2, 1), agentId: buyer.agentId, node: 'DME', side: 'BID', limitPrice: 60, qty: 100_000, qtyRemaining: 100_000,
       deliveryRegion: 'South_Asia', avoidChokepoints: [],
     }, DEFAULT_CONFIG);
     clear(node, { routes: routes(), tick: 1, config: DEFAULT_CONFIG });
@@ -80,7 +80,7 @@ describe('AI output cuts (spec §6.5)', () => {
   const nodesAt = (price: number) => { const n = { DME: createNode('DME') }; n.DME.lastFobByOrigin.Middle_East = price; return n; };
 
   it('cuts to half after 10 days below breakeven with storage above 80%, and restores after 10 above', () => {
-    const q = qasr(27_000);
+    const q = qasr(540_000);
     const ledger = createLedger();
     // Breakeven: 7.50 cost + 2.00 fixed; netback 8.00 − 0.20 tariff = 7.80.
     for (let d = 1; d < OUTPUT_CUT_DAYS; d++) updateOutput(q, nodesAt(8), ledger, d, DEFAULT_CONFIG);
@@ -92,10 +92,10 @@ describe('AI output cuts (spec §6.5)', () => {
   });
 
   it('keeps pumping while it still has room to store, and never cuts the player’s company', () => {
-    const roomy = qasr(10_000);
+    const roomy = qasr(200_000);
     const player = createProducer({
-      id: 'p', name: 'P', region: 'Middle_East', grade: 'HEAVY_SOUR', cash: 1e6, extractionCapacity: 9000, baseExtractionCost: 10,
-      storageCapacity: 30_000, storage: 29_000, controller: 'HUMAN',
+      id: 'p', name: 'P', region: 'Middle_East', grade: 'HEAVY_SOUR', cash: 1e6, extractionCapacity: 180_000, baseExtractionCost: 10,
+      storageCapacity: 600_000, storage: 580_000, controller: 'HUMAN',
     });
     for (let d = 1; d <= 20; d++) {
       updateOutput(roomy, nodesAt(8), createLedger(), d, DEFAULT_CONFIG);

@@ -17,28 +17,28 @@ import { placeOrder, releaseEscrow, settleFills } from '../../src/engine/settlem
 
 function buildCompanies(tiers: readonly TechTier[]): Agent[] {
   const trader = createTrader({
-    id: 'trader', name: 'Trader', region: 'Middle_East', cash: 2_000_000,
-    offices: [{ region: 'Middle_East', capacity: 50_000 }, { region: 'Coastal_Asia', capacity: 50_000 }],
+    id: 'trader', name: 'Trader', region: 'Middle_East', cash: 40_000_000,
+    offices: [{ region: 'Middle_East', capacity: 1_000_000 }, { region: 'Coastal_Asia', capacity: 1_000_000 }],
   });
   const hub = trader.hubs.Middle_East;
-  if (hub) { hub.stock.HEAVY_SOUR = 12_000; hub.stock.MEDIUM = 8_000; }
+  if (hub) { hub.stock.HEAVY_SOUR = 240_000; hub.stock.MEDIUM = 160_000; }
   return [
-    createProducer({ id: 'gulf', name: 'Gulf', region: 'Middle_East', grade: 'HEAVY_SOUR', cash: 1_000_000, extractionCapacity: 9000, baseExtractionCost: 10, storageCapacity: 30_000, storage: 25_000 }),
-    createProducer({ id: 'oman', name: 'Oman', region: 'Gulf_of_Oman', grade: 'MEDIUM', cash: 1_000_000, extractionCapacity: 5000, baseExtractionCost: 14, storageCapacity: 20_000, storage: 15_000 }),
-    createRefiner({ id: 'east', name: 'East', region: 'Coastal_Asia', cash: 3_000_000, techTier: tiers[0] ?? 3, processingCapacity: 8000, crudeStorageCapacity: 25_000 }),
-    createRefiner({ id: 'india', name: 'India', region: 'South_Asia', cash: 3_000_000, techTier: tiers[1] ?? 3, processingCapacity: 9000, crudeStorageCapacity: 30_000 }),
+    createProducer({ id: 'gulf', name: 'Gulf', region: 'Middle_East', grade: 'HEAVY_SOUR', cash: 20_000_000, extractionCapacity: 180_000, baseExtractionCost: 10, storageCapacity: 600_000, storage: 500_000 }),
+    createProducer({ id: 'oman', name: 'Oman', region: 'Gulf_of_Oman', grade: 'MEDIUM', cash: 20_000_000, extractionCapacity: 100_000, baseExtractionCost: 14, storageCapacity: 400_000, storage: 300_000 }),
+    createRefiner({ id: 'east', name: 'East', region: 'Coastal_Asia', cash: 60_000_000, techTier: tiers[0] ?? 3, processingCapacity: 160_000, crudeStorageCapacity: 500_000 }),
+    createRefiner({ id: 'india', name: 'India', region: 'South_Asia', cash: 60_000_000, techTier: tiers[1] ?? 3, processingCapacity: 180_000, crudeStorageCapacity: 600_000 }),
     trader,
     createIntegrated({
-      id: 'sabkhar', name: 'Sabkhar', region: 'Middle_East', cash: 5_000_000,
-      well: { grade: 'HEAVY_SOUR', extractionCapacity: 4000, baseExtractionCost: 12, storageCapacity: 10_000, storage: 8000 },
-      plant: { techTier: tiers[2] ?? 3, processingCapacity: 9000, crudeStorageCapacity: 25_000 },
+      id: 'sabkhar', name: 'Sabkhar', region: 'Middle_East', cash: 100_000_000,
+      well: { grade: 'HEAVY_SOUR', extractionCapacity: 80_000, baseExtractionCost: 12, storageCapacity: 200_000, storage: 160_000 },
+      plant: { techTier: tiers[2] ?? 3, processingCapacity: 180_000, crudeStorageCapacity: 500_000 },
     }),
   ];
 }
 
 const orderSpec = fc.record({
   company: fc.integer({ min: 0, max: 5 }),
-  cents: fc.integer({ min: 5_000, max: 8_500 }),
+  cents: fc.integer({ min: 100_000, max: 170_000 }),
   lots: fc.integer({ min: 1, max: 8 }),
   pick: fc.integer({ min: 0, max: 3 }),
 });
@@ -56,7 +56,7 @@ function orderFor(agent: Agent, index: number, seq: number, s: OrderSpec): Order
   const node: NodeName = s.pick % 2 === 0 ? 'DME' : 'NC';
   const base = {
     orderId: makeOrderId(index, seq), agentId: agent.agentId, node,
-    limitPrice: s.cents / 100, qty: s.lots * 1000, qtyRemaining: s.lots * 1000,
+    limitPrice: s.cents / 100, qty: s.lots * 20_000, qtyRemaining: s.lots * 20_000,
   };
   if (agent.kind === 'PRODUCER') return { ...base, node: NODE_FOR_GRADE[agent.grade], side: 'ASK', originRegion: agent.region };
   if (agent.kind === 'REFINER') return { ...base, side: 'BID', deliveryRegion: agent.region, avoidChokepoints: [] };
@@ -110,7 +110,7 @@ describe('conservation (spec §9)', () => {
         days.forEach((specs, day) => {
           setChokepoint(graph, 'HORMUZ', hormuz[day] === true ? 'CLOSED' : 'OPEN');
           routes.resetTick();
-          if (day > 0) updatePrices(sink, 30_000, DEFAULT_CONFIG);
+          if (day > 0) updatePrices(sink, 600_000, DEFAULT_CONFIG);
           const report = runLogistics(cargo, byId, graph, ledger, day, DEFAULT_CONFIG, () => 60);
           for (const sale of report.forcedSales) { soldOff += sale.barrels; revenue += sale.revenue; }
           for (const a of agents) {

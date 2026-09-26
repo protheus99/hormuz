@@ -25,57 +25,57 @@ beforeEach(() => {
 });
 
 const qasr = (storage: number): Producer => createProducer({
-  id: 'qasr', name: 'Qasr Petroleum', region: 'Middle_East', grade: 'HEAVY_SOUR', cash: 2_000_000,
-  extractionCapacity: 9000, baseExtractionCost: 10, storageCapacity: 30_000, storage,
+  id: 'qasr', name: 'Qasr Petroleum', region: 'Middle_East', grade: 'HEAVY_SOUR', cash: 40_000_000,
+  extractionCapacity: 180_000, baseExtractionCost: 10, storageCapacity: 600_000, storage,
 });
-const straits = (heavy = 0, cash = 3_000_000): Refiner => createRefiner({
+const straits = (heavy = 0, cash = 60_000_000): Refiner => createRefiner({
   id: 'straits', name: 'Straits Refining', region: 'Coastal_Asia', cash, techTier: 3,
-  processingCapacity: 8000, crudeStorageCapacity: 25_000, crudeStock: { HEAVY_SOUR: heavy },
+  processingCapacity: 160_000, crudeStorageCapacity: 500_000, crudeStock: { HEAVY_SOUR: heavy },
 });
 /** The parts of an order a test cares about. */
 const brief = (orders: Order[]) => orders.map((o) => [o.side, o.node, o.limitPrice, o.qty]);
 
 describe('producer asks (spec §6.1)', () => {
   it('normal: asks yesterday’s close for everything in storage', () => {
-    expect(brief(decideOrders(qasr(15_000), 0, view, DEFAULT_CONFIG))).toEqual([['ASK', 'DME', 58.6, 15_000]]);
+    expect(brief(decideOrders(qasr(300_000), 0, view, DEFAULT_CONFIG))).toEqual([['ASK', 'DME', 58.6, 300_000]]);
   });
 
   it('storage filling: shades the ask by SKEW × (fill − 0.5)', () => {
     // 80% full: 58.6 × (1 − 0.10 × 0.30) = 56.842, rounded up to the cent.
-    expect(brief(decideOrders(qasr(24_000), 0, view, DEFAULT_CONFIG))).toEqual([['ASK', 'DME', 56.85, 24_000]]);
+    expect(brief(decideOrders(qasr(480_000), 0, view, DEFAULT_CONFIG))).toEqual([['ASK', 'DME', 56.85, 480_000]]);
   });
 
   it('dump threshold: offers the excess above 70% fill at DUMP_DISCOUNT below the close', () => {
     // 95% full: 28,500 − 21,000 = 7,500 → 7,000 in whole lots at 58.60 × 0.80 = 46.88; the rest at 58.6 × 0.955.
-    expect(brief(decideOrders(qasr(28_500), 0, view, DEFAULT_CONFIG))).toEqual([
-      ['ASK', 'DME', 55.97, 21_000],
-      ['ASK', 'DME', 46.88, 7_000],
+    expect(brief(decideOrders(qasr(570_000), 0, view, DEFAULT_CONFIG))).toEqual([
+      ['ASK', 'DME', 55.97, 420_000],
+      ['ASK', 'DME', 46.88, 140_000],
     ]);
   });
 
   it('never dumps below cash cost, however far the close has fallen', () => {
     nodes.DME.lastFobByOrigin.Middle_East = 8;   // 8 × 0.80 = 6.40, under the 7.50 cash cost
-    const dump = decideOrders(qasr(28_500), 0, view, DEFAULT_CONFIG).find((o) => o.qty === 7_000);
+    const dump = decideOrders(qasr(570_000), 0, view, DEFAULT_CONFIG).find((o) => o.qty === 140_000);
     expect(dump?.limitPrice).toBe(7.5);
   });
 
   it('no reference price: uses the marker less freight to the marker region', () => {
     nodes.DME.lastFobByOrigin = {};
     // DME's marker region is Middle_East itself, so no freight: the starting marker, 62.
-    expect(brief(decideOrders(qasr(15_000), 0, view, DEFAULT_CONFIG))).toEqual([['ASK', 'DME', 62, 15_000]]);
+    expect(brief(decideOrders(qasr(300_000), 0, view, DEFAULT_CONFIG))).toEqual([['ASK', 'DME', 62, 300_000]]);
   });
 
   it('never asks below cash cost + tariff + margin', () => {
     nodes.DME.lastFobByOrigin.Middle_East = 5;
-    expect(brief(decideOrders(qasr(15_000), 0, view, DEFAULT_CONFIG))).toEqual([['ASK', 'DME', 8.7, 15_000]]);
+    expect(brief(decideOrders(qasr(300_000), 0, view, DEFAULT_CONFIG))).toEqual([['ASK', 'DME', 8.7, 300_000]]);
   });
 
   it('holds back what tomorrow’s deals need', () => {
-    expect(brief(decideOrders(qasr(15_000), 0, { ...view, dealCommitments: { total: 5_500, Middle_East: 5_500 } }, DEFAULT_CONFIG))).toEqual([['ASK', 'DME', 58.6, 9_000]]);
+    expect(brief(decideOrders(qasr(300_000), 0, { ...view, dealCommitments: { total: 110_000, Middle_East: 110_000 } }, DEFAULT_CONFIG))).toEqual([['ASK', 'DME', 58.6, 180_000]]);
   });
 
   it('Hold for price asks more than Sell fast when storage is full (settings are monotonic)', () => {
-    const price = (cfg: Config) => decideOrders(qasr(27_000), 0, view, cfg)[0]?.limitPrice ?? 0;
+    const price = (cfg: Config) => decideOrders(qasr(540_000), 0, view, cfg)[0]?.limitPrice ?? 0;
     const settings = { risk: 'BALANCED', selling: 'SELL_FAST', stockpile: 'NORMAL', appetite: 'MEDIUM' } as const;
     expect(price(configFor({ ...settings, selling: 'HOLD_FOR_PRICE' }, DEFAULT_CONFIG)))
       .toBeGreaterThan(price(configFor(settings, DEFAULT_CONFIG)));
@@ -88,21 +88,21 @@ describe('refiner bids (spec §6.2)', () => {
 
   it('empty tanks: bids the full delivered value, for all the space it has', () => {
     // Starvation 1: the bid climbs all the way to what a barrel is worth, 77.40; tanks hold 25,000.
-    expect(brief(decideOrders(straits(), 1, view, DEFAULT_CONFIG))).toEqual([['BID', 'DME', 77.4, 25_000]]);
+    expect(brief(decideOrders(straits(), 1, view, DEFAULT_CONFIG))).toEqual([['BID', 'DME', 77.4, 500_000]]);
   });
 
   it('part stocked: climbs part of the way from the reference to full value', () => {
     // The target covers 10 days in the tanks plus the 16 days at sea: 26 × 8,000 = 208,000.
     // 20,000 held: starvation 1 − 20,000 / 208,000 = 0.904 → 62.10 + (77.40 − 62.10) × 0.904 = 75.93.
     // By the time it lands, 16 days' use (128,000) will have gone, so all 25,000 of tanks are free.
-    expect(brief(decideOrders(straits(20_000), 1, view, DEFAULT_CONFIG))).toEqual([['BID', 'DME', 75.92, 25_000]]);
+    expect(brief(decideOrders(straits(400_000), 1, view, DEFAULT_CONFIG))).toEqual([['BID', 'DME', 75.92, 500_000]]);
   });
 
   it('nearly stocked: climbs only a little above the reference', () => {
     // 190,000 held of 208,000: starvation 0.087 → 62.10 + (77.40 − 62.10) × 0.087 = 63.42.
-    const r = straits(0, 50_000_000);
-    r.crudeStorageCapacity = 400_000;
-    r.inboundBarrels = 190_000;
+    const r = straits(0, 1_000_000_000);
+    r.crudeStorageCapacity = 8_000_000;
+    r.inboundBarrels = 3_800_000;
     expect(decideOrders(r, 1, view, DEFAULT_CONFIG)[0]?.limitPrice).toBe(63.42);
   });
 
@@ -116,10 +116,10 @@ describe('refiner bids (spec §6.2)', () => {
 
   it('counts consumption during the voyage: a plant 16 days from supply wants more than 10 days’ stock', () => {
     // 90,000 held (tanks enlarged to allow it) is more than 10 days but less than 10 + 16.
-    const r = straits(0, 10_000_000);   // enough cash that only the target limits it
-    r.crudeStorageCapacity = 300_000;
-    r.inboundBarrels = 90_000;
-    expect(decideOrders(r, 1, view, DEFAULT_CONFIG)[0]?.qty).toBe(118_000);
+    const r = straits(0, 200_000_000);   // enough cash that only the target limits it
+    r.crudeStorageCapacity = 6_000_000;
+    r.inboundBarrels = 1_800_000;
+    expect(decideOrders(r, 1, view, DEFAULT_CONFIG)[0]?.qty).toBe(2_360_000);
   });
 
   it('offline: needs nothing, bids nothing', () => {
@@ -135,7 +135,7 @@ describe('refiner bids (spec §6.2)', () => {
   });
 
   it('short of cash: bids only what it can pay for', () => {
-    expect(brief(decideOrders(straits(0, 100_000), 1, view, DEFAULT_CONFIG))).toEqual([['BID', 'DME', 77.4, 1_000]]);
+    expect(brief(decideOrders(straits(0, 2_000_000), 1, view, DEFAULT_CONFIG))).toEqual([['BID', 'DME', 77.4, 20_000]]);
   });
 
   it('no reference anywhere: bids its delivered maximum on the most valuable node', () => {
@@ -149,7 +149,7 @@ describe('refiner bids (spec §6.2)', () => {
 
   it('only considers grades its tier can refine', () => {
     const metro = createRefiner({
-      id: 'metro', name: 'Metro', region: 'Coastal_Asia', cash: 3e6, techTier: 1, processingCapacity: 6000, crudeStorageCapacity: 20_000,
+      id: 'metro', name: 'Metro', region: 'Coastal_Asia', cash: 3e6, techTier: 1, processingCapacity: 120_000, crudeStorageCapacity: 400_000,
     });
     expect(decideOrders(metro, 2, view, DEFAULT_CONFIG).map((o) => o.node)).toEqual(['NYMEX']);
   });
@@ -161,31 +161,31 @@ describe('refiner bids (spec §6.2)', () => {
 
   it('Deep stockpile buys at least as much as Lean (settings are monotonic)', () => {
     const qty = (stockpile: 'LEAN' | 'DEEP') =>
-      decideOrders(straits(20_000), 1, view, configFor({ risk: 'BALANCED', selling: 'BALANCED', stockpile, appetite: 'MEDIUM' }, DEFAULT_CONFIG))[0]?.qty ?? 0;
+      decideOrders(straits(400_000), 1, view, configFor({ risk: 'BALANCED', selling: 'BALANCED', stockpile, appetite: 'MEDIUM' }, DEFAULT_CONFIG))[0]?.qty ?? 0;
     expect(qty('DEEP')).toBeGreaterThanOrEqual(qty('LEAN'));
   });
 });
 
 describe('integrated majors (spec §6.3)', () => {
-  const sabkhar = (wellStorage = 5_000, plantHeavy = 0) => createIntegrated({
-    id: 'sabkhar', name: 'Sabkhar', region: 'Middle_East', cash: 5_000_000,
-    well: { grade: 'HEAVY_SOUR', extractionCapacity: 4000, baseExtractionCost: 12, storageCapacity: 10_000, storage: wellStorage },
-    plant: { techTier: 3, processingCapacity: 9000, crudeStorageCapacity: 25_000, crudeStock: { HEAVY_SOUR: plantHeavy } },
+  const sabkhar = (wellStorage = 100_000, plantHeavy = 0) => createIntegrated({
+    id: 'sabkhar', name: 'Sabkhar', region: 'Middle_East', cash: 100_000_000,
+    well: { grade: 'HEAVY_SOUR', extractionCapacity: 80_000, baseExtractionCost: 12, storageCapacity: 200_000, storage: wellStorage },
+    plant: { techTier: 3, processingCapacity: 180_000, crudeStorageCapacity: 500_000, crudeStock: { HEAVY_SOUR: plantHeavy } },
   });
   // At home in Middle_East the reference landed price is 58.60 + 0.20 tariff = 58.80; heavy is worth
   // 79.00 less a day's carry, so the deficit ceiling is 78.90 × 1.05 = 82.845.
 
   it('normal: sells its surplus at the close and tops its plant up at the reference plus urgency', () => {
-    expect(brief(decideOrders(sabkhar(5_000, 0), 3, view, DEFAULT_CONFIG))).toEqual([
-      ['ASK', 'DME', 58.6, 5_000],
-      ['BID', 'DME', 82.84, 25_000],   // empty tanks: the ceiling, (79 − 0.10 carry) × 1.05 AGGRESSION
+    expect(brief(decideOrders(sabkhar(100_000, 0), 3, view, DEFAULT_CONFIG))).toEqual([
+      ['ASK', 'DME', 58.6, 100_000],
+      ['BID', 'DME', 82.84, 500_000],   // empty tanks: the ceiling, (79 − 0.10 carry) × 1.05 AGGRESSION
     ]);
   });
 
   it('plant offline: still sells from its wells, but bids nothing', () => {
     const m = sabkhar();
     m.plant.online = false;
-    expect(brief(decideOrders(m, 3, view, DEFAULT_CONFIG))).toEqual([['ASK', 'DME', 58.6, 5_000]]);
+    expect(brief(decideOrders(m, 3, view, DEFAULT_CONFIG))).toEqual([['ASK', 'DME', 58.6, 100_000]]);
   });
 
   it('insolvent: sells, never bids', () => {
@@ -199,27 +199,27 @@ describe('integrated majors (spec §6.3)', () => {
     const bid = decideOrders(sabkhar(0, 0), 3, view, DEFAULT_CONFIG).find((o) => o.side === 'BID');
     // No close anywhere: the plant bids on its most valuable node, light sweet (NYMEX), at its ceiling.
     expect(bid?.node).toBe('NYMEX');
-    const refiner = createRefiner({ id: 'r', name: 'R', region: 'Middle_East', cash: 5e6, techTier: 3, processingCapacity: 9000, crudeStorageCapacity: 25_000 });
+    const refiner = createRefiner({ id: 'r', name: 'R', region: 'Middle_East', cash: 5e6, techTier: 3, processingCapacity: 180_000, crudeStorageCapacity: 500_000 });
     const plain = decideOrders(refiner, 4, view, DEFAULT_CONFIG)[0];
     expect(bid?.limitPrice).toBeCloseTo((plain?.limitPrice ?? 0) * 1.05, 1);
   });
 
   it('dump threshold: offers the excess above 70% fill at DUMP_DISCOUNT below the close', () => {
     // 9,600 of 10,000: excess 2,600 → 2,000 at 58.60 × 0.80 = 46.88; the other 7,000 at the shaded close.
-    const asks = decideOrders(sabkhar(9_600), 3, view, DEFAULT_CONFIG).filter((o) => o.side === 'ASK');
-    expect(brief(asks)).toEqual([['ASK', 'DME', 55.91, 7_000], ['ASK', 'DME', 46.88, 2_000]]);   // 58.60 × (1 − 0.10 × 0.46)
+    const asks = decideOrders(sabkhar(192_000), 3, view, DEFAULT_CONFIG).filter((o) => o.side === 'ASK');
+    expect(brief(asks)).toEqual([['ASK', 'DME', 55.91, 140_000], ['ASK', 'DME', 46.88, 40_000]]);   // 58.60 × (1 − 0.10 × 0.46)
   });
 
   it('sells surplus at cost plus tariff with no margin, and bids more aggressively for a deficit', () => {
     const major = createIntegrated({
-      id: 'sabkhar', name: 'Sabkhar', region: 'Middle_East', cash: 5_000_000,
-      well: { grade: 'HEAVY_SOUR', extractionCapacity: 4000, baseExtractionCost: 12, storageCapacity: 10_000, storage: 5_000 },
-      plant: { techTier: 3, processingCapacity: 9000, crudeStorageCapacity: 25_000 },
+      id: 'sabkhar', name: 'Sabkhar', region: 'Middle_East', cash: 100_000_000,
+      well: { grade: 'HEAVY_SOUR', extractionCapacity: 80_000, baseExtractionCost: 12, storageCapacity: 200_000, storage: 100_000 },
+      plant: { techTier: 3, processingCapacity: 180_000, crudeStorageCapacity: 500_000 },
     });
     nodes.DME.lastFobByOrigin.Middle_East = 1;   // a collapsed price, to expose the floor
     const orders = decideOrders(major, 3, view, DEFAULT_CONFIG);
     // Floor: 12 × 0.75 + 0.20 tariff + no margin = 9.20.
-    expect(brief(orders.filter((o) => o.side === 'ASK'))).toEqual([['ASK', 'DME', 9.2, 5_000]]);
+    expect(brief(orders.filter((o) => o.side === 'ASK'))).toEqual([['ASK', 'DME', 9.2, 100_000]]);
     expect(orders.filter((o) => o.side === 'BID')).toHaveLength(1);
   });
 });
@@ -229,8 +229,8 @@ describe('trader quotes (spec §6.4)', () => {
   // with yesterday's close at 58.60 and the marker at 62. Bids sit below the close by the tariff due
   // on resale and the half-spread, so every round trip clears at least the full spread.
   const dmeOnly = (): MarketView => ({ ...view, nodes: { DME: nodes.DME } });
-  const tidemere = (heavy = 0, cash = 2_000_000) => {
-    const t = createTrader({ id: 'tidemere', name: 'Tidemere', region: 'Middle_East', cash, offices: [{ region: 'Middle_East', capacity: 50_000 }] });
+  const tidemere = (heavy = 0, cash = 40_000_000) => {
+    const t = createTrader({ id: 'tidemere', name: 'Tidemere', region: 'Middle_East', cash, offices: [{ region: 'Middle_East', capacity: 1_000_000 }] });
     const hub = t.hubs.Middle_East;
     if (hub) hub.stock.HEAVY_SOUR = heavy;
     return t;
@@ -238,48 +238,48 @@ describe('trader quotes (spec §6.4)', () => {
 
   it('empty hub: no ask, and a keen bid for half its room', () => {
     // fill 0 → shift +0.40: bid 58.60 − 0.20 − 0.40 + 0.40 = 58.40. Room: cash 2M / 58.40 = 34,246 → half, 17,000.
-    expect(brief(decideOrders(tidemere(), 4, dmeOnly(), DEFAULT_CONFIG))).toEqual([['BID', 'DME', 58.4, 17_000]]);
+    expect(brief(decideOrders(tidemere(), 4, dmeOnly(), DEFAULT_CONFIG))).toEqual([['BID', 'DME', 58.4, 340_000]]);
   });
 
   it('part-full hub: offers half its stock above the reference and bids below it', () => {
     // 20,000 held, fill 0.4 → shift +0.08. Ask 58.60 + 0.40 + 0.08; bid 58.60 − 0.20 − 0.40 + 0.08.
     // Bid room: 30,000 free, (5M − 20,000 × 62) / 58.08 = 64,738, 2M / 58.08 = 34,435 → half of 30,000.
-    expect(brief(decideOrders(tidemere(20_000), 4, dmeOnly(), DEFAULT_CONFIG))).toEqual([
-      ['ASK', 'DME', 59.08, 10_000],
-      ['BID', 'DME', 58.08, 15_000],
+    expect(brief(decideOrders(tidemere(400_000), 4, dmeOnly(), DEFAULT_CONFIG))).toEqual([
+      ['ASK', 'DME', 59.08, 200_000],
+      ['BID', 'DME', 58.08, 300_000],
     ]);
   });
 
   it('full hub: quotes lower, keen to sell', () => {
-    const [ask] = decideOrders(tidemere(50_000), 4, dmeOnly(), DEFAULT_CONFIG);
+    const [ask] = decideOrders(tidemere(1_000_000), 4, dmeOnly(), DEFAULT_CONFIG);
     expect(ask?.limitPrice).toBe(58.6 + 0.4 - 0.4);
-    expect(ask?.qty).toBe(25_000);
+    expect(ask?.qty).toBe(500_000);
   });
 
   it('marker above its 20-day average: offers all its stock', () => {
-    const t = tidemere(20_000);
+    const t = tidemere(400_000);
     t.priceMemory.DME = Array.from({ length: 20 }, () => 55);
-    expect(decideOrders(t, 4, dmeOnly(), DEFAULT_CONFIG)[0]?.qty).toBe(20_000);
+    expect(decideOrders(t, 4, dmeOnly(), DEFAULT_CONFIG)[0]?.qty).toBe(400_000);
   });
 
   it('marker well below its average: bids for all its room (storage play)', () => {
     const t = tidemere();
     t.priceMemory.DME = Array.from({ length: 20 }, () => 70);   // 62 < 70 − 0.06 × 30
-    expect(decideOrders(t, 4, dmeOnly(), DEFAULT_CONFIG)[0]?.qty).toBe(34_000);
+    expect(decideOrders(t, 4, dmeOnly(), DEFAULT_CONFIG)[0]?.qty).toBe(680_000);
   });
 
   it('stays within MAX_RISK_LIMIT: a Low appetite bids less than a High one', () => {
     const qty = (appetite: 'LOW' | 'HIGH') => {
       const cfg = configFor({ risk: 'BALANCED', selling: 'BALANCED', stockpile: 'NORMAL', appetite }, DEFAULT_CONFIG);
-      return decideOrders(tidemere(20_000, 50_000_000), 4, dmeOnly(), cfg).find((o) => o.side === 'BID')?.qty ?? 0;
+      return decideOrders(tidemere(400_000, 1_000_000_000), 4, dmeOnly(), cfg).find((o) => o.side === 'BID')?.qty ?? 0;
     };
     // Low: (2M − 1.24M) / 58.48 = 12,996 of room → 6,000. High is limited only by tank space.
-    expect(qty('LOW')).toBe(6_000);
-    expect(qty('HIGH')).toBe(15_000);
+    expect(qty('LOW')).toBe(120_000);
+    expect(qty('HIGH')).toBe(300_000);
   });
 
   it('insolvent: asks but never bids', () => {
-    const t = tidemere(20_000);
+    const t = tidemere(400_000);
     t.insolvent = true;
     expect(decideOrders(t, 4, dmeOnly(), DEFAULT_CONFIG).map((o) => o.side)).toEqual(['ASK']);
   });
