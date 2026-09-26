@@ -59,6 +59,12 @@ export interface Lease {
   readonly capacity: number;
   readonly rate: number;
   readonly untilTick: Tick;
+  /**
+   * Set once the term has run out with crude still standing in the space: the company keeps it for
+   * `LEASE_GRACE_TICKS` more days at `LEASE_GRACE_MULTIPLIER` times the rate, and then it goes for
+   * good (spec §7.4). Absent in saves written before the grace existed, which reads as not in it.
+   */
+  readonly grace?: boolean;
 }
 
 /** A pipeline reservation (spec G4.4 "Closure risk on exports"), until `untilTick`. */
@@ -88,6 +94,8 @@ export type Action =
   | { readonly kind: 'REROUTE_DEAL'; readonly dealId: DealId; readonly avoid: readonly ChokepointName[]; readonly half: boolean }
   | { readonly kind: 'RESERVE_PIPELINE'; readonly edgeId: string; readonly qty: number }
   | { readonly kind: 'LEASE'; readonly region: RegionName; readonly capacity: number; readonly days: number }
+  /** Keeps space already leased in a region for longer, rather than renting a second lot of it. */
+  | { readonly kind: 'RENEW_LEASE'; readonly region: RegionName; readonly days: number }
   | { readonly kind: 'OPEN_OFFICE'; readonly region: RegionName }
   | { readonly kind: 'SELL_AT_SEA'; readonly share: number }
   | { readonly kind: 'CHARTER'; readonly size: CharterSize; readonly days: number }
@@ -153,6 +161,11 @@ export function actionCost(w: World, agentId: AgentId, action: Action): { readon
     case 'LEASE': {
       const rate = leaseRate(w, action.region);
       return { now: 0, total: rate * action.capacity * action.days };
+    }
+    case 'RENEW_LEASE': {
+      const held = w.leases.filter((l) => l.agentId === agentId && l.region === action.region)
+        .reduce((s, l) => s + l.capacity, 0);
+      return { now: 0, total: leaseRate(w, action.region) * held * action.days };
     }
     case 'OPEN_OFFICE':
       return { now: cfg.OFFICE_COST.OPEN, total: cfg.OFFICE_COST.OPEN };
@@ -363,6 +376,22 @@ export function applyAction(w: World, agentId: AgentId, action: Action): void {
       w.leases.push({ agentId, region: action.region, capacity: action.capacity, rate, untilTick: tick + Math.max(action.days, cfg.LEASE_MIN_TICKS) - 1 });
       return;
     }
+    case 'RENEW_LEASE': {
+      // Extends the term of space the company already has. Renting a second lot instead would pay
+      // for the same barrels twice over the days that overlap, and then give half of it back.
+      // The rate is struck again at today's scarcity, as a new term would be.
+      if (!w.leases.some((l) => l.agentId === agentId && l.region === action.region)) {
+        throw new Error(`${a.name} has no leased space in ${action.region}`);
+      }
+      const rate = leaseRate(w, action.region);
+      const days = Math.max(action.days, cfg.LEASE_MIN_TICKS);
+      // A term still running is extended from the day it would have ended; one already in grace
+      // starts again from today, today counting as the first of the new days.
+      w.leases = w.leases.map((l) => (l.agentId === agentId && l.region === action.region
+        ? { ...l, rate, grace: false, untilTick: (l.grace === true ? tick + days - 1 : l.untilTick + days) as Tick }
+        : l));
+      return;
+    }
     case 'OPEN_OFFICE': {
       if (a.kind !== 'TRADER') throw new Error('Only traders open offices');
       if (a.offices.includes(action.region)) throw new Error(`${a.name} already has an office in ${action.region}`);
@@ -504,8 +533,19 @@ export function advanceProjects(w: World): void {
   for (const r of w.reservations.filter((x) => x.untilTick < tick)) setReservation(w.graph, asEdgeId(r.edgeId), r.agentId, 0, cfg);
   w.reservations = w.reservations.filter((r) => r.untilTick >= tick);
 
-  for (const l of w.leases.filter((x) => x.untilTick < tick)) endLease(w, l);
-  w.leases = w.leases.filter((l) => l.untilTick >= tick);
+  // A term running out used to take the space away the same day and sell whatever no longer fit at
+  // a fifth off, with nothing anywhere having said it was coming. A company holding crude in space
+  // it is about to lose now gets LEASE_GRACE_TICKS more days of it at LEASE_GRACE_MULTIPLIER times
+  // the rate — dear enough that nobody would choose it, long enough to move the oil (spec §7.4).
+  const running: Lease[] = w.leases.filter((l) => l.untilTick >= tick);
+  for (const l of w.leases.filter((x) => x.untilTick < tick)) {
+    if (l.grace !== true && atRiskFromLease(w, l) > 0) {
+      running.push({ ...l, untilTick: (tick + cfg.LEASE_GRACE_TICKS - 1) as Tick, grace: true });
+      continue;
+    }
+    endLease(w, l);
+  }
+  w.leases = running;
   w.standingOrders = w.standingOrders.filter((o) => o.untilTick >= tick);
 }
 
@@ -513,8 +553,32 @@ export function advanceProjects(w: World): void {
 export function chargeLeases(w: World): void {
   for (const l of w.leases) {
     const a = w.agents.find((x) => x.agentId === l.agentId);
-    if (a) charge(w, a, l.rate * l.capacity, FeeKind.LEASE, w.tick);
+    const rate = l.grace === true ? l.rate * w.config.LEASE_GRACE_MULTIPLIER : l.rate;
+    if (a) charge(w, a, rate * l.capacity, FeeKind.LEASE, w.tick);
   }
+}
+
+/**
+ * Barrels that would have nowhere to stand if this leased space went today — what `endLease` would
+ * be forced to sell. Asked before the term runs out rather than after, so a company can be told and
+ * given a few days to shift them.
+ *
+ * This is the field's own figure. A producer's tankage is shared out among the ground each lease
+ * works (stage 3b), so one block can overflow while the field still has room, and the true figure
+ * can be a little worse. Near enough for a warning, which is what it is for.
+ */
+export function atRiskFromLease(w: World, l: Lease): number {
+  const a = w.agents.find((x) => x.agentId === l.agentId);
+  if (!a) return 0;
+  if (a.kind === 'TRADER') {
+    const hub = a.hubs[l.region];
+    return hub === undefined ? 0 : Math.max(0, total(hub.stock) - (hub.capacity - l.capacity));
+  }
+  const well = wellOf(a);
+  if (well) return Math.max(0, well.storage + well.storageEscrow - (well.storageCapacity - l.capacity));
+  const plant = plantOf(a);
+  if (plant) return Math.max(0, total(plant.crudeStock) - (plant.crudeStorageCapacity - l.capacity));
+  return 0;
 }
 
 /** Regions with a lease pool: any with a sea terminal (spec §7.4). */

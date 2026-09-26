@@ -312,7 +312,7 @@ barrels per lease *and* per grade, so a second crude is something a field can ca
 still assumed one grade and now read the leases instead — an integrated major's internal transfer,
 and a seller's capacity for a deal, which had been wrong since 3b anyway.
 
-## Renting a tank costs nearly as much as building one (2026-09-25, belongs with the trader)
+## ~~Renting a tank costs nearly as much as building one~~ - the rate stays (owner, 2026-09-25)
 
 Found while raising `STORAGE_COST`, which the owner was right about: a barrel of tank was $15
 against $20–40 in life, and paid for itself in 250 days on an ordinary year's price range where a
@@ -329,12 +329,33 @@ renting for a year costs 73% of building one for ever - it was 146%
 In life, leased tank storage runs $3–7 a barrel a year against $20–40 to build — about **15%**. So
 `LEASE_RATE` is out by roughly five times, and nobody who can build should ever rent.
 
-It is left alone for now because it lands hardest on the trader: `LEASE_STORAGE` is their most
-frequent card, and T2 "Contango" is built on leasing space ahead of a glut. Cutting the rate to
-something defensible makes traders materially richer, which is a balance change that belongs in
-stage g with the rest of the trader's economics rather than as a lone config edit today.
+**The owner chose not to cut the rate** (2026-09-25), and to make renting a commitment and the space
+scarce instead. Measuring both turned up that scarcity was already there and already working:
 
-## The idle bot can win the finale (2026-09-25, blocks the last of the retune)
+```
+pool per region        200,000 bbl hard cap    never reached
+peak use, one region    60,000-70,000 bbl      30-35%, by 2 companies
+rate at that peak      $0.096-$0.108/bbl/day   60-80% over the $0.06 base
+per-company share cap  40% of the pool
+```
+
+So the escalator bites well before the cap does, and tightening the pool would be machinery for a
+thing that never happens. **The commitment was half there too** - rent is charged daily to the end of
+term with no way out, so you already pay whether you fill it. What was missing was the part its own
+config had named and nobody had written: `LEASE_WARN_TICKS`, `LEASE_GRACE_TICKS` and
+`LEASE_GRACE_MULTIPLIER` were dead constants, a term ended with no warning anywhere, and `endLease`
+sold whatever no longer fit at a fifth off. Built: the warning, the grace, and a panel line, since
+nothing in the interface had ever shown that rented space existed at all.
+
+A first measurement of the pool found zero leased barrels in 7,300 days and was wrong: it ran the
+bare engine, which has no cards, and `LEASE_STORAGE` is card-driven and traders-only. Worth
+remembering - that harness cannot answer any question about a decision.
+
+`LEASE_RATE` itself is still out by about five times against life ($21.90 a year to rent against $30
+to build, where life is nearer 15%), and now belongs with the parcel-size work above, where freight
+and storage are being priced together anyway.
+
+## ~~The idle bot can win the finale~~ - answered, and P3 with it (2026-09-25)
 
 On seed `acceptance`, three years of the finale:
 
@@ -347,9 +368,94 @@ Across three seeds the idle bot places 3rd, 5th and 11th, so it loses two in thr
 holds — but only just, and the direction is wrong. Growing is the player's job (owner, 2026-09-25),
 which settles who is responsible; it does not explain why growing makes the meter-led bot *worse*.
 
-Before 6e the answer was "drilling cannot pay". Drilling pays now, so this is something else, and it
-has not been diagnosed: what the meter bot spends on over three years, and what it gets back, needs
-the same treatment the finale got in 6a. Until then the finale's target cannot honestly be moved.
+Diagnosed and fixed (see §12A.7 6d): half the drilling money went into dry holes and the window was
+barely longer than a well's payback, so growth was break-even by construction. The dry-hole floor went
+to 0.75 and the finale to five years; the meter bot now beats the idle one on every seed.
+
+**P3 was measured at the same time and the recorded complaint was wrong.** It is 2 of 3 for the meter
+bot and 0 of 3 for the idle one, not 1 of 3 - the dry-hole floor helped here too - and for a Hard
+scenario against a band of about one in two, that is inside it. The measure was never what lost it:
+
+```
+meter bot, three seeds   ahead of Qasr on all three     won 2, and the third went insolvent
+idle bot, three seeds     exports 10%, 0%, 0%            lost 3 on the export share
+```
+
+So the export condition does all the separating, the profit comparison does almost none, and the one
+loss was a company that drilled itself out of cash - which is the company-failure machinery working.
+**The owner's A (judge it on operating profit) was therefore not built:** it would have been a second
+measure for a problem that is not there. What was wrong was the *words* - the goal said "earn more per
+barrel of capacity" for something that measures growth in net worth - so the goal text now says what
+the number is. **B was built:** the comparison is against the typical producer rather than Qasr, since
+one idle run turned on $11 per bbl/day out of $8,300, which is a coin toss and not a target.
+
+## Trade in parcels, not barrels, and what a trader is for (owner, 2026-09-25)
+
+The owner's direction: **minimum trade sizes should come from the thing that carries the oil.** A
+same-region purchase is at least a unit train; a cross-region one is at least a tanker, and the
+smallest tanker is dear per barrel. Producers get deeper tanks to accumulate a parcel worth selling.
+Numbers given: same-region term **20,000 bbl a month**, same-region spot **30,000 bbl** in one
+purchase, producer base storage **100,000 bbl**, cross-region minimums by tanker class (GP 70,000 to
+ULCC 4,000,000, at $6.50-8.50 down to $2.80-3.50 a barrel).
+
+**Why it matters beyond realism:** it is the missing answer to stage g. A trader exists because a
+small refiner cannot take a whole cargo and a distant producer cannot sell less than one. Breaking
+bulk is the trade, and no amount of tuning a contango card substitutes for it.
+
+### What the model says today, measured before any of it is built
+
+| | today | the direction |
+|---|---|---|
+| Smallest spot trade | `LOT_SIZE` **1,000 bbl**, no minimum | **30,000 bbl** same-region |
+| Smallest term deal | `DEAL_VOLUME.min` **1,000 bbl/day** = 30,000 a month | **20,000 a month** |
+| Producer tankage | 10 days of output: **20,000-90,000 bbl** (mean field 4,142 bbl/day) | **100,000 bbl** |
+| Charter classes | two: 50,000 and 200,000 bbl | seven, 70,000 to 4,000,000 |
+| Freight | $0-4.50 a lane, mean **$1.19/bbl** | $2.80-14.50/bbl by class and size |
+
+Three consequences fall out of those numbers, and each is a decision rather than a detail:
+
+- **The 20,000 a month figure is looser than what is there now,** not tighter: a minimum term deal
+  already runs 30,000 a month. Either the intent is that term deals be quoted by the month rather
+  than by the day, or this floor is already cleared and only the spot one bites. **Needs a word.**
+- **A 30,000 bbl spot floor changes the shape of a producer's game.** The mean field pumps 4,142
+  bbl/day, so it accumulates a saleable parcel every **7.2 days**: it stops selling daily and starts
+  selling about four times a month, and its cash arrives in lumps. Nothing about that is wrong - it
+  is how the business works - but every scenario target, the payback meter and the storage-pressure
+  calibration are all tuned against daily selling.
+- **100,000 bbl as a floor mostly changes the small producers.** The largest field in the world holds
+  90,000 already; the smallest holds 20,000 and would hold five times that, which is fifty days of
+  its own output. It flattens tankage across the field, and the storage pressure the calibration
+  watches (fill 15% to 31%, first halt on day 65-115) would move a long way out. Worth measuring
+  before it is set, because storage pressure is the producer's main operating constraint today.
+- **Freight does not yet know that a small parcel is dear.** Every barrel pays the same per-lane rate
+  whatever it travels in. The table's whole point is that a GP cargo costs twice a VLCC's per barrel,
+  and that is what makes breaking bulk a service worth paying for. Without it, parcels are lumpy but
+  a small one is not expensive, and the trader still has nothing to sell.
+
+### The trader's role: what I would do
+
+The owner asked four questions. The shape that answers all of them at once is **the trader breaks
+bulk**: buys cargo-sized parcels, holds them in a hub or afloat, and sells in pieces smaller than
+anyone else will quote.
+
+1. **Refiners buy from traders' inventory rather than hiring them to ship.** Hiring a trader as a
+   freight agent adds a middleman to a journey the model already runs. Holding stock to sell in
+   pieces is a position with a risk attached, which is a game.
+2. **Producers hold and sell in lumps** - yes, and that is what the 100,000 bbl tank is for.
+3. **Traders buying up stock should be able to squeeze a refiner, but not starve one.** Keep the
+   same-region floor low enough that a refiner can always buy on its own doorstep; let the
+   cross-region market be the one a trader can corner. Insolvencies and stockout days are already
+   calibrated, so this can be measured rather than argued.
+4. **Traders should not be the only source.** A single channel puts the refiner's game at the mercy of
+   trader AI and deletes the direct producer-refiner relationship the P and R scenarios teach. Make
+   them the only *practical* source of small cross-region parcels, which is true in life and leaves
+   both other routes open.
+
+**Size:** larger than any stage so far. It reaches clearing, deals, transport, charters, portfolios,
+the payback meter, every scenario target and the calibration band, and it lands squarely on top of
+stage g. It wants to be built in measured steps - freight by parcel size first, since it is the piece
+that makes the rest mean anything, and storage before minimums, since minimums without tanks halt
+every small producer in the world.
 
 ## Two things the economics package raised, for the owner (2026-09-24)
 

@@ -161,7 +161,7 @@ function raiseFor(w: World, state: AdvisorState, me: Agent): Card[] {
 
 /** Urgent operating cards first, so a full inbox never hides a breakdown. */
 function prioritized(): CardDef[] {
-  const urgent: CardType[] = ['BREAKDOWN', 'CASH_SHORT', 'STOCK_LOW', 'STORAGE_NEARLY_FULL', 'DEAL_CARGO_STUCK', 'CARGO_STUCK'];
+  const urgent: CardType[] = ['BREAKDOWN', 'CASH_SHORT', 'STOCK_LOW', 'STORAGE_NEARLY_FULL', 'LEASE_EXPIRING', 'DEAL_CARGO_STUCK', 'CARGO_STUCK'];
   return [...urgent.map((t) => CARD_DEFS.get(t) as CardDef), ...CATALOG.filter((d) => !urgent.includes(d.type))];
 }
 

@@ -762,7 +762,7 @@ These run without any decision. Cards change them.
 | Field decline | `DECLINE_RATE` per tick by region class |
 | Internal allocation | All eligible production goes to the company's own plant first |
 | Charters | Cargo is assigned to an idle owned charter whenever that is cheaper than per-barrel freight. **As built:** a charter carries one cargo at a time, up to its capacity, while its hire runs; that cargo pays only the war-risk surcharge, never the per-barrel freight, and the hire is charged daily whether the ship is working or idle. A charter whose hire ends while it is still carrying something is kept until the cargo lands |
-| Leases | Auto-renew at the current rate. If the pool is full, `LEASE_GRACE_TICKS` at `LEASE_GRACE_MULTIPLIER`, then forced sale at `DISTRESS_DISCOUNT`. Warning `LEASE_WARN_TICKS` ahead |
+| Leases | **As built, and deliberately not as first written (D61, 2026-09-25):** a term does *not* auto-renew. `LEASE_WARN_TICKS` ahead of the end, a company holding crude in space it is about to lose is asked whether to keep it — 90 days, 30 days, or let it go — and a renewal extends the same space in place at today's rate rather than renting a second lot of it. A term that runs out with crude still standing in the space keeps it for `LEASE_GRACE_TICKS` more days at `LEASE_GRACE_MULTIPLIER` times the rate, and then it goes, with a forced sale at `DISTRESS_DISCOUNT` of whatever will not fit anywhere else. Auto-renewal was specified first and is what makes renting a tap rather than a commitment: it is the owner's decision that renting be a term you plan around, and a lease that rolls for ever is never a decision. The grace is not conditional on the pool being full either — what puts oil at risk is the term ending, whoever else wants the space |
 | Delivery overflow | Floating on demurrage, then forced sale (§5) |
 | AI output cuts (Phases 7–8) | Cut to 50% after 10 days with netback (reference FOB less origin tariff) below breakeven (cash cost plus `FIXED_COST_RATE`) and storage above 80%; restore after 10 days above. From Phase 9, AI companies answer the "Prices below your cost" card instead |
 
@@ -1065,7 +1065,7 @@ The build proceeds on these. Changing one means updating the sections it names.
 | D10 | Fixed operating costs of $2.00 (producer) and $4.00 (refiner) per bbl/day of capacity make idling a real trade-off |
 | D11 | Insolvent companies cannot bid and are recorded, not removed. An insolvent company whose available cash is back above zero may trade again; the record stays |
 | D12 | Cargo that arrives to full storage floats on demurrage, then is force-sold (§5) |
-| D13 | Lease pools cap each company at 40%; expiring leases renew, then take a grace period, then force-sell (§6.5) |
+| D13 | Lease pools cap each company at 40%; expiring leases renew, then take a grace period, then force-sell (§6.5). **Auto-renewal was reversed by D61:** a term is asked about and ends unless renewed, because a lease that rolls for ever is a tap and not a commitment |
 | D14 | Global production ÷ consumption stays within 1.00–1.10, with no new refining inside the Gulf (§10.3) |
 
 **Player model**
@@ -1090,6 +1090,9 @@ The build proceeds on these. Changing one means updating the sections it names.
 | D25 | Disruptions are staged events (`RUMOR → TENSION → DISRUPTION → RECOVERY`), with a `TENSION` chokepoint status (G7.1) |
 | D35 | Owner decisions 2026-09-19: chokepoint throughput falls in steps with status (a closure stops 100% of the strait but redirection by bypass stays possible, so the bypasses keep their capacity); producers dump at a discount to the reference, not at cash cost; the AI trader arbitrages between regions with tariff-aware spreads, from two offices at lower running cost; starting cash raised and credit lines 10× larger; insolvency is recoverable, because the world has too few companies to lose them |
 | D34 | Refiners grow through processing units, tier upgrades, storage and one second refinery in another refining region (not the Gulf); rival buyouts are out of scope. Chosen over a single site, which left refiners no late game, and over acquisitions, which add valuation and merger rules a teenager should not need |
+| D59 | Owner, 2026-09-25: **rivals stay reckless.** The AI buys ground and drills on fixed per-look odds and does not read the payback a player is shown, so a competent player is out-grown by companies making a worse decision than they are. Asked whether to teach `chooseForAi` the same number; the answer was to keep it as is, and to set the D44 band against rivals that do not think rather than against rivals that do. It is also true to the industry, where the reckless operator is a real competitor and not a modelling error |
+| D60 | Owner, 2026-09-25, on P3: **no named rival.** `AHEAD_OF` now measures against the typical company of the player's own kind rather than Qasr Petroleum, because one idle run turned on $11 per bbl/day out of $8,300 — a single rival's year, which is the same trap as tuning a bar on one seed. The owner also asked for the goal to be judged on operating profit rather than net-worth gain; measurement said no, and it was **not built**: P3 is 2/3 for the meter bot and 0/3 for the idle one, the export share does all the separating, and the one loss was a company that drilled itself insolvent. What was actually wrong was the wording — the goal said "earn more per barrel of capacity" for a number that measures growth — so the words now describe the measure |
+| D61 | Owner, 2026-09-25, on renting tank space costing nearly as much as building it: **leave the rate, make renting a commitment and the space scarce.** Measurement found scarcity already built and already working (the rate runs 60–80% over base at a peak use of 30–35% of a region's pool, and the 200,000 bbl cap is never reached), and the commitment already enforced in cash (rent is charged daily to the end of term with no way out). The real gap was that `LEASE_WARN_TICKS`, `LEASE_GRACE_TICKS` and `LEASE_GRACE_MULTIPLIER` had been declared in config and never written, so a term ended with no warning and `endLease` sold whatever no longer fit at a fifth off. Built instead: the warning card, the grace days at double rate, a renewal that extends in place rather than renting a second lot, and a panel line — nothing in the interface had ever shown that rented space existed |
 | D58 | Owner, 2026-09-25, on the game being unplayable below 1024 px once stage 1 was live (§12B): **full mobile is deferred.** A portrait interface would reach into core elements rather than restyling them — the screen shows a map, a six-tab panel and a decisions column at once, and a phone shows one at a time — and the design is still moving while stage 6 balances. This confirms §G10's staging, where mobile has always been the fifth and last delivery stage and a new interface rather than a repackaging. Built instead: a breakpoint under 1024 px that replaces the game screen with a notice saying what it needs, and a line on the new-game page (which reads fine at 375 px) so nobody starts a game they cannot play |
 | D57 | Owner asked, 2026-09-22, why nothing in the simulation can lose money. Measured: a well pays back in 44 days against 1.5–3 years in the industry, producer fixed costs are 2.5% of revenue against 15–30%, a price shock has a 14-day half-life, and producers were below cash cost on 13 of 6,935 producer-days while one turned $5M into $145M in a year. The cause is that the model has operating costs and almost no capital costs, prices that cannot stay bad, and no entry to surge supply. Agreed: raise capital costs about fourfold, slow price mean-reversion and add demand shocks, and make fixed costs real (§12A.8 A, B, C). Companies that fail are wound up and replaced by new entrants rather than the cast thinning, which keeps D35's concern intact and sends a failed company's leases to auction — a bust handing its assets to whoever kept powder dry. All of it after the lease system is finished, so the campaign is retuned once |
 | D56 | Owner asked, 2026-09-22, whether a tick should be a month rather than a day. Measured, and the day stays. Voyages in the lane graph run 2–20 days, so at a monthly tick every voyage is a fraction of one and crude effectively teleports — the bypass round the Cape, cargo held at a strait and demurrage all stop existing, and geography is what this game is about. Half the event deck is shorter than a month (Suez 5–10 days, Bosphorus 2–10, Malacca 5–20). The marker is the volume-weighted average of today's fills, so monthly clearing would leave twelve prices a year and no market for a trader to read. Deals are 30 or 90 days and deliver daily. Against that: 67 day- or tick-scaled constants, the event deck, every scenario length, the calibration targets, the golden and most of the tests would have to be re-derived — and speed is no argument, since three years runs in 2.3 seconds. The long-horizon feel the question was really about is answered by a reporting layer over the daily record (`QUESTIONS.md`) and a faster clock, not by a new unit of time |
@@ -1666,8 +1669,25 @@ it is that good and bad decisions both make money. Losses must stay avoidable by
 
       The floor was the honest half of it anyway: 0.45 is a wildcat's odds, and a producer hits the
       floor drilling its own established lease. Infill on proven, producing acreage succeeds about
-      nine times in ten; it is exploration that comes in at 10–40%. **P3** is still 1/3 for the
-      meter bot and **T3** is blocked on g.
+      nine times in ten; it is exploration that comes in at 10–40%.
+
+      **P3 was unblocked by the same change, and the note about it was wrong** (measured 2026-09-25).
+      It is **2/3 for the meter bot against 0/3 for the idle one**, not 1/3 — the dry-hole floor helped
+      here too — and for a Hard scenario against a band of about one in two, that is inside it. The
+      note had said its measure punished a company for buying ground. It does not, and the measure was
+      never what lost it:
+
+      ```
+      meter bot   ahead of the rival on all three seeds   won 2; the third drilled itself insolvent
+      idle bot    exports 10%, 0%, 0% of output           lost 3, every one on the export share
+      ```
+
+      The export condition does all the separating and the profit comparison almost none. So the
+      owner's ask to judge it on operating profit was **not built** — a second measure for a problem
+      that is not there — and the wording was fixed instead, since the goal said "earn more per barrel
+      of capacity" for a number that measures growth in net worth (D60). The comparison is now against
+      the typical producer rather than a named one, because one idle run turned on $11 per bbl/day out
+      of $8,300. **T3 stays blocked on g.**
    e. ✅ **A well holds oil of its own.** A lease's reserves were fixed when it was created and
       `reshare` divided that one pot equally among however many wells were on it, so a drilling
       programme bought rate and no barrels: $16.9M for the same block pumped half as fast again,
@@ -1739,10 +1759,31 @@ it is that good and bad decisions both make money. Losses must stay avoidable by
       cost a company *pays* for labour goes through `wages()`; what its steel is *worth* does not, or
       credit lines and lease prices would swing with the weather for no reason.
 
-      **Still to do here:** winding up a company that has run out of road, the entrant that replaces
-      it — fully capitalised but not fully formed — and its acreage under the hammer at a discount to
-      new ground but not below what a producer keeps in the bank, so it still has to be bought on the
-      line (owner, 2026-09-24). All three now have something to act on.
+      **Then company failure, built the same day.** A company unable to trade for `FAILURE_DAYS` (180)
+      is wound up. The shell stays — the world has too few companies to lose any (D35) — and is started
+      again under new backers: the debts are written off, money comes in to replace what was lost, the
+      record is wiped, and its ground goes to the hammer with its wells and the oil in its tanks. It
+      keeps the one block the business is built around, because a producer stripped of every acre can
+      never come back: with no wells it has no borrowing base, and a block costs many times the cash
+      its backers put in. Twenty-year runs had left nineteen blocks nothing in the world could lift.
+
+      A dead company's acreage comes up under the reserve of new ground but not below what a producer
+      keeps in the bank, so it still has to be bought on the line (owner, 2026-09-24).
+
+      | | |
+      |---|---|
+      | Companies that run out of road, 20 years | **4–6 a seed**, all during or just after a bust |
+      | Barrels through the whole thing | conserved — the pool is counted in `barrelsHeld` |
+      | The new money | counted in `totals.recapitalised`, or invariant 2 would catch it |
+
+      Three bugs of mine on the way, each found by measuring rather than reading. The reserve was
+      floored at what the bidders happened to be holding, which put $51.9M on a block worth $12.9M and
+      drew no bid ever — a reserve is not how you make something dear enough to need borrowing. Eleven
+      blocks went up in one round, which is a flood and not a sale; two a round now, and the rest wait.
+      And the queue was sliced from the head, so the same two lots came up for ever.
+
+      **Still to do here:** Capitalism 2's feedback loop — closures dragging the economy down and
+      startups lifting it — which was parked until winding-up existed. It does now.
 
       **Not taken from Capitalism 2:** a climate per region. Its cities are separate consumer
       markets; this world has one retail sink and a global crude price, so a per-region climate would

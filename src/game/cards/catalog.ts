@@ -6,7 +6,7 @@
 import { CHOKEPOINTS, type ChokepointName } from '../../data/chokepoints';
 import { NODE_FOR_GRADE, NODES, type NodeName } from '../../data/nodes';
 import { REGIONS, type RegionName } from '../../data/regions';
-import { leaseRate, leaseRegions, OFFICE_HUB_CAPACITY, projectCost, type Action } from '../../engine/actions';
+import { atRiskFromLease, leaseRate, leaseRegions, OFFICE_HUB_CAPACITY, projectCost, type Action } from '../../engine/actions';
 import { actualCost, effectiveUtilization, fillRatio } from '../../engine/agents';
 import { previousClose, referencePrice } from '../../engine/clearing';
 import { acceptedGrades, averageCost, CLOSED_TO_NEW_REFINING, integrationPlant, plantOf, plantsOf, total, wellOf } from '../../engine/companies';
@@ -1031,6 +1031,34 @@ export const CATALOG: readonly CardDef[] = [
     options: ({ w }, s) => ({
       yes: { actions: [{ kind: 'LEASE', region: s.data.regionId as RegionName, capacity: w.config.LEASE_STEP, days: 90 }] },
       maybe: { actions: [{ kind: 'LEASE', region: s.data.regionId as RegionName, capacity: w.config.LEASE_STEP, days: 30 }] },
+    }),
+  },
+  {
+    // A rented term running out with crude standing in the space. Operating, and near the front of
+    // the queue, because the alternative to answering it is losing a fifth of the value of whatever
+    // will not fit anywhere else. Anyone can hold leased space: traders in a hub, producers and
+    // refiners against their own tanks.
+    type: 'LEASE_EXPIRING', kinds: ALL, raised: true, operating: true,
+    detect: ({ w, me }) => {
+      const ending = w.leases
+        .filter((l) => l.agentId === me.agentId && l.grace !== true && l.untilTick - w.tick <= w.config.LEASE_WARN_TICKS)
+        .map((l) => ({ lease: l, risk: atRiskFromLease(w, l) }))
+        // Space standing empty costs nothing to lose, so there is no decision in letting it go.
+        .filter((x) => x.risk > 0)
+        .sort((a, b) => b.risk - a.risk)[0];
+      if (ending === undefined) return null;
+      const { lease, risk } = ending;
+      return {
+        key: `lease-ending:${lease.region}`,
+        data: {
+          region: REGIONS[lease.region].displayName, regionId: lease.region,
+          capacity: bbl(lease.capacity), barrels: bbl(risk), days: lease.untilTick - w.tick + 1,
+        },
+      };
+    },
+    options: (_ctx, s) => ({
+      yes: { actions: [{ kind: 'RENEW_LEASE', region: s.data.regionId as RegionName, days: 90 }] },
+      maybe: { actions: [{ kind: 'RENEW_LEASE', region: s.data.regionId as RegionName, days: 30 }] },
     }),
   },
   {

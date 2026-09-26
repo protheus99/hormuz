@@ -19,6 +19,9 @@ const OPERATING: Readonly<Record<string, Readonly<Record<Personality, Weights>>>
   STOCK_LOW: { CONSERVATIVE: [0.7, 0.3, 0], BALANCED: [0.5, 0.35, 0.15], AGGRESSIVE: [0.35, 0.25, 0.4] },
   REFINING_LOSING: { CONSERVATIVE: [0.6, 0.4, 0], BALANCED: [0.3, 0.55, 0.15], AGGRESSIVE: [0.1, 0.4, 0.5] },
   MARGINS_STRONG: { CONSERVATIVE: [0, 0.3, 0.7], BALANCED: [0.15, 0.55, 0.3], AGGRESSIVE: [0.55, 0.45, 0] },
+  // Rented space running out with crude in it. Nobody walks away from that on purpose, so every
+  // temperament keeps it; they differ only in how long a term they take.
+  LEASE_EXPIRING: { CONSERVATIVE: [0.75, 0.25, 0], BALANCED: [0.5, 0.45, 0.05], AGGRESSIVE: [0.3, 0.6, 0.1] },
 };
 
 /** Card types AI companies answer (spec G4.6: operating cards from Phase 9). */

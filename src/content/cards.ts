@@ -241,6 +241,14 @@ const TEXT: Readonly<Record<string, CardText>> = {
     situation: 'Tank space is available in {region} at {rate} a barrel a day.',
     yes: 'Lease for 90 days.', maybe: 'Lease for 30 days.', no: 'Not now.',
   },
+  // The term ending used to take the space the same day and sell what no longer fit at a fifth off,
+  // with nothing anywhere having said it was coming. This is the letter that says it.
+  LEASE_EXPIRING: {
+    title: 'Your rented tank space in {region} runs out',
+    situation: 'The lease on {capacity} barrels of space ends in {days} days, and {barrels} barrels of '
+      + 'your crude are standing in it. Space you keep past the term costs double until you empty it.',
+    yes: 'Keep it for another 90 days.', maybe: 'Keep it for another 30 days.', no: 'Let it go.',
+  },
   SECOND_REFINERY: {
     title: 'Build a second refinery',
     situation: 'A {capacity}-barrel-a-day refinery in {region} would give you a second market to sell into and a second source of crude. It takes {ticks} days to build.',

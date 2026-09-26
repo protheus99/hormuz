@@ -6,6 +6,8 @@ import { GLOBAL_PORTFOLIO } from '../../src/data/portfolios';
 import { wages } from '../../src/engine/agents';
 import { actionCost, applyAction, projectCost, type Action } from '../../src/engine/actions';
 import { plantOf, wellOf } from '../../src/engine/companies';
+import { fillTanks, refreshStorage } from '../../src/engine/leases';
+import type { WellState } from '../../src/engine/model';
 import { DEFAULT_CONFIG } from '../../src/engine/config';
 import type { Agent, AgentId } from '../../src/engine/model';
 import { createWorld, netWorth, run, step, type World } from '../../src/engine/world';
@@ -210,6 +212,66 @@ describe('trading actions (spec G4.4)', () => {
     run(w, 30);
     expect(wellOf(get(w, 'Qasr_Petroleum'))?.storageCapacity).toBe(before);
     expect(() => act(w, 'Tarvale_Sands', { kind: 'LEASE', region: 'Western_Canada', capacity: 10_000, days: 30 })).toThrow(/no lease pool/);
+  });
+
+  /**
+   * Moves barrels out of the ground into the tanks at this field, the way extraction does, so a test
+   * can put a field near full without minting oil the conservation invariant would catch.
+   */
+  const lift = (w: World, well: WellState, qty: number): void => {
+    let left = qty;
+    for (const lease of well.leases) {
+      const put = Math.min(left, lease.reserves);
+      lease.reserves -= put;
+      lease.produced += put;
+      left -= put;
+      fillTanks(well, put, [lease]);
+      if (left <= 0) break;
+    }
+    // The world counts what has been lifted, so the books balance only if this is counted too.
+    w.totals.extracted += qty - left;
+    refreshStorage(well);
+  };
+
+  it('gives a term that runs out with oil in it a few dear days rather than a forced sale', () => {
+    const w = fresh();
+    const owned = wellOf(get(w, 'Qasr_Petroleum'))?.storageCapacity ?? 0;
+    act(w, 'Qasr_Petroleum', { kind: 'LEASE', region: 'Middle_East', capacity: 20_000, days: 30 });
+    // Keep the field fuller than it could be without the rented space, so there is always something
+    // at stake on the day the term runs out.
+    const topUp = () => {
+      const field = wellOf(get(w, 'Qasr_Petroleum'));
+      if (field) lift(w, field, Math.max(0, owned + 10_000 - field.storage));
+    };
+    const mine = () => w.leases.find((l) => l.agentId === get(w, 'Qasr_Petroleum').agentId);
+    const soldBefore = w.totals.forceSold;
+    for (let d = 0; d < 40 && mine() !== undefined && mine()?.grace !== true; d++) { topUp(); step(w); }
+
+    // The term is up. The space is still there, at double the rate, and nothing has been sold.
+    expect(mine()?.grace).toBe(true);
+    expect(wellOf(get(w, 'Qasr_Petroleum'))?.storageCapacity).toBe(owned + 20_000);
+    expect(w.totals.forceSold).toBe(soldBefore);
+    expect(fees(w, 'LEASE')).toBeCloseTo(20_000 * cfg.LEASE_RATE * cfg.LEASE_GRACE_MULTIPLIER, 6);
+
+    // And when the grace is up too, the space goes and what will not fit goes with it.
+    for (let d = 0; d < cfg.LEASE_GRACE_TICKS + 1; d++) { topUp(); step(w); }
+    expect(mine()).toBeUndefined();
+    expect(wellOf(get(w, 'Qasr_Petroleum'))?.storageCapacity).toBe(owned);
+    expect(w.totals.forceSold).toBeGreaterThan(soldBefore);
+  });
+
+  it('renews space in place rather than renting a second lot of it', () => {
+    const w = fresh();
+    const qasr = get(w, 'Qasr_Petroleum');
+    const owned = wellOf(qasr)?.storageCapacity ?? 0;
+    act(w, 'Qasr_Petroleum', { kind: 'LEASE', region: 'Middle_East', capacity: 20_000, days: 30 });
+    const ends = w.leases[0]?.untilTick ?? 0;
+    act(w, 'Qasr_Petroleum', { kind: 'RENEW_LEASE', region: 'Middle_East', days: 30 });
+    expect(w.leases).toHaveLength(1);
+    // The same space, for longer: renting again would have paid twice over the days that overlap.
+    expect(wellOf(get(w, 'Qasr_Petroleum'))?.storageCapacity).toBe(owned + 20_000);
+    expect(w.leases[0]?.untilTick).toBe(ends + 30);
+    expect(() => act(w, 'Tarvale_Sands', { kind: 'RENEW_LEASE', region: 'Middle_East', days: 30 })).toThrow(/no leased space/);
   });
 
   it('opens a trading office with a hub', () => {

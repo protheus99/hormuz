@@ -19,6 +19,8 @@ export type CardType =
   // Trader
   | 'BACK_TO_BACK' | 'DISTRESSED_CARGO' | 'PRICES_LOW' | 'PRICE_GAP' | 'POSITION_FALLING' | 'CRISIS_BREWING'
   | 'CARGO_STUCK' | 'LEASE_STORAGE' | 'OPEN_OFFICE'
+  // Anyone who has rented tank space: a term running out with oil standing in it (spec §7.4)
+  | 'LEASE_EXPIRING'
   // Shipping (spec §7.4)
   | 'CHARTER_TANKER' | 'KEEP_AFLOAT'
   // A refiner's late game (D34)

@@ -124,6 +124,9 @@ export function companyPanel(view: PlayerView): Html {
         const held = h.stock.LIGHT_SWEET + h.stock.MEDIUM + h.stock.HEAVY_SOUR;
         return fact(`${regionName(h.region)} office`, html`${bbl(held)} of ${bbl(h.capacity)} bbl <span class="muted">(${pct(held / Math.max(1, h.capacity))} full)</span>${bar(held / Math.max(1, h.capacity))}`);
       })}
+      ${c.rented.map((r) => fact('Rented space', r.overdue
+        ? html`${bbl(r.capacity)} bbl in ${regionName(r.region)}, <span class="bad">past its term</span>: double rate, and it goes in ${r.daysLeft} days`
+        : html`${bbl(r.capacity)} bbl in ${regionName(r.region)}, for another ${r.daysLeft} days`))}
     </div>
     ${offerBlock(view, 'TANKS', 'Storage')}
     ${offerBlock(view, 'PLANT', c.sites.length > 0 ? 'Your refinery' : 'Refining')}

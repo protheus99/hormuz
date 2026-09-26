@@ -23,6 +23,11 @@ export interface AlertMemory {
   playerPlantDown: boolean;
   /** Wells of the player's that are not pumping, so a new failure can be told from an old one. */
   wellsDown: number;
+  /**
+   * Rented tank space of the player's that has run past its term and is being paid for at the grace
+   * rate. Absent in saves written before the grace existed.
+   */
+  leasesInGrace?: number;
 }
 
 export function rememberForAlerts(w: World, playerId: AgentId): AlertMemory {
@@ -32,7 +37,8 @@ export function rememberForAlerts(w: World, playerId: AgentId): AlertMemory {
   for (const c of Object.keys(CHOKEPOINTS) as ChokepointName[]) chokepoints[c] = w.graph.chokepoints[c].status;
   const wellsDown = me === undefined ? 0
     : (wellOf(me)?.leases ?? []).reduce((t, l) => t + l.wells.filter((x) => x.status === 'DOWN').length, 0);
-  return { chokepoints, playerInsolvent: me?.insolvent ?? false, playerPlantDown: (plant?.outageTicksRemaining ?? 0) > 0, wellsDown };
+  const leasesInGrace = w.leases.filter((l) => l.agentId === playerId && l.grace === true).length;
+  return { chokepoints, playerInsolvent: me?.insolvent ?? false, playerPlantDown: (plant?.outageTicksRemaining ?? 0) > 0, wellsDown, leasesInGrace };
 }
 
 const STATUS_SEVERITY: Readonly<Record<ChokepointStatus, Severity>> = { OPEN: 'MEDIUM', TENSION: 'MEDIUM', DELAYED: 'HIGH', CLOSED: 'CRITICAL' };
@@ -66,6 +72,16 @@ export function detectAlerts(w: World, playerId: AgentId, before: AlertMemory): 
       severity: now.wellsDown >= 3 ? 'HIGH' : 'MEDIUM',
       message: `${started === 1 ? 'A well has' : `${started} wells have`} stopped and ${started === 1 ? 'is' : 'are'} waiting on a workover crew`
         + `${now.wellsDown > started ? `; ${now.wellsDown} are down in all` : ''}.`,
+    });
+  }
+  // A term that has run out. The space is kept a few days longer at double the rate and then goes,
+  // taking whatever will not fit with it at a fifth off, so this is the last moment to act.
+  if ((now.leasesInGrace ?? 0) > (before.leasesInGrace ?? 0)) {
+    alerts.push({
+      tick: w.tick,
+      severity: 'HIGH',
+      message: 'Your rented tank space is past its term. You are paying double for it, and in a few days it goes '
+        + 'with whatever crude will not fit anywhere else.',
     });
   }
   return alerts;

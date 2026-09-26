@@ -19,7 +19,8 @@ export type Condition =
   | { readonly kind: 'STOCKOUT_DAYS'; readonly atMost: number }
   | { readonly kind: 'SOLVENT' }
   | { readonly kind: 'OWN'; readonly what: 'DEAL' | 'OFFICES' | 'TIER' | 'INTEGRATED' | 'DRILLING' | 'RESERVATION' | 'REPORT' | 'LEASE'; readonly atLeast: number; readonly by?: number }
-  | { readonly kind: 'AHEAD_OF'; readonly rival: string }
+  /** Ahead of the typical company of your own kind, by the same measure the leaderboard ranks on. */
+  | { readonly kind: 'AHEAD_OF' }
   /** Finish within the first `places` companies of your own type, by profit per barrel of capacity. */
   | { readonly kind: 'RANK_TOP'; readonly places: number }
   | { readonly kind: 'EXPORT_SHARE'; readonly chokepoint: ChokepointName; readonly atLeast: number }
@@ -119,8 +120,8 @@ export const SCENARIOS: readonly ScenarioData[] = [
       { tick: 5, engine: { tick: 5, kind: 'PIPELINE_CAPACITY', edgeId: 'bypass_oman', capacity: 500 } },
       hormuzCycle(40, 35),
     ],
-    goalText: 'Keep at least half your output flowing while Hormuz is closed, and earn more per barrel of capacity than Qasr Petroleum.',
-    goal: [{ kind: 'EXPORT_SHARE', chokepoint: 'HORMUZ', atLeast: 0.5 }, { kind: 'AHEAD_OF', rival: 'Qasr_Petroleum' }],
+    goalText: 'Keep at least half your output flowing while Hormuz is closed, and grow your company by more, for its size, than most Gulf producers.',
+    goal: [{ kind: 'EXPORT_SHARE', chokepoint: 'HORMUZ', atLeast: 0.5 }, { kind: 'AHEAD_OF' }],
     milestones: [
       { label: 'Reserve bypass pipeline space', condition: { kind: 'OWN', what: 'RESERVATION', atLeast: 1 }, reward: { cash: 500_000 } },
       { label: 'Sign a deal', condition: { kind: 'OWN', what: 'DEAL', atLeast: 1 }, reward: { report: true } },

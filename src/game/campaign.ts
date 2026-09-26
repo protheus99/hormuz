@@ -132,9 +132,12 @@ export function scriptedActions(w: World, s: ScenarioData): void {
 }
 
 /**
- * How well a company has done, comparable across sizes: profit per barrel a day of starting capacity
- * for producers and refiners (a small field and a giant one earn the same per barrel), and growth in
- * net worth for traders, whose size is their capital.
+ * How well a company has done, comparable across sizes: growth in net worth per barrel a day of
+ * starting capacity for producers and refiners (a small field and a giant one are judged the same
+ * per barrel), and growth against starting capital for traders, whose size is their money.
+ *
+ * It is growth, not profit, and the words that describe it must say so: called profit, it reads as a
+ * measure of how well a company is run, and then spending on ground looks like failing at it.
  */
 function performance(c: CampaignState, w: World, a: Agent): number {
   const gain = netWorth(w, a) - (c.start[a.agentId] ?? 0);
@@ -142,6 +145,25 @@ function performance(c: CampaignState, w: World, a: Agent): number {
   return size > 0 ? gain / size : gain / Math.max(1, c.start[a.agentId] ?? 1);
 }
 const perBarrel = (x: number) => `$${Math.round(x).toLocaleString('en-US')} per bbl/day`;
+
+/**
+ * Every company a player is judged against: the others of their own kind, with an integrated major
+ * counted among the producers it competes with. Both the leaderboard rank and the ahead-of goal ask
+ * this same question, so they ask it in one place.
+ */
+function sameKind(w: World, me: Agent): [Agent['kind'], Agent[]] {
+  const kind = me.kind === 'INTEGRATED' ? 'PRODUCER' : me.kind;
+  return [kind, w.agents.filter((a) => a !== me && (a.kind === kind || (kind === 'PRODUCER' && a.kind === 'INTEGRATED')))];
+}
+
+/** The middle of a list, so one company's good year cannot set a scenario's bar. */
+function median(xs: readonly number[]): number {
+  const s = [...xs].sort((a, b) => a - b);
+  if (s.length === 0) return 0;
+  const lo = s[Math.floor((s.length - 1) / 2)] as number;
+  const hi = s[Math.ceil((s.length - 1) / 2)] as number;
+  return (lo + hi) / 2;
+}
 
 /** One day of tracking, after the engine's step. */
 export function campaignDay(w: World, c: CampaignState, advisor: AdvisorState, fills: readonly Fill[], deliveries: readonly DealDelivery[]): void {
@@ -269,16 +291,18 @@ export function evaluate(cond: Condition, c: CampaignState, w: World, me: Agent,
       return { status: met ? 'MET' : late || final ? 'FAILED' : 'PENDING', progress: `${label}: ${reports} of ${cond.atLeast}${cond.by !== undefined ? ` by day ${cond.by}` : ''}` };
     }
     case 'AHEAD_OF': {
-      const rival = w.agents.find((a) => a.agentId === cond.rival);
-      if (!rival) return { status: 'MET', progress: 'Rival gone' };
+      // The typical company of your own kind, not a named one. A single rival makes the bar that
+      // rival's year: P3 was once decided by $11 per bbl/day out of $8,300 (measured 2026-09-25),
+      // which is a coin toss rather than a target. Same trap as tuning a bar on one seed.
+      const [kind, rivals] = sameKind(w, me);
+      if (rivals.length === 0) return { status: 'MET', progress: 'Nobody left to measure against' };
       const mine = performance(c, w, me);
-      const theirs = performance(c, w, rival);
-      const progress = `Your profit ${perBarrel(mine)} vs ${rival.name} ${perBarrel(theirs)}`;
+      const theirs = median(rivals.map((a) => performance(c, w, a)));
+      const progress = `Your growth ${perBarrel(mine)} vs the typical ${kind.toLowerCase()} ${perBarrel(theirs)}`;
       return { status: final ? (mine > theirs ? 'MET' : 'FAILED') : 'PENDING', progress };
     }
     case 'RANK_TOP': {
-      const kind = me.kind === 'INTEGRATED' ? 'PRODUCER' : me.kind;
-      const rivals = w.agents.filter((a) => a !== me && (a.kind === kind || (kind === 'PRODUCER' && a.kind === 'INTEGRATED')));
+      const [, rivals] = sameKind(w, me);
       const mine = performance(c, w, me);
       const rank = 1 + rivals.filter((a) => performance(c, w, a) > mine).length;
       const progress = `Rank ${rank} of ${rivals.length + 1} (need top ${cond.places})`;

@@ -80,6 +80,16 @@ export interface OwnCompanyView {
   /** Every refinery the company runs: one, or two once it builds a second site (D34). */
   readonly sites: readonly PlantView[];
   readonly hubs: readonly { readonly region: RegionName; readonly capacity: number; readonly stock: Readonly<Record<Grade, number>> }[];
+  /**
+   * Tank space the company is renting rather than owning (spec §7.4). Part of the capacity above, and
+   * it goes when the term does — so a screen that shows the tank without showing this shows a tank
+   * that is about to get smaller for no visible reason.
+   */
+  readonly rented: readonly {
+    readonly region: RegionName; readonly capacity: number; readonly daysLeft: number;
+    /** True once the term has run out: the space is being paid for at the grace rate and is going. */
+    readonly overdue: boolean;
+  }[];
 }
 
 /**
@@ -253,6 +263,9 @@ export function buildPlayerView(
     hubs: me.kind === 'TRADER'
       ? Object.entries(me.hubs).flatMap(([region, h]) => (h ? [{ region: region as RegionName, capacity: h.capacity, stock: { ...h.stock } }] : []))
       : [],
+    rented: w.leases.filter((l) => l.agentId === playerId).map((l) => ({
+      region: l.region, capacity: l.capacity, daysLeft: l.untilTick - w.tick + 1, overdue: l.grace === true,
+    })),
   };
 
   return {
