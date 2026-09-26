@@ -81,7 +81,7 @@ export interface RetailSink {
    */
   climate: number;
   /** What it is being called. Kept, because what it is called depends on what it was called. */
-  weather: Weather;
+  economicClimate: EconomicClimate;
   /** Barrels refined in each of the last SUPPLY_WINDOW finished ticks, oldest first. */
   outputHistory: number[];
   /** Barrels refined so far in the current tick. */
@@ -102,7 +102,7 @@ export function createRetailSink(seed: string, config: Config): RetailSink {
     expectedPrices: { ...fairValues },
     bases,
     climate: 0,
-    weather: 'NORMAL',
+    economicClimate: 'NORMAL',
     outputHistory: [],
     outputToday: 0,
     rng: rngFor(seed, 'products'),
@@ -115,13 +115,13 @@ export function createRetailSink(seed: string, config: Config): RetailSink {
  * `baselineOutput` is Σ processing capacity × BASE_UTILIZATION across all refineries.
  */
 /**
- * The weather, in a word: the five Capitalism 2 names, which is all a player is ever told about the
+ * The economic climate, in a word: the five Capitalism 2 names, which is all a player is ever told about the
  * number behind them (owner, 2026-09-24).
  */
-export const WEATHERS = ['PANIC', 'RECESSION', 'NORMAL', 'PROSPEROUS', 'BOOM'] as const;
-export type Weather = (typeof WEATHERS)[number];
+export const ECONOMIC_CLIMATES = ['PANIC', 'RECESSION', 'NORMAL', 'PROSPEROUS', 'BOOM'] as const;
+export type EconomicClimate = (typeof ECONOMIC_CLIMATES)[number];
 
-/** The edges between the five, in order: edge i divides WEATHERS[i] from WEATHERS[i + 1]. */
+/** The edges between the five, in order: edge i divides ECONOMIC_CLIMATES[i] from ECONOMIC_CLIMATES[i + 1]. */
 const edgesOf = (config: Config) => {
   const b = config.CLIMATE.BANDS;
   return [b.PANIC, b.RECESSION, b.PROSPEROUS, b.BOOM];
@@ -129,16 +129,16 @@ const edgesOf = (config: Config) => {
 
 /**
  * What to call this climate. Given what it was called yesterday the answer is sticky: every edge
- * moves away from the weather you are already in, so the drift has to mean it before the market
+ * moves away from the economic climate you are already in, so the drift has to mean it before the market
  * gets a new name.
  */
-export function weatherOf(climate: number, config: Config, was?: Weather): Weather {
+export function weatherOf(climate: number, config: Config, was?: EconomicClimate): EconomicClimate {
   const edges = edgesOf(config);
   const shifted = was === undefined ? edges
-    : edges.map((e, k) => (k >= WEATHERS.indexOf(was) ? e + config.CLIMATE.STICK : e - config.CLIMATE.STICK));
+    : edges.map((e, k) => (k >= ECONOMIC_CLIMATES.indexOf(was) ? e + config.CLIMATE.STICK : e - config.CLIMATE.STICK));
   let i = 0;
   while (i < shifted.length && climate >= (shifted[i] as number)) i += 1;
-  return WEATHERS[i] as Weather;
+  return ECONOMIC_CLIMATES[i] as EconomicClimate;
 }
 
 /**
@@ -156,13 +156,13 @@ export function labourFactor(climate: number, config: Config): number {
  * outright. That is what makes a bust something a company has to survive for a year or two rather
  * than a bad fortnight — the decay is what ends it, and the decay is slow.
  *
- * Returns what the weather was called before and after, so the day can say when it turned.
+ * Returns what the economic climate was called before and after, so the day can say when it turned.
  */
 export function advanceClimate(
   sink: RetailSink, rng: Rng, config: Config, day: number,
-): { readonly was: Weather; readonly now: Weather } {
+): { readonly was: EconomicClimate; readonly now: EconomicClimate } {
   const cfg = config.CLIMATE;
-  const was = sink.weather;
+  const was = sink.economicClimate;
   const decay = Math.log(2) / cfg.HALF_LIFE;
   let c = (1 - decay) * sink.climate + cfg.SIGMA * normal(rng);
   // A jump is drawn every day so the stream advances at the same rate whether or not one lands;
@@ -172,8 +172,8 @@ export function advanceClimate(
   const up = nextFloat(rng) < 0.5;
   if (roll < cfg.JUMP_RATE && day >= cfg.CALM_DAYS) c += up ? size : -size;
   sink.climate = quantize(clamp(c, -cfg.MAX, cfg.MAX));
-  sink.weather = weatherOf(sink.climate, config, was);
-  return { was, now: sink.weather };
+  sink.economicClimate = weatherOf(sink.climate, config, was);
+  return { was, now: sink.economicClimate };
 }
 
 /**

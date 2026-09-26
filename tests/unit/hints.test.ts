@@ -1,5 +1,5 @@
 // The hint ladder (spec §12A.6). The owner's amendment: a reckoning out of a clear sky reads as
-// arbitrary, so the pressure has to be felt as it builds. What these check is that the weather is
+// arbitrary, so the pressure has to be felt as it builds. What these check is that the economic climate is
 // honest — silent for a clean company, quiet at first, louder as the record grows, and never a
 // number anywhere in it.
 
@@ -17,7 +17,7 @@ const producer = (w: World): Agent => w.agents.find((a) => a.kind === 'PRODUCER'
 
 const corner = (amount: number, tick = 0): ExposureItem => ({ amount, saved: amount / 4, tick: tick as never, target: { kind: 'CASH' } });
 
-/** Runs `days` of weather over a company whose record is already set, counting what it hears. */
+/** Runs `days` of economic climate over a company whose record is already set, counting what it hears. */
 function listen(w: World, me: Agent, days: number): { rungs: number[]; said: string[] } {
   const state = createHints('hints');
   const rungs: number[] = [];
@@ -105,7 +105,7 @@ describe('what a hint may say', () => {
       expect(`${line.headline} ${line.body}`).not.toMatch(/[0-9]/);
       expect(line.headline).not.toMatch(/[.]$/);       // a headline, not a sentence
     }
-    // Every rung has a plain name for it, which is what the log calls the weather.
+    // Every rung has a plain name for it, which is what the log calls the economic climate.
     expect(Object.values(RUNG_WORDS).every((w) => w.length > 0)).toBe(true);
   });
 });

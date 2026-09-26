@@ -3,14 +3,14 @@
 // days it is asked to and says when to stop (a new card or an alert).
 
 import { GameSession, msPerDay, PLAYER_ID, type Alert, type CardType, type PlayerView, type SaveData, type Speed } from '../src/game';
-import { dateOf, html, money, mount, words, WEATHER_MEANS } from './dom';
+import { dateOf, html, money, mount, words, CLIMATE_MEANS } from './dom';
 import { inboxPanel, missionPanel } from './inbox';
-import { companyPanel, activityPanel, dealsPanel, leaderboardPanel, leasesPanel, mapPanel, newsPanel, type BoardKind } from './panels';
+import { companyPanel, activityPanel, dealsPanel, leaderboardPanel, leasesPanel, mapPanel, newsPanel, worldPanel, type BoardKind } from './panels';
 import { absorb, newTicker, patchTicker, readPinned, resumed, shapeOf, tickerPanel } from './ticker';
 import { saveGame } from './storage';
 
-type Tab = 'company' | 'activity' | 'leases' | 'deals' | 'board' | 'news';
-const TABS: readonly [Tab, string][] = [['company', 'Company'], ['activity', 'Activity'], ['leases', 'Leases'], ['deals', 'Deals & cargo'], ['board', 'Leaderboard'], ['news', 'News']];
+type Tab = 'company' | 'activity' | 'leases' | 'deals' | 'board' | 'world' | 'news';
+const TABS: readonly [Tab, string][] = [['company', 'Company'], ['activity', 'Activity'], ['leases', 'Leases'], ['deals', 'Deals & cargo'], ['board', 'Leaderboard'], ['world', 'World'], ['news', 'News']];
 /** The register is only for companies that drill; everyone else never sees the tab. */
 const tabsFor = (view: PlayerView) => TABS.filter(([id]) => id !== 'leases' || view.register.length > 0);
 /** What is waiting behind a tab, so the player can see there is something there without opening it. */
@@ -101,8 +101,8 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
       <div class="stat"><span class="label">${c.name}</span><span class="value">${dateOf(view.tick)}${view.lengthDays !== null ? html` <span class="small muted">· ${daysLeft(Math.max(0, view.lengthDays - view.tick))}</span>` : ''}</span></div>
       <div class="stat"><span class="label">Cash</span><span class="value ${c.cash < 0 ? 'bad' : ''}">${money(c.cash)}</span></div>
       <div class="stat"><span class="label">Net worth</span><span class="value">${money(c.netWorth)}</span></div>
-      <div class="stat"><span class="label">Economy</span><span class="value weather ${view.weather}"
-        title="${WEATHER_MEANS[view.weather] ?? ''}">${words(view.weather)}</span></div>
+      <div class="stat"><span class="label">Economic climate</span><span class="value climate ${view.economicClimate}"
+        title="${CLIMATE_MEANS[view.economicClimate] ?? ''}">${words(view.economicClimate)}</span></div>
       ${waiting > 0 ? html`<div class="stat"><span class="label">Waiting</span><span class="value"><span class="badge">${waiting}</span> ${waiting === 1 ? 'decision' : 'decisions'}</span></div>` : ''}
       ${c.insolvent ? html`<div class="stat"><span class="label">Status</span><span class="value bad">Out of cash and credit</span></div>` : ''}
       <div class="clock">
@@ -127,7 +127,8 @@ export async function showGame(root: HTMLElement, session: GameSession, onQuit: 
       : tab === 'activity' ? activityPanel(view)
       : tab === 'leases' ? leasesPanel(view)
       : tab === 'board' ? leaderboardPanel(view, board)
-      : tab === 'deals' ? dealsPanel(view) : newsPanel(view));
+      : tab === 'deals' ? dealsPanel(view)
+      : tab === 'world' ? worldPanel(view) : newsPanel(view));
     body.scrollTop = scroll;
   };
 

@@ -415,6 +415,55 @@ export function leaderboardPanel(view: PlayerView, board: BoardKind): Html {
     ${offerBlock(view, 'RIVALS', 'Finding out more')}`;
 }
 
+/**
+ * The world at a glance: every region, what it pumps, what it refines, what is standing in its tanks
+ * and what a barrel last fetched at its quay. Nothing here is private - it is the same published
+ * figures the leaderboard draws on - and it exists because reading the shape of the whole world off
+ * one screen is the fastest way to see when something has gone wrong with it.
+ */
+export function worldPanel(view: PlayerView): Html {
+  const rows = view.world;
+  const sum = (pick: (r: PlayerView['world'][number]) => number) => rows.reduce((s, r) => s + pick(r), 0);
+  const price = (p: number | undefined) => (p === undefined ? html`<span class="muted">-</span>` : html`$${p.toFixed(2)}`);
+  const running = (now: number, cap: number) => (cap === 0 ? html`<span class="muted">-</span>`
+    : html`${bbl(now)}<span class="muted"> of ${bbl(cap)}</span>`);
+  return html`
+    <p class="small muted">Every region, and the published figures for it: what its wells could pump and
+      are pumping, what its refineries could run and are running, the crude standing in its tanks, and
+      what a barrel last fetched at its quay. <strong>Quay</strong> means a sea terminal - it can load a
+      ship, and tank space can be rented there. The economic climate is
+      <strong>${view.economicClimate.toLowerCase()}</strong>.</p>
+    <div class="scroller"><table class="board world">
+      <tr>
+        <th>Region</th><th>Roles</th>
+        <th class="num">Pumping</th><th class="num">Refining</th>
+        <th class="num">In store</th><th class="num">Firms</th>
+        <th class="num">Light</th><th class="num">Medium</th><th class="num">Heavy</th><th>Quay</th>
+      </tr>
+      ${rows.map((r) => html`<tr>
+        <td>${r.name}<div class="small muted">${r.continent}</div></td>
+        <td class="small muted">${r.roles.map((x) => x.toLowerCase()).join(', ')}</td>
+        <td class="num small">${running(r.pumpingNow, r.pumping)}</td>
+        <td class="num small">${running(r.refiningNow, r.refining)}</td>
+        <td class="num small">${r.inStore > 0 ? bbl(r.inStore) : html`<span class="muted">-</span>`}</td>
+        <td class="num small muted">${r.companies > 0 ? r.companies : ''}</td>
+        <td class="num small">${price(r.prices.LIGHT_SWEET)}</td>
+        <td class="num small">${price(r.prices.MEDIUM)}</td>
+        <td class="num small">${price(r.prices.HEAVY_SOUR)}</td>
+        <td class="small ${r.quay ? 'good' : 'muted'}">${r.quay ? 'yes' : 'inland'}</td>
+      </tr>`)}
+      <tr class="mine">
+        <td><strong>The world</strong></td><td class="small muted">${rows.length} regions</td>
+        <td class="num small">${running(sum((r) => r.pumpingNow), sum((r) => r.pumping))}</td>
+        <td class="num small">${running(sum((r) => r.refiningNow), sum((r) => r.refining))}</td>
+        <td class="num small">${bbl(sum((r) => r.inStore))}</td>
+        <td class="num small muted"></td>
+        <td class="num small muted" colspan="3">last traded at each quay</td>
+        <td class="small muted">${rows.filter((r) => r.quay).length}</td>
+      </tr>
+    </table></div>`;
+}
+
 /** News and alerts, newest first. */
 export function newsPanel(view: PlayerView): Html {
   const alerts = [...view.alerts].reverse().slice(0, 20);

@@ -4,18 +4,20 @@
 
 import { CHOKEPOINTS, type ChokepointName } from '../data/chokepoints';
 import type { Offer } from './offers';
-import { NODE_NAMES, type NodeName } from '../data/nodes';
+import { NODE_FOR_GRADE, NODE_NAMES, type NodeName } from '../data/nodes';
 import type { RegionName } from '../data/regions';
-import { plantOf, plantsOf, wellOf } from '../engine/companies';
+import { plantOf, plantsOf, total, wellOf } from '../engine/companies';
 import type { PlantState } from '../engine/model';
 import { ChokepointStatus, type Grade, type Product } from '../engine/enums';
 import type { AgentId, CompanySettings, DealId } from '../engine/model';
 import { barrelsHeld, netWorth, type TickReport, type World } from '../engine/world';
 import { leaseCapacity } from '../engine/leases';
+import { leaseRegions } from '../engine/actions';
+import { referencePrice } from '../engine/clearing';
 import { bidAmount, leasableRegions, mayBid, mayWork } from '../engine/auction';
 import { REGIONS } from '../data/regions';
 import type { FeeKind } from '../engine/enums';
-import type { Weather } from '../engine/economics';
+import type { EconomicClimate } from '../engine/economics';
 import type { Alert } from './alerts';
 import type { Card } from './cards/types';
 import type { CampaignView } from './campaign';
@@ -52,6 +54,34 @@ export interface MarketView {
   /** Previous close by origin, and each origin's unsold offer (spec §8 rule 7). */
   readonly closes: Readonly<Partial<Record<RegionName, number>>>;
   readonly offers: Readonly<Partial<Record<RegionName, number>>>;
+}
+
+/**
+ * One region, as a snapshot of the whole world (spec G5). Nothing here is private: capacity, what is
+ * running and what a barrel last fetched at a quay are all published figures, which is why a summary
+ * of every region can be shown at once where a rival's own accounts could not.
+ *
+ * Production and storage are grouped by the region the *ground* is in, not the company's home, since
+ * stage 3b let a producer hold leases abroad.
+ */
+export interface WorldRegionView {
+  readonly region: RegionName;
+  readonly name: string;
+  readonly continent: string;
+  readonly roles: readonly string[];
+  /** A sea terminal: it can load a ship, and tank space can be rented here. */
+  readonly quay: boolean;
+  /** bbl/day the wells here could pump, and what they are pumping now. */
+  readonly pumping: number;
+  readonly pumpingNow: number;
+  /** bbl/day the refineries here could run, and what they are running now. */
+  readonly refining: number;
+  readonly refiningNow: number;
+  /** Barrels standing in tanks here: fields, refinery crude and traders' hubs. */
+  readonly inStore: number;
+  readonly companies: number;
+  /** What a barrel last fetched at this quay, by grade. Absent for a grade nothing sells here. */
+  readonly prices: Readonly<Partial<Record<Grade, number>>>;
 }
 
 export interface OwnCompanyView {
@@ -194,10 +224,12 @@ export interface PlayerView {
   readonly markets: readonly MarketView[];
   readonly products: Readonly<Record<Product, number>>;
   /** The economic climate, in the one word a player is ever shown (§12A.8, B). */
-  readonly weather: Weather;
+  readonly economicClimate: EconomicClimate;
   readonly history: readonly DailyPrices[];
   /** The player's own recent days, newest last (spec G5). */
   readonly days: readonly DayLog[];
+  /** Every region at a glance: what it pumps, what it refines, and what crude fetches there. */
+  readonly world: readonly WorldRegionView[];
   /** Who holds which ground, region by region (spec §12A.4). Empty for companies that do not drill. */
   readonly register: readonly RegionLeases[];
   /** Ground up for auction right now, with what a bid would cost. Empty between auctions. */
@@ -282,9 +314,10 @@ export function buildPlayerView(
       };
     }),
     products: { ...w.sink.prices },
-    weather: w.sink.weather,
+    economicClimate: w.sink.economicClimate,
     history,
     days,
+    world: worldSummary(w),
     register: leaseRegister(w, playerId),
     lots: lotsFor(w, playerId),
     standings: standingsFor(w, playerId, sizesAMonthAgo),
@@ -516,6 +549,62 @@ function standingsFor(w: World, playerId: AgentId, before: Record<string, number
 }
 
 /** The register, built from every company's ground. Reserves and well counts are left out. */
+/**
+ * The world, region by region. Built from the same public figures the leaderboard uses, so it adds no
+ * information a player could not already add up by hand - it only saves them the adding up.
+ */
+function worldSummary(w: World): WorldRegionView[] {
+  const zero = () => ({ pumping: 0, pumpingNow: 0, refining: 0, refiningNow: 0, inStore: 0, companies: new Set<string>() });
+  const by = new Map<RegionName, ReturnType<typeof zero>>();
+  const at = (region: RegionName) => {
+    const found = by.get(region) ?? zero();
+    by.set(region, found);
+    return found;
+  };
+  for (const a of w.agents) {
+    for (const lease of wellOf(a)?.leases ?? []) {
+      const here = at(lease.region);
+      here.pumping += leaseCapacity(lease);
+      // A field that is shut in or turned down is pumping less than it could, and the difference is
+      // the point of showing both.
+      here.pumpingNow += wellOf(a)?.shutIn === true ? 0 : leaseCapacity(lease) * (wellOf(a)?.extractionRate ?? 0);
+      here.inStore += lease.storage + lease.storageEscrow;
+      here.companies.add(String(a.agentId));
+    }
+    for (const p of plantsOf(a)) {
+      const here = at(p.region);
+      here.refining += p.processingCapacity;
+      here.refiningNow += p.online ? p.processingCapacity * p.utilization : 0;
+      here.inStore += total(p.crudeStock);
+      here.companies.add(String(a.agentId));
+    }
+    if (a.kind === 'TRADER') {
+      for (const [region, hub] of Object.entries(a.hubs)) {
+        if (!hub) continue;
+        const here = at(region as RegionName);
+        here.inStore += total(hub.stock);
+        here.companies.add(String(a.agentId));
+      }
+    }
+  }
+  const quays = new Set<string>(leaseRegions());
+  return (Object.keys(REGIONS) as RegionName[]).map((region) => {
+    const r = REGIONS[region];
+    const x = by.get(region) ?? zero();
+    const prices: Partial<Record<Grade, number>> = {};
+    for (const grade of r.exploitableGrades) {
+      const price = referencePrice(w.nodes[NODE_FOR_GRADE[grade]], region);
+      if (price !== undefined) prices[grade] = price;
+    }
+    return {
+      region, name: r.displayName, continent: r.continent, roles: [...r.roles], quay: quays.has(region),
+      pumping: Math.round(x.pumping), pumpingNow: Math.round(x.pumpingNow),
+      refining: Math.round(x.refining), refiningNow: Math.round(x.refiningNow),
+      inStore: Math.round(x.inStore), companies: x.companies.size, prices,
+    };
+  });
+}
+
 function leaseRegister(w: World, playerId: AgentId): RegionLeases[] {
   const me = w.agents.find((a) => a.agentId === playerId);
   if (me === undefined || wellOf(me) === undefined) return [];

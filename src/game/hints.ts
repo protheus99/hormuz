@@ -6,7 +6,7 @@
 // the window; at rung 4 a file has been opened and only counsel is left (§12A.6, the escapes).
 //
 // It reads the record but never shows it, it draws from its own stream so it cannot shift anyone's
-// luck, and it changes nothing in the world: a hint is weather, not an event.
+// luck, and it changes nothing in the world: a hint is economic climate, not an event.
 
 import { rungOf as pressureRung, type Rung } from '../engine/exposure';
 import type { Agent } from '../engine/model';
@@ -57,7 +57,7 @@ export interface Hint {
 }
 
 /**
- * One day of the weather. A hint is given when the ladder is climbed — which is the signal worth
+ * One day of the economic climate. A hint is given when the ladder is climbed — which is the signal worth
  * having — and otherwise now and then, more often the higher up it is.
  */
 export function hintDay(w: World, state: HintState, me: Agent): Hint | null {

@@ -1,4 +1,4 @@
-// What the weather sounds like before it breaks (spec §12A.6). As a company's hidden record grows,
+// What the economic climate sounds like before it breaks (spec §12A.6). As a company's hidden record grows,
 // and as trouble raises the odds of it coming due, the world says so — in letters, visits and
 // questions, never in numbers. A player should come to feel the pressure without ever being told
 // the forecast, so nothing here counts anything, names a total or gives a date.

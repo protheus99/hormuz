@@ -23,7 +23,7 @@ import { rungOf } from '../engine/exposure';
 import { epilogueFor, reckoningText } from '../content/hints';
 import { money } from '../content/cards';
 import { WEATHER_NEWS } from '../content/events';
-import { WEATHERS } from '../engine/economics';
+import { ECONOMIC_CLIMATES } from '../engine/economics';
 import { applySetup, campaignDay, campaignView, createCampaign, scenario, scriptedActions, scriptFor, type CampaignState } from './campaign';
 import { detectAlerts, pausesAt, rememberForAlerts, type Alert, type AlertMemory, type Severity } from './alerts';
 import { applyCommand, rejectReason, type Command, type CommandResult, type LoggedCommand } from './commands';
@@ -181,9 +181,9 @@ export class GameSession {
     // A save written before the economic climate existed starts it on an ordinary market, with its
     // own stream seeded from the game's seed so it runs the same way every time it is loaded.
     if (world.rng.climate === undefined) world.rng.climate = rngFor(data.settings.seed, 'climate');
-    const sink = data.world.sink as { climate?: number; weather?: string };
+    const sink = data.world.sink as { climate?: number; economicClimate?: string };
     sink.climate ??= 0;
-    sink.weather ??= 'NORMAL';
+    sink.economicClimate ??= 'NORMAL';
     // A save written before producers held leases has a field but no ground under it (§12A): give
     // it the lease that field would have been drilled on, at the size it is pumping today.
     const named = new Set<string>();
@@ -313,12 +313,12 @@ export class GameSession {
     if (s.campaign) campaignDay(s.world, s.campaign, s.advisor, report.fills, report.deliveries);
     const alerts = detectAlerts(s.world, PLAYER_ID, s.memory);
     alerts.push(...this.exposureNews(report));
-    if (report.weather !== null) {
-      const text = WEATHER_NEWS[report.weather.now];
+    if (report.economicClimate !== null) {
+      const text = WEATHER_NEWS[report.economicClimate.now];
       if (text !== undefined) {
         pushNews(s.deck, { tick: s.world.tick, ...text });
         // Falling into a recession or a panic stops the clock; climbing out of one does not need to.
-        const worse = WEATHERS.indexOf(report.weather.now) < WEATHERS.indexOf(report.weather.was);
+        const worse = ECONOMIC_CLIMATES.indexOf(report.economicClimate.now) < ECONOMIC_CLIMATES.indexOf(report.economicClimate.was);
         alerts.push({ tick: s.world.tick, severity: worse ? 'HIGH' : 'MEDIUM', message: `${text.headline}.` });
       }
     }

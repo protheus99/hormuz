@@ -84,7 +84,7 @@ const STRAIT_NEWS: Readonly<Record<string, StageNews>> = {
     DELAYED: { headline: 'Storms slow the Bosphorus', body: 'Tankers wait for safe passage through the strait.' },
   },
   DANISH_STRAITS: {
-    DELAYED: { headline: 'Ice and storms slow the Danish Straits', body: 'Winter weather delays tankers leaving the Baltic.' },
+    DELAYED: { headline: 'Ice and storms slow the Danish Straits', body: 'Winter economicClimate delays tankers leaving the Baltic.' },
   },
   PANAMA: {
     RUMOR: { headline: 'Water levels fall in the Panama Canal', body: 'Forecasts point to a dry season. Heavy ships may soon face limits.' },
@@ -118,7 +118,7 @@ export function strait(chokepoint: string, name: string, stage: Stage | 'CLEARED
 /**
  * What the news says when the economic climate turns (§12A.8, B). The five names are Capitalism 2's,
  * and each carries the same two facts: what people are buying, and what work costs. There is no
- * number here — a player reads the weather and their own books, not an index.
+ * number here — a player reads the economic climate and their own books, not an index.
  */
 export const WEATHER_NEWS: Readonly<Record<string, NewsText>> = {
   PANIC: {

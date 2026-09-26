@@ -9,14 +9,17 @@
 import { describe, expect, it } from 'vitest';
 import { runGoldenReplay } from './replay';
 
-// S0 through the real tick orchestrator, re-recorded in Node 24 on 2026-09-21 after fields were
-// given a daily swing in what they pump (D48), which moves every barrel in the run. Last verified
-// identical in Chrome 152 (`npm run golden:browser`) on 2026-09-19; re-check in a browser at the
-// end of each phase.
+// S0 through the real tick orchestrator, re-recorded in Node 24 on 2026-09-26 when the economic
+// climate was renamed from `weather` - so that weather could mean the sea. The fingerprint hashes
+// object *keys* as well as values, so renaming one field changes every hash while changing nothing
+// about the run: fills (1,163), barrels refined (7,524,399.23892715) and fees ($587,178,684.2656597)
+// are identical to the last decimal on both sides of it, which is what says this was only a rename.
+// Last verified identical in Chrome 152 (`npm run golden:browser`) on 2026-09-19; re-check in a
+// browser at the end of each phase.
 const GOLDEN = {
-  day1: '5737c942da6e0e4c6a38e20b0383b437',
-  day30: '19786d046918e87688692073c9059f82',
-  final: 'd6c7b1290e566172b6b95a0fe5bb1bf8',
+  day1: '10a1000173817ee7e1c285769c41fb8a',
+  day30: '685dfdeb20ea92adefac27ac22f8aa3f',
+  final: '46a72bc714e9948c94b171c5a64ef9a5',
 };
 
 describe('golden replay', () => {

@@ -110,7 +110,7 @@ export const labor = (region: RegionName): number => REGIONS[region].laborCostIn
  * What an hour of work costs today: the region's own wage level, times what the economic climate is
  * doing to wages everywhere. Every cost a company actually *pays* for labour goes through this —
  * lifting a barrel, keeping a field running, building anything. What a company's steel is *worth*
- * does not: a valuation that swung with the weather would move credit lines and lease prices about
+ * does not: a valuation that swung with the economic climate would move credit lines and lease prices about
  * for no reason (§12A.8, B).
  */
 export function wages(region: RegionName, climate: number, config: Config): number {

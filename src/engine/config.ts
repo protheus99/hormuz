@@ -180,7 +180,7 @@ export interface Config {
   readonly CLIMATE: {
     readonly HALF_LIFE: number;            // days for a swing to work half its way back to normal
     readonly SIGMA: number;                // the daily drift between jumps
-    readonly JUMP_RATE: number;            // chance a day that the weather turns outright
+    readonly JUMP_RATE: number;            // chance a day that the economicClimate turns outright
     readonly JUMP: { readonly MIN: number; readonly MAX: number };
     readonly DEPTH: number;                // how far the anchor moves at c = ±1
     readonly NECESSITY: Readonly<Record<'GASOLINE' | 'DIESEL' | 'FUEL_OIL', number>>;
@@ -248,7 +248,7 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
   SHUT_IN_THRESHOLD: 0.25,
   RESTART_COST: 3.00,
   RAMP_TICKS: 10,
-  // No field pumps the same number twice: weather, pumps, water cut, a crew short. Symmetric, so a
+  // No field pumps the same number twice: economic climate, pumps, water cut, a crew short. Symmetric, so a
   // year's output is unchanged — but a day's is never quite the plan, and the Activity tab shows it.
   EXTRACTION_SPREAD: 0.06,
   FIXED_COST_RATE: { PRODUCER: 7.00, REFINER: 4.00 },
@@ -417,20 +417,20 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
      */
     LABOUR: 0.25,
     /**
-     * Where each kind of weather begins, reading up from the worst. Drift alone has a standing
+     * Where each kind of economic climate begins, reading up from the worst. Drift alone has a standing
      * deviation of about 0.20, so an ordinary year wanders between Recession and Prosperous, and it
      * takes a jump to reach a Panic or a Boom.
      */
     BANDS: { PANIC: -0.65, RECESSION: -0.25, PROSPEROUS: 0.25, BOOM: 0.65 },
     /**
-     * The weather is sticky: it takes this much past an edge to change what the market is called.
+     * The economic climate is sticky: it takes this much past an edge to change what the market is called.
      * Without it the daily drift walks back and forth across a boundary and a recession reads as
      * forty days when it is really two years of bad trading — and the news would say so every
      * fortnight (measured 2026-09-24).
      */
     STICK: 0.06,
     /**
-     * A first year is always ordinary weather. The drift is still there, so it is not a flat
+     * A first year is always ordinary economic climate. The drift is still there, so it is not a flat
      * market, but nothing jumps: a tutorial is 90 to 180 days and a player's first year should be
      * spent learning the game in a normal market rather than in somebody else's panic (D35's real
      * concern, that a company should not be lost to a bad start).

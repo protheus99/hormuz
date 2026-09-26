@@ -7,7 +7,7 @@ import { createIntegrated, createProducer } from '../../src/engine/companies';
 import { DEFAULT_CONFIG, withOverrides } from '../../src/engine/config';
 import { rngFor } from '../../src/engine/rng';
 
-/** A field with no day-to-day swing: these tests are about the planned rate, not the weather. */
+/** A field with no day-to-day swing: these tests are about the planned rate, not the economic climate. */
 const STEADY = withOverrides(DEFAULT_CONFIG, { EXTRACTION_SPREAD: 0 });
 const wells = () => rngFor('extraction-test', 'wells');
 import { createLedger, type FeeLedger } from '../../src/engine/economics';

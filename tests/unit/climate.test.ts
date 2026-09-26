@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_CONFIG, withOverrides } from '../../src/engine/config';
 import {
-  advanceClimate, createRetailSink, labourFactor, updatePrices, weatherOf, WEATHERS, type RetailSink,
+  advanceClimate, createRetailSink, labourFactor, updatePrices, weatherOf, ECONOMIC_CLIMATES, type RetailSink,
 } from '../../src/engine/economics';
 import { rngFor } from '../../src/engine/rng';
 
@@ -18,7 +18,7 @@ describe('what the climate is called', () => {
   it('names the five, in order, from panic to boom', () => {
     const seen = [-1, -0.5, 0, 0.5, 1].map((c) => weatherOf(c, cfg));
     expect(seen).toEqual(['PANIC', 'RECESSION', 'NORMAL', 'PROSPEROUS', 'BOOM']);
-    expect(WEATHERS).toEqual(seen);
+    expect(ECONOMIC_CLIMATES).toEqual(seen);
   });
 
   it('is sticky: it takes more than a step over the line to be called something else', () => {
@@ -63,13 +63,13 @@ describe('how it moves', () => {
     expect(up / jumps).toBeLessThan(0.6);
   });
 
-  it('leaves a first year alone, so nobody is lost to weather before they have played a year', () => {
+  it('leaves a first year alone, so nobody is lost to economicClimate before they have played a year', () => {
     const s = sink();
     const rng = rngFor('calm', 'climate');
     const wild = withOverrides(cfg, { CLIMATE: { JUMP_RATE: 0.9, SIGMA: 0 } });
     for (let d = 0; d < cfg.CLIMATE.CALM_DAYS; d++) advanceClimate(s, rng, wild, d);
     expect(s.climate).toBe(0);
-    expect(s.weather).toBe('NORMAL');
+    expect(s.economicClimate).toBe('NORMAL');
     advanceClimate(s, rng, wild, cfg.CLIMATE.CALM_DAYS);
     expect(Math.abs(s.climate)).toBeGreaterThan(0);
   });
@@ -93,7 +93,7 @@ describe('how it moves', () => {
     expect(one.climate).toBe(two.climate);
   });
 
-  it('draws from its own stream, so a day of weather does not move a day of prices', () => {
+  it('draws from its own stream, so a day of economicClimate does not move a day of prices', () => {
     const s = sink();
     const before = { ...s.rng };
     advanceClimate(s, rngFor('apart', 'climate'), cfg, 0);

@@ -18,7 +18,7 @@ import { configFor, DEFAULT_CONFIG, withOverrides, type Config, type DeepPartial
 import { dealCommitments, deliverDeals, type DealDelivery } from './deals';
 import {
   advanceClimate, applyShock, createLedger, createRetailSink, labourFactor, recordFee, updatePrices,
-  type FeeLedger, type RetailSink, type Weather,
+  type FeeLedger, type RetailSink, type EconomicClimate,
 } from './economics';
 import { FeeKind, type ChokepointStatus, type Grade, type Personality, type Product } from './enums';
 import { runLogistics, type LogisticsReport } from './logistics';
@@ -159,8 +159,8 @@ export interface TickReport {
   readonly logistics: LogisticsReport;
   /** What caught up with anybody today. Empty on almost every day of almost every game. */
   readonly reckonings: readonly ReckoningReport[];
-  /** Set on the day the economic climate turns from one kind of weather to another (§12A.8, B). */
-  readonly weather: { readonly was: Weather; readonly now: Weather } | null;
+  /** Set on the day the economic climate turns from one kind of economic climate to another (§12A.8, B). */
+  readonly economicClimate: { readonly was: EconomicClimate; readonly now: EconomicClimate } | null;
   /** Companies wound up today, and how many blocks each sent to the hammer (D57). Almost always empty. */
   readonly wound: readonly { readonly agentId: AgentId; readonly name: string; readonly blocks: number }[];
   readonly fees: number;
@@ -232,7 +232,7 @@ export function step(w: World): TickReport {
   advanceProjects(w);
   w.charters = expireCharters(w.charters, w.cargo, tick);
   byId = new Map<AgentId, Agent>(w.agents.map((a) => [a.agentId, a]));   // a finished refinery may have replaced a producer
-  // The weather turns before the day's prices are struck, so a bust is in them the day it arrives.
+  // The economic climate turns before the day's prices are struck, so a bust is in them the day it arrives.
   const turned = advanceClimate(w.sink, w.rng.climate, cfg, tick);
   updatePrices(w.sink, baselineOutput(w), cfg);
   for (const a of w.agents) {
@@ -339,7 +339,7 @@ export function step(w: World): TickReport {
 
   return {
     tick, extracted, refined, byAgent, fills, deliveries, logistics, reckonings,
-    weather: turned.was === turned.now ? null : turned,
+    economicClimate: turned.was === turned.now ? null : turned,
     wound,
     fees: w.ledger.total - feesBefore,
   };
