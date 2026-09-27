@@ -9,17 +9,19 @@
 import { describe, expect, it } from 'vitest';
 import { runGoldenReplay } from './replay';
 
-// S0 through the real tick orchestrator, re-recorded in Node 24 on 2026-09-27 for ports (§3.5, D66):
-// a region's berths can now load and discharge only so much in a day, where before a port was
-// infinite. Cargo queues on the busiest days and reroutes, so the run differs throughout.
+// S0 through the real tick orchestrator, re-recorded in Node 24 on 2026-09-27: a port's limit is now
+// a count of ships a day rather than a volume (§3.5, D66), so which trades clear on a busy day
+// changes and the run differs throughout. Working a cargo takes a place whether it is twenty
+// thousand barrels or two million, which is why a port jams on many small parcels and why putting
+// the same oil in one hull relieves it.
 //
-// Recorded earlier for vessel classes (§7.4, D65), for the ×20 rescale, and for weather at sea.
+// Recorded earlier for vessel classes (§7.4, D65), the ×20 rescale, and weather at sea.
 // Last verified identical in Chrome 152 (`npm run golden:browser`) on 2026-09-19; re-check in a
 // browser at the end of each phase.
 const GOLDEN = {
-  day1: 'bccde47dd3bde6e72885094b209a95a3',
-  day30: '7685a6daaea690d7bd855646d6399028',
-  final: '01cd848a6a6f268cec2d75256d8ea87e',
+  day1: 'f2908ce485380c176e65b15f370e791c',
+  day30: 'e236ccec2917cf1d537048c290160891',
+  final: '1ce0dd8566ff6062061aab3bfc816b0e',
 };
 
 describe('golden replay', () => {

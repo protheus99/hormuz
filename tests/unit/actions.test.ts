@@ -166,11 +166,14 @@ describe('trading actions (spec G4.4)', () => {
   it('places an emergency bid every day of its term, beside the rules’ own orders', () => {
     const w = fresh();
     run(w, 10);
-    const before = w.agents.find((a) => a.agentId === 'Straits_Refining');
-    const inbound = plantOf(before as Agent)?.inboundBarrels ?? 0;
     act(w, 'Straits_Refining', { kind: 'STANDING_ORDER', side: 'BID', node: 'DME', region: 'Coastal_Asia', price: 150, qty: 200_000, days: 1 });
+    // What the card promises is that the bid is put in every day of its term and then stops. Whether
+    // it fills on any given day is the market's business - and since ports took a limit it may not
+    // (§3.5, D66) - so asserting on barrels here was testing the market, not the standing order. The
+    // node's own book cannot be read afterwards either: orders live one tick and are cleared away.
+    expect(w.standingOrders).toHaveLength(1);
+    expect(w.standingOrders[0]).toMatchObject({ agentId: 'Straits_Refining', side: 'BID', node: 'DME', price: 150 });
     step(w);
-    expect(plantOf(get(w, 'Straits_Refining'))?.inboundBarrels).toBeGreaterThan(inbound);
     step(w);
     expect(w.standingOrders).toHaveLength(0);
   });

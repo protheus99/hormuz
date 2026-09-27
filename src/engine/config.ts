@@ -233,13 +233,13 @@ export interface Config {
   /**
    * Ports (§3.5, D66). A port is sized when the world is made, to everything its region can pump
    * plus everything its refineries can take, so nothing queues on day one that did not have to. It
-   * never grows by itself: as fields are drilled the berths stay where they are, and a region can
+   * never grows by itself: as fields are drilled the port stays where it is, and a region can
    * outgrow its own port.
    */
   readonly PORT: {
     /**
      * Room over what the region can pump and refine. Exactly that sum is not enough: a region that
-     * does both sends its own crude out and brings other people's in across the same berths, so at
+     * does both sends its own crude out and brings other people's in across the same port capacity, so at
      * 1.0 the busiest ports were congested from the first day - Campeche 287 days of 365.
      *
      * Two measurements set it, and the first one alone was not enough.
@@ -250,15 +250,21 @@ export interface Config {
      * rather than trade lost. Counting full days is a misleading way to size a port.
      *
      * But a world total hides who is drowning in it. At 1.5 Campeche filled its tanks on **day 15**
-     * with its berths at 260,000 of 270,000: Mexico Gulf both pumps and refines, so the local
+     * with its port at 260,000 of 270,000: Mexico Gulf both pumps and refines, so the local
      * refinery's imports crowded out the local producer's exports, and the barrels it could not sell
      * were simply sold by somebody else - which is why the aggregate never moved. §10.3 wants no
      * producer halted before day 60. At 2.0 the first halt is day 62, by ordinary storage pressure
      * with its port idle that day, which is the thing that measure is for.
      */
     readonly HEADROOM: number;
-    /** The smallest port, for a terminal with no production or refining of its own. */
-    readonly MIN: number;
+    /**
+     * The cargo a port is planned around. A port's size is a count of ships, so its region's capacity
+     * has to be turned into one: a region moving 400,000 bbl a day in 100,000 bbl cargoes wants four
+     * ships a day.
+     */
+    readonly PER_SHIP: number;
+    /** The smallest port, in ships a day, for a terminal with no production or refining of its own. */
+    readonly MIN_SHIPS: number;
   };
   readonly PROJECTION_TICKS: number;
 }
@@ -534,9 +540,10 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
   },
   PORT: {
     HEADROOM: 2.0,
-    // The Red Sea coast pumps and refines nothing: it exists to take the Gulf's bypass pipeline,
-    // which carries 120,000 bbl a day, so its berths have to be able to pass that much.
-    MIN: 150_000,
+    PER_SHIP: 100_000,
+    // The Red Sea coast pumps and refines nothing: it exists to take the Gulf's bypass pipeline, so
+    // it still has to be able to work a ship or two a day.
+    MIN_SHIPS: 2,
   },
   PROJECTION_TICKS: 30,
 });

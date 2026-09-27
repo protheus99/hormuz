@@ -15,6 +15,7 @@ import {
 } from './model';
 import type { RouteProvider } from './routes';
 import { freightPerBarrel } from '../data/vessels';
+import { portHasRoom, usePort, type Ports } from './transport';
 
 export interface ExchangeNode {
   readonly name: NodeName;
@@ -47,6 +48,12 @@ export interface ClearContext {
   readonly routes: RouteProvider;
   readonly tick: Tick;
   readonly config: Config;
+  /**
+   * Every region's port. A trade needs a place free at both ends today - one to load at and one to
+   * discharge at - because a cargo has to be worked at each (§3.5, D66). Absent in the harnesses
+   * that clear a book with no world behind it, and then nothing is limited.
+   */
+  readonly ports?: Ports;
 }
 
 /** One origin's price as it would arrive at a destination, using the previous close. */
@@ -118,6 +125,14 @@ export function clear(node: ExchangeNode, ctx: ClearContext): Fill[] {
     const c = candidates[i] as Candidate;
     // Rule 3 and 5: limited by both orders and by the route's spare capacity today, counted
     // against whichever side's pipeline space the pair ships on.
+    // A place at each end, today. A cargo is worked twice - loaded where it starts and discharged
+    // where it lands - and a port out of places is out for everybody (§3.5, D66). Checked here and
+    // not where the candidate was priced: every candidate is built before any of them fills, so at
+    // that moment every port still looks empty.
+    if (ctx.ports !== undefined
+      && !(portHasRoom(ctx.ports, c.ask.originRegion) && portHasRoom(ctx.ports, c.bid.deliveryRegion))) {
+      continue;
+    }
     const capacity = ctx.routes.capacityLeft(c.route, c.shipper);
     const ordersAllow = Math.min(c.bid.qtyRemaining, c.ask.qtyRemaining);
     const qty = Math.floor(Math.min(ordersAllow, capacity) / lot) * lot;   // whole lots only
@@ -156,6 +171,11 @@ export function clear(node: ExchangeNode, ctx: ClearContext): Fill[] {
       route: c.route,
       dealId: null,
     });
+    // The cargo this fill becomes is worked at each end, so it takes a place at both (§3.5, D66).
+    if (ctx.ports !== undefined) {
+      usePort(ctx.ports, c.ask.originRegion);
+      usePort(ctx.ports, c.bid.deliveryRegion);
+    }
   }
 
   // Rule 7 (offers): publish each origin's lowest unsold ask before the book is emptied.

@@ -30,7 +30,7 @@ import { aiBid, award, placeBid, surveyLots, type Auction , receivershipLots } f
 import { exposureDay, type Reckoning } from './exposure';
 import { decideOrders, recordSales, rememberMarkers, updateOutput, updateThrottle, type MarketView } from './rules';
 import { placeOrder, releaseEscrow, settleFills } from './settlement';
-import { advanceStorms, avoidFor, buildLaneGraph, edgeCapacity, LaneRouteProvider, setChokepoint, sizePorts, type LaneGraph, type Storm } from './transport';
+import { advanceStorms, avoidFor, buildLaneGraph, edgeCapacity, LaneRouteProvider, setChokepoint, resetPorts, sizePorts, type LaneGraph, type Ports, type Storm } from './transport';
 import { NODE_NAMES } from '../data/nodes';
 import { REGIONS } from '../data/regions';
 import { PRODUCER_CASH, REFINER_CASH_PER_BBL_DAY, TRADER_CASH, type PlantData, type PortfolioEntry } from '../data/portfolios';
@@ -89,6 +89,11 @@ export interface World {
   agents: Agent[];
   nodes: Record<NodeName, ExchangeNode>;
   graph: LaneGraph;
+  /**
+   * Every region's port, and how many ships it has worked today (§3.5, D66). A port is public
+   * infrastructure: it is sized to its region when the world is made and never grows by itself.
+   */
+  ports: Ports;
   sink: RetailSink;
   rng: { events: Rng; ai: Rng; wells: Rng; climate: Rng; storms: Rng };
   /** Passages shut or slowed by weather conditions today (§3.5). Almost always empty. */
@@ -180,7 +185,7 @@ export function createWorld(s: WorldSettings): World {
   for (const name of NODE_NAMES) nodes[name] = createNode(name);
   // Ports are sized to the region behind them, once, and never grow on their own (§3.5, D66).
   const graph = buildLaneGraph(config);
-  sizePorts(graph, (region) => agents.reduce((sum, a) => {
+  const ports = sizePorts((region: RegionName) => agents.reduce((sum, a) => {
     const pumped = (wellOf(a)?.leases ?? []).filter((l) => l.region === region).reduce((t, l) => t + leaseCapacity(l), 0);
     const refined = plantsOf(a).filter((p) => p.region === region).reduce((t, p) => t + p.processingCapacity, 0);
     return sum + pumped + refined;
@@ -192,6 +197,7 @@ export function createWorld(s: WorldSettings): World {
     agents,
     nodes,
     graph,
+    ports,
     sink: createRetailSink(s.seed, config),
     rng: { events: rngFor(s.seed, 'events'), ai, wells: rngFor(s.seed, 'wells'), climate: rngFor(s.seed, 'climate'), storms: rngFor(s.seed, 'storms') },
     storms: [],
@@ -260,6 +266,7 @@ export function step(w: World): TickReport {
   runAuction(w, tick);
   const routes = new LaneRouteProvider(w.graph);
   routes.resetTick();
+  resetPorts(w.ports);
 
   // Phase 1: extraction.
   const byAgent: Partial<Record<AgentId, { extracted: number; refined: number; retail: number }>> = {};
@@ -340,7 +347,7 @@ export function step(w: World): TickReport {
   // Phase 5c and 6: each node clears once; fills settle and ship.
   const fills: Fill[] = [];
   for (const name of NODE_NAMES) {
-    const nodeFills = clear(w.nodes[name], { routes, tick, config: cfg });
+    const nodeFills = clear(w.nodes[name], { routes, tick, config: cfg, ports: w.ports });
     fills.push(...nodeFills);
     w.cargo.push(...settleFills(nodeFills, byId, w.ledger, w.charters, w.cargo));
   }

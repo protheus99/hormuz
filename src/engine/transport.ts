@@ -46,7 +46,7 @@ export interface Edge {
   /** Pipeline bbl per tick, shared by both directions; null for sea lanes. */
   readonly capacity: number | null;
   /**
-   * Bbl per tick this edge carries when open: a chokepoint's width, or a port's berths. Null on open
+   * Bbl per tick this edge carries when open: a chokepoint's width, or a port's port capacity. Null on open
    * water, which is not finite. Not readonly, because a port can be widened and a strait cannot.
    */
   throughput: number | null;
@@ -133,27 +133,60 @@ function inSeason(tick: Tick, [from, to]: readonly [number, number]): boolean {
 }
 
 /**
+ * A port, and how much of it is spoken for today (§3.5, D66).
+ *
+ * **A port's limit is a count of ships, not a volume.** Working a cargo occupies the place it is
+ * worked at for the whole day, whether that cargo is twenty thousand barrels or two million - which
+ * is why a port jams when too many small parcels are sent to it, and why putting the same oil into
+ * one hull relieves it. How much oil can stand at a port is a separate limit, in the tanks behind it.
+ */
+export interface PortState {
+  /** Ships a day: loading and discharging together, since they compete for the same place. */
+  readonly ships: number;
+  /** How many have been worked today. Reset every tick. */
+  used: number;
+}
+
+export type Ports = Partial<Record<RegionName, PortState>>;
+
+/**
  * Sizes every port to the region behind it, once, when the world is made (§3.5, D66).
  *
- * A port is built for the trade its region had at the time. It is given everything that region can
- * pump **and** everything its refineries can take, so on day one nothing queues that did not have to
- * - the whole of a region's output can cross its own berths.
+ * A port is built for the trade its region had at the time: everything that region can pump **and**
+ * everything its refineries can take, divided by the cargo a port is planned around. So on day one
+ * nothing queues that did not have to.
  *
- * It does not grow afterwards. Fields are drilled, capacity rises, and the berths stay where they
- * were: a region that doubles its production over a campaign finds its own port has become the thing
- * holding it back. That is the point, and it is what a port is in life - a fixed asset somebody has
- * to decide to enlarge.
+ * It does not grow afterwards. Fields are drilled, capacity rises, and the port stays as it was, so
+ * a region that doubles its production finds its own port is what now holds it back. That is the
+ * point, and it is what a port is in life: public infrastructure a regional authority widens, never
+ * something a company builds for itself. A company can ask, pay towards it, or lean on the people
+ * who decide - it cannot pour the concrete.
  */
-export function sizePorts(g: LaneGraph, capacityOf: (region: RegionName) => number, config: Config): void {
-  for (const e of g.edges) {
-    if (e.mode !== EdgeMode.SEA || e.chokepoint !== null) continue;
-    if (!(e.a in REGIONS) || !String(e.b).startsWith('W_')) continue;
-    const region = e.a as RegionName;
-    // A region with two berths splits its trade between them.
-    const berths = g.edges.filter((x) => x.a === region && x.mode === EdgeMode.SEA && x.chokepoint === null).length;
+export function sizePorts(capacityOf: (region: RegionName) => number, config: Config): Ports {
+  const ports: Ports = {};
+  for (const region of Object.keys(REGIONS) as RegionName[]) {
+    if (!LANES.some((l) => l.a === region && l.mode === EdgeMode.SEA && l.chokepoint === undefined)) continue;
     const room = capacityOf(region) * config.PORT.HEADROOM;
-    e.throughput = Math.max(config.PORT.MIN, Math.round(room / Math.max(1, berths)));
+    ports[region] = { ships: Math.max(config.PORT.MIN_SHIPS, Math.round(room / config.PORT.PER_SHIP)), used: 0 };
   }
+  return ports;
+}
+
+/** True if this port has a place free today. A region without a port of its own never blocks. */
+export const portHasRoom = (ports: Ports, region: RegionName): boolean => {
+  const p = ports[region];
+  return p === undefined || p.used < p.ships;
+};
+
+/** Takes a place at this port for today. */
+export function usePort(ports: Ports, region: RegionName): void {
+  const p = ports[region];
+  if (p !== undefined) p.used += 1;
+}
+
+/** A new day, and every port is clear again (spec §5 phase 0). */
+export function resetPorts(ports: Ports): void {
+  for (const p of Object.values(ports)) if (p !== undefined) p.used = 0;
 }
 
 export function setChokepoint(

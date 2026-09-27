@@ -34,7 +34,7 @@ export const CHOKEPOINTS = {
   BOSPHORUS: { displayName: 'Bosphorus' },
   DANISH_STRAITS: { displayName: 'Danish Straits' },
   PANAMA: { displayName: 'Panama Canal' },
-  // Hurricane season runs June to November, and a storm in the Gulf shuts the loading berths at
+  // Hurricane season runs June to November, and a storm in the Gulf shuts the loading port capacity at
   // Houston and Campeche as surely as a blockade would. This is the only sea exit from the Gulf,
   // so it is a hard cut while it lasts - which is what a hurricane is.
   // A hurricane congests the Gulf; it never seals it. In life there are two ways out - the Yucatán

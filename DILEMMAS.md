@@ -162,7 +162,7 @@ Your ship waited six days. The paperwork would support nine.
 *Yes* claim six · *No* claim nine.
 **Risks:** the claim clawed back, and that counterparty closed to you.
 
-**20. The berth** · trader
+**20. The port** · trader
 Your cargo is fourth in the queue. A payment to the right official makes it first.
 *Yes* wait your turn · *No* pay.
 **Risks:** the right to call at that port.

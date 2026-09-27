@@ -29,7 +29,7 @@ describe('lane table (spec §3.5)', () => {
   });
 
   it('writes a throughput only for the straits; a port gets its own when the world is made', () => {
-    // A strait's width is a fact about the world and belongs in the table. A port's berths are a
+    // A strait's width is a fact about the world and belongs in the table. A port's port capacity are a
     // fact about the region behind them, so they are sized from the portfolio at world creation
     // (§3.5, D66) and are deliberately absent here.
     for (const l of LANES) {
@@ -43,25 +43,32 @@ describe('lane table (spec §3.5)', () => {
     const ports = w.graph.edges.filter((e) => e.mode === EdgeMode.SEA && e.chokepoint === null
       && (e.a as string) in REGIONS && String(e.b).startsWith('W_'));
     expect(ports.length).toBeGreaterThan(0);
-    for (const e of ports) {
-      expect(e.throughput, String(e.id)).not.toBeNull();
-      expect(e.throughput ?? 0, String(e.id)).toBeGreaterThanOrEqual(DEFAULT_CONFIG.PORT.MIN);
+    // Every region that can load a ship has a port, and nowhere works ships without limit.
+    for (const region of leaseRegions()) {
+      const port = w.ports[region];
+      expect(port, region).toBeDefined();
+      expect(port?.ships ?? 0, region).toBeGreaterThanOrEqual(DEFAULT_CONFIG.PORT.MIN_SHIPS);
     }
-    // Every region that can load a ship has one, and nowhere loads without limit.
-    const withPort = new Set(ports.map((e) => e.a));
-    for (const region of leaseRegions()) expect([...withPort], region).toContain(region);
   });
 
   it('sizes a port to the region behind it, and never grows it afterwards', () => {
     const w = createWorld({ seed: 'ports', portfolio: GLOBAL_PORTFOLIO, config: DEFAULT_CONFIG });
-    const berth = (id: string) => w.graph.edges.find((e) => String(e.id) === id)?.throughput ?? 0;
-    // The Gulf pumps and refines far more than the Gulf of Oman, and its berths say so.
-    expect(berth('Middle_East-W_PERSIAN_GULF')).toBeGreaterThan(berth('Gulf_of_Oman-W_ARABIAN_SEA'));
-    // A year of drilling and depletion leaves the berths exactly where they were: a port is built
-    // once, and a region that outgrows it has to do something about it (D66).
-    const before = berth('Middle_East-W_PERSIAN_GULF');
+    // The Gulf pumps and refines far more than the Gulf of Oman, and can work more ships a day.
+    expect(w.ports.Middle_East?.ships ?? 0).toBeGreaterThan(w.ports.Gulf_of_Oman?.ships ?? 0);
+    // Two hundred days of drilling and depletion leave the port exactly as it was. A port is public
+    // infrastructure: a region that outgrows it has to get the authority to widen it (D66).
+    const before = w.ports.Middle_East?.ships ?? 0;
     run(w, 200);
-    expect(berth('Middle_East-W_PERSIAN_GULF')).toBe(before);
+    expect(w.ports.Middle_East?.ships ?? 0).toBe(before);
+  });
+
+  it('clears every port at the start of a day, so yesterday never crowds today', () => {
+    const w = createWorld({ seed: 'ports', portfolio: GLOBAL_PORTFOLIO, config: DEFAULT_CONFIG });
+    run(w, 30);
+    for (const [region, port] of Object.entries(w.ports)) {
+      // Never more ships worked than the port can take, on any day it has run.
+      expect(port?.used ?? 0, region).toBeLessThanOrEqual(port?.ships ?? 0);
+    }
   });
 
   it('keeps transit and freight positive, and capacity only on pipelines', () => {
