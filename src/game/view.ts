@@ -62,7 +62,7 @@ export interface MarketView {
 
 /**
  * One region, as a snapshot of the whole world (spec G5). Nothing here is private: capacity, what is
- * running and what a barrel last fetched at a quay are all published figures, which is why a summary
+ * running and what a barrel last fetched at a port are all published figures, which is why a summary
  * of every region can be shown at once where a rival's own accounts could not.
  *
  * Production and storage are grouped by the region the *ground* is in, not the company's home, since
@@ -74,7 +74,7 @@ export interface WorldRegionView {
   readonly continent: string;
   readonly roles: readonly string[];
   /** A sea terminal: it can load a ship, and tank space can be rented here. */
-  readonly quay: boolean;
+  readonly port: boolean;
   /** bbl/day the wells here could pump, and what they are pumping now. */
   readonly pumping: number;
   readonly pumpingNow: number;
@@ -84,7 +84,7 @@ export interface WorldRegionView {
   /** Barrels standing in tanks here: fields, refinery crude and traders' hubs. */
   readonly inStore: number;
   readonly companies: number;
-  /** What a barrel last fetched at this quay, by grade. Absent for a grade nothing sells here. */
+  /** What a barrel last fetched at this port, by grade. Absent for a grade nothing sells here. */
   readonly prices: Readonly<Partial<Record<Grade, number>>>;
 }
 
@@ -606,7 +606,7 @@ function worldSummary(w: World): WorldRegionView[] {
       }
     }
   }
-  const quays = new Set<string>(leaseRegions());
+  const ports = new Set<string>(leaseRegions());
   return (Object.keys(REGIONS) as RegionName[]).map((region) => {
     const r = REGIONS[region];
     const x = by.get(region) ?? zero();
@@ -616,7 +616,7 @@ function worldSummary(w: World): WorldRegionView[] {
       if (price !== undefined) prices[grade] = price;
     }
     return {
-      region, name: r.displayName, continent: r.continent, roles: [...r.roles], quay: quays.has(region),
+      region, name: r.displayName, continent: r.continent, roles: [...r.roles], port: ports.has(region),
       pumping: Math.round(x.pumping), pumpingNow: Math.round(x.pumpingNow),
       refining: Math.round(x.refining), refiningNow: Math.round(x.refiningNow),
       inStore: Math.round(x.inStore), companies: x.companies.size, prices,

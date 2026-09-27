@@ -32,7 +32,7 @@ export interface MarketView {
   /** Chokepoints this company's Risk setting avoids today (avoidFor). */
   readonly avoid: readonly ChokepointName[];
   /** Barrels this company must deliver tomorrow under its deals (spec §6.1 rule 4). */
-  /** Barrels a seller owes tomorrow, by the quay they load at; `total` is all of them (stage 3b). */
+  /** Barrels a seller owes tomorrow, by the port they load at; `total` is all of them (stage 3b). */
   readonly dealCommitments: { readonly total: number } & Partial<Record<RegionName, number>>;
 }
 
@@ -77,7 +77,7 @@ export function rememberMarkers(trader: Trader, nodes: Readonly<Partial<Record<N
 
 /**
  * A producer offers each place it holds oil separately (stage 3b). Crude is loaded where it stands,
- * so ground in two regions is two lots on two quays at two prices — the same rules applied twice,
+ * so ground in two regions is two lots on two ports at two prices — the same rules applied twice,
  * not one company-wide offer with a region written on it.
  */
 function producerAsks(

@@ -38,7 +38,12 @@ export interface LaneData {
 
 const { SEA, PIPELINE } = EdgeMode;
 
-/** The default terminal edge joining a region to its waypoint: 1 tick, $0.30/bbl. */
+/**
+ * The default terminal edge joining a region to its waypoint: 1 tick, $0.30/bbl. This is a **port**,
+ * and how much it can handle in a day is not written here: it is sized from the region itself when
+ * the world is made (`sizePorts`, §3.5, D66), because a port is built for the trade its region had
+ * when somebody built it.
+ */
 const terminal = (a: RegionName, b: WaypointName, transit = 1, freight = 0.30): LaneData =>
   ({ id: `${a}-${b}`, a, b, mode: SEA, transit, freight });
 
@@ -71,8 +76,8 @@ export const LANES: readonly LaneData[] = [
   terminal('Gulf_of_Oman', 'W_ARABIAN_SEA'),
   terminal('South_Asia', 'W_ARABIAN_SEA'),
   terminal('Southeast_Asia', 'W_S_CHINA_SEA'),
-  terminal('Coastal_Asia', 'W_S_CHINA_SEA', 3),
-  terminal('Coastal_Asia', 'W_N_PACIFIC', 2),
+  terminal('Coastal_Asia', 'W_S_CHINA_SEA', 3, 0.30),
+  terminal('Coastal_Asia', 'W_N_PACIFIC', 2, 0.30),
 
   // Sea lanes
   { id: 'hormuz', a: 'W_PERSIAN_GULF', b: 'W_ARABIAN_SEA', mode: SEA, transit: 2, freight: 0.40, chokepoint: 'HORMUZ', throughput: 600_000 },

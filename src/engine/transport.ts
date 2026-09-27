@@ -45,8 +45,11 @@ export interface Edge {
   readonly chokepoint: ChokepointName | null;
   /** Pipeline bbl per tick, shared by both directions; null for sea lanes. */
   readonly capacity: number | null;
-  /** A chokepoint lane's bbl per tick when OPEN; null for lanes without one. */
-  readonly throughput: number | null;
+  /**
+   * Bbl per tick this edge carries when open: a chokepoint's width, or a port's berths. Null on open
+   * water, which is not finite. Not readonly, because a port can be widened and a strait cannot.
+   */
+  throughput: number | null;
   /** Share of `throughput` usable at the chokepoint's current status (CHOKEPOINT_THROUGHPUT). */
   throughputShare: number;
   /** Barrels each company has shipped along this edge today. Reset every tick. */
@@ -127,6 +130,30 @@ export function advanceStorms(
 function inSeason(tick: Tick, [from, to]: readonly [number, number]): boolean {
   const day = ((tick % 365) + 365) % 365;
   return from <= to ? day >= from && day <= to : day >= from || day <= to;
+}
+
+/**
+ * Sizes every port to the region behind it, once, when the world is made (§3.5, D66).
+ *
+ * A port is built for the trade its region had at the time. It is given everything that region can
+ * pump **and** everything its refineries can take, so on day one nothing queues that did not have to
+ * - the whole of a region's output can cross its own berths.
+ *
+ * It does not grow afterwards. Fields are drilled, capacity rises, and the berths stay where they
+ * were: a region that doubles its production over a campaign finds its own port has become the thing
+ * holding it back. That is the point, and it is what a port is in life - a fixed asset somebody has
+ * to decide to enlarge.
+ */
+export function sizePorts(g: LaneGraph, capacityOf: (region: RegionName) => number, config: Config): void {
+  for (const e of g.edges) {
+    if (e.mode !== EdgeMode.SEA || e.chokepoint !== null) continue;
+    if (!(e.a in REGIONS) || !String(e.b).startsWith('W_')) continue;
+    const region = e.a as RegionName;
+    // A region with two berths splits its trade between them.
+    const berths = g.edges.filter((x) => x.a === region && x.mode === EdgeMode.SEA && x.chokepoint === null).length;
+    const room = capacityOf(region) * config.PORT.HEADROOM;
+    e.throughput = Math.max(config.PORT.MIN, Math.round(room / Math.max(1, berths)));
+  }
 }
 
 export function setChokepoint(

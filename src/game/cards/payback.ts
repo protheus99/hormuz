@@ -141,7 +141,7 @@ export function expectedWells(n: number, attempts: number, cfg: Config): number 
 }
 
 /**
- * What a barrel lifted here leaves behind: what it fetches at this quay, less what it costs to lift
+ * What a barrel lifted here leaves behind: what it fetches at this port, less what it costs to lift
  * and the tariff to get it off the ground. The same netback a producer's own asks are floored at.
  */
 function liftingMargin(w: World, region: RegionName, grade: Grade, baseCost: number): number {

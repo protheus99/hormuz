@@ -285,7 +285,7 @@ function stockOf(seller: Agent, origin: RegionName, grade: Grade): { available: 
 function sellerCapacity(seller: Agent, origin: RegionName, grade: Grade): number | undefined {
   const well = wellOf(seller);
   if (well) {
-    // What this company can lift of that crude, at that quay — read off the ground it holds there
+    // What this company can lift of that crude, at that port — read off the ground it holds there
     // rather than off the one grade and one region it started in (stage 3b, and 2026-09-25).
     const here = well.leases.filter((l) => l.region === origin && l.grade === grade);
     const rate = here.reduce((s, l) => s + leaseCapacity(l), 0);

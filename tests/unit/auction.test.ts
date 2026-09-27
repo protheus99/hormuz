@@ -44,7 +44,7 @@ describe('who may take ground where', () => {
     const boreal = w.agents.find((a) => a.name === 'Boreal Shale');
     const lot = surveyLots(1, DEFAULT_CONFIG, rngFor('lots', 'wells'), w.agents)[0];
     expect(lot).toBeDefined();
-    // Since stage 3b a lease holds its own oil and sells from its own quay, so a second region is
+    // Since stage 3b a lease holds its own oil and sells from its own port, so a second region is
     // ground a producer can actually use — which is what a licence was always for.
     const elsewhere: LeaseLot = { ...lot!, region: 'Guyana_Suriname', grade: 'LIGHT_SWEET' };
     expect(mayBid(boreal!, 'Guyana_Suriname')).toBe(true);

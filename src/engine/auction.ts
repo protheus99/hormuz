@@ -70,7 +70,7 @@ export function leasableRegions(): RegionName[] {
 /**
  * Whether a company could actually work this lot. Now that a lease holds its own oil and posts its
  * own asks (stage 3b), that is the same question as whether it has the right to take ground there:
- * a producer can work a second region, and sell what it lifts there from that region's quay.
+ * a producer can work a second region, and sell what it lifts there from that region's port.
  */
 export function mayWork(agent: Agent, lot: LeaseLot): boolean {
   // Anybody who may take ground here may bid for this, whatever crude they were set up for

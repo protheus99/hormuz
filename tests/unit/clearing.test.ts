@@ -56,13 +56,13 @@ describe('batch clearing (spec §8)', () => {
   });
 
   it('compares origins on landed cost, not FOB price', () => {
-    // Cheaper at the quay, dearer delivered. The prices are picked against the rate a 100,000 bbl
+    // Cheaper at the port, dearer delivered. The prices are picked against the rate a 100,000 bbl
     // parcel earns, because a discount on freight is worth more to the distant seller in absolute
     // terms and can turn the order around (§7.4, D65).
     const far = freightPerBarrel(11.0, 100_000);
     const near = freightPerBarrel(1.15, 100_000);
-    const farAndCheap = ask(1, 65, 100_000, 'West_Africa');     // 65 at the quay, dearest delivered
-    const nearAndDear = ask(2, 69, 100_000, 'Russia_Far_East'); // 69 at the quay, cheapest delivered
+    const farAndCheap = ask(1, 65, 100_000, 'West_Africa');     // 65 at the port, dearest delivered
+    const nearAndDear = ask(2, 69, 100_000, 'Russia_Far_East'); // 69 at the port, cheapest delivered
     expect(65 + far).toBeGreaterThan(69 + near);
     const { fills } = clearBook([bid(9, 72, 100_000, 'Coastal_Asia'), farAndCheap, nearAndDear]);
     expect(fills.map((f) => f.sellerId)).toEqual([nearAndDear.agentId]);

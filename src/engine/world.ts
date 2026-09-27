@@ -24,13 +24,13 @@ import { FeeKind, type ChokepointStatus, type Grade, type Personality, type Prod
 import { runLogistics, type LogisticsReport } from './logistics';
 import { makeOrderId, type Agent, type AgentId, type Cargo, type Charter, type ChokepointName, type Deal, type Fill, type NodeName, type Order, type RegionName, type Tick } from './model';
 import { nextFloat, rngFor, type Rng } from './rng';
-import { advanceWells, capacityOf, refreshStorage, tankOf } from './leases';
+import { advanceWells, capacityOf, leaseCapacity, refreshStorage, tankOf } from './leases';
 import { nameGround } from '../data/leasenames';
 import { aiBid, award, placeBid, surveyLots, type Auction , receivershipLots } from './auction';
 import { exposureDay, type Reckoning } from './exposure';
 import { decideOrders, recordSales, rememberMarkers, updateOutput, updateThrottle, type MarketView } from './rules';
 import { placeOrder, releaseEscrow, settleFills } from './settlement';
-import { advanceStorms, avoidFor, buildLaneGraph, edgeCapacity, LaneRouteProvider, setChokepoint, type LaneGraph, type Storm } from './transport';
+import { advanceStorms, avoidFor, buildLaneGraph, edgeCapacity, LaneRouteProvider, setChokepoint, sizePorts, type LaneGraph, type Storm } from './transport';
 import { NODE_NAMES } from '../data/nodes';
 import { REGIONS } from '../data/regions';
 import { PRODUCER_CASH, REFINER_CASH_PER_BBL_DAY, TRADER_CASH, type PlantData, type PortfolioEntry } from '../data/portfolios';
@@ -178,13 +178,20 @@ export function createWorld(s: WorldSettings): World {
   for (const a of agents) a.creditLimit = creditLimit(a, config);
   const nodes = {} as Record<NodeName, ExchangeNode>;
   for (const name of NODE_NAMES) nodes[name] = createNode(name);
+  // Ports are sized to the region behind them, once, and never grow on their own (§3.5, D66).
+  const graph = buildLaneGraph(config);
+  sizePorts(graph, (region) => agents.reduce((sum, a) => {
+    const pumped = (wellOf(a)?.leases ?? []).filter((l) => l.region === region).reduce((t, l) => t + leaseCapacity(l), 0);
+    const refined = plantsOf(a).filter((p) => p.region === region).reduce((t, p) => t + p.processingCapacity, 0);
+    return sum + pumped + refined;
+  }, 0), config);
   const world: World = {
     tick: 0,
     seed: s.seed,
     config,
     agents,
     nodes,
-    graph: buildLaneGraph(config),
+    graph,
     sink: createRetailSink(s.seed, config),
     rng: { events: rngFor(s.seed, 'events'), ai, wells: rngFor(s.seed, 'wells'), climate: rngFor(s.seed, 'climate'), storms: rngFor(s.seed, 'storms') },
     storms: [],
@@ -572,7 +579,7 @@ function markerFor(w: World, grade: Grade): number {
 }
 
 /**
- * What a seller owes tomorrow, quay by quay (stage 3b). A producer with ground in two regions loads
+ * What a seller owes tomorrow, port by port (stage 3b). A producer with ground in two regions loads
  * each deal where that deal's crude comes from, so holding back the whole company's commitments at
  * both would leave half its barrels unoffered.
  */

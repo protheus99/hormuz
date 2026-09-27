@@ -123,7 +123,7 @@ export function actualCost(company: Producer | IntegratedMajor): number {
 }
 
 /**
- * What it costs this company to lift a barrel that would load at this quay — the average across the
+ * What it costs this company to lift a barrel that would load at this port — the average across the
  * ground it holds there, weighted by what each lease makes. Crude from a costlier region carries its
  * own floor to market, which is the point of being able to work two of them (stage 3b).
  */

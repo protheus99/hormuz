@@ -446,7 +446,7 @@ The owner's *other* figure landed exactly where they wanted: a 30,000 bbl spot m
 and `LOT_SIZE` is 20,000 - one unit train, which was their own reasoning for the number.
 
 Monthly quoting is still worth having eventually, since a daily trickle is the 1,000-barrels-across-
-the-Pacific problem in another form. It belongs with "cargo assembled at a quay" rather than as a
+the-Pacific problem in another form. It belongs with "cargo assembled at a port" rather than as a
 config edit.
 
 ### ~~Chosen and waiting on the rescale: cargo on the map~~ - built (2026-09-27)
@@ -472,7 +472,7 @@ producers to fill ships. Measured, and it is worse than too few:
 ```
 19 producers          world pumps  88,500 bbl/day   =  1.26 GP cargoes a day, for the whole planet
 13 refiners           world refines 99,000 bbl/day  (66,733 actually run)
-19 loading regions    so an average quay loads one GP cargo every 15 days
+19 loading regions    so an average port loads one GP cargo every 15 days
 traders' hub space    50,000 bbl in total, across every office in the world - 0.7 of one cargo
 ```
 
@@ -502,11 +502,11 @@ whole design rests on. Its absolute figures do not quite agree with each other (
 what should be taken and the rates set to make them true in the game. A **coaster of ~20,000 bbl** has
 to be added: short-sea trade at this world's size has nothing else to use.
 
-**3. Cargo is assembled at a quay, not at a company.** This is the piece that makes the rest possible. A
+**3. Cargo is assembled at a port, not at a company.** This is the piece that makes the rest possible. A
 buyer fills a hull from whatever sellers have barrels at that loading region, so a 2,500 bbl/day field
 is still in the business - it sells into the terminal rather than filling a ship. Stage 3b already built
-most of what this needs: a lease holds its own oil, posts its own ask at its own quay, and prices its
-barrels per grade. The quay is already there; nothing aggregates across it yet.
+most of what this needs: a lease holds its own oil, posts its own ask at its own port, and prices its
+barrels per grade. The port is already there; nothing aggregates across it yet.
 
 **4. An office becomes a terminal.** `OFFICE_HUB_CAPACITY` 10,000 -> **150,000 bbl** (two GP cargoes, or
 one MR). A trader lands a hull into its own tank and sells from it in any size, in any region it has an
@@ -527,14 +527,14 @@ less the hub's rent and the price risk    the trader's actual job
 contrivance is needed to make traders matter: make freight depend on the hull and the margin appears.
 
 **6. Refiners shop around, and it becomes a real decision.** Covering next month's feed offers three
-genuinely different shapes: a whole cargo from a distant quay at $3-4 a barrel of freight but thirty
+genuinely different shapes: a whole cargo from a distant port at $3-4 a barrel of freight but thirty
 days out and a large cash outlay; a parcel from a trader's tank nearby, dearer per barrel but available
 tomorrow and in the size you want; or a coaster from a regional producer. That is a card with three
 answers that are not versions of each other - which is what section 12A.8 has been asking for.
 
 ### What it costs, honestly
 
-- **Production has to roughly triple.** For a refiner to have real choices a quay should load every 3-5
+- **Production has to roughly triple.** For a refiner to have real choices a port should load every 3-5
   days rather than every 15, which is **2.5-3x** today's 88,500 bbl/day. The owner's instinct to add
   producers rather than enlarge them is the right one: it also thickens the auction and the leaderboard.
   19 -> about 45 producers, with refining raised to match.
@@ -554,7 +554,7 @@ answers that are not versions of each other - which is what section 12A.8 has be
    landed costs and to refining margin before anything else moves.
 2. **Tanks**: producers and refiners to at least one cargo, trader hubs to two. Nothing can ship before
    there is somewhere to put it.
-3. **Cargo assembled at a quay** across sellers.
+3. **Cargo assembled at a port** across sellers.
 4. **More producers**, to the cargo-every-3-5-days target, then one recalibration.
 5. **The refiner's shopping card and the trader's bulk-and-break business**, which is stage g finally
    having something underneath it.
