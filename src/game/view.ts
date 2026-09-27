@@ -9,10 +9,14 @@ import type { RegionName } from '../data/regions';
 import { plantOf, plantsOf, total, wellOf } from '../engine/companies';
 import type { PlantState } from '../engine/model';
 import { ChokepointStatus, type Grade, type Product } from '../engine/enums';
-import type { AgentId, CompanySettings, DealId } from '../engine/model';
+import type { AgentId, Cargo, CompanySettings, DealId } from '../engine/model';
 import { barrelsHeld, netWorth, type TickReport, type World } from '../engine/world';
 import { leaseCapacity } from '../engine/leases';
 import { leaseRegions } from '../engine/actions';
+import { LANES } from '../data/lanes';
+
+/** Lanes by id, for placing a cargo on the one it is crossing. */
+const LANE_BY_ID = new Map(LANES.map((l) => [l.id, l]));
 import { referencePrice } from '../engine/clearing';
 import { bidAmount, leasableRegions, mayBid, mayWork } from '../engine/auction';
 import { REGIONS } from '../data/regions';
@@ -246,7 +250,21 @@ export interface PlayerView {
     readonly id: DealId; readonly role: 'BUYER' | 'SELLER'; readonly partner: string; readonly grade: Grade;
     readonly qtyPerDay: number; readonly price: number; readonly endTick: number; readonly status: string;
   }[];
-  readonly cargo: readonly { readonly grade: Grade; readonly qty: number; readonly destination: RegionName; readonly status: string; readonly daysAtSea: number }[];
+  /**
+   * The player's own cargo, and where each one has got to (§12C). Only their own: a set of accounts
+   * is published and what a rival is shipping is not (G5).
+   *
+   * Position is given as the lane it is on and how far along, not as a point: the view knows nothing
+   * about pixels, and the map does the projecting.
+   */
+  readonly cargo: readonly {
+    readonly grade: Grade; readonly qty: number; readonly destination: RegionName;
+    readonly status: string; readonly daysAtSea: number;
+    /** The lane it is crossing, its progress along that lane 0-1, and whether it runs b to a. */
+    readonly lane: string | null;
+    readonly progress: number;
+    readonly reversed: boolean;
+  }[];
   /** Public identity only: rival cash, stock, deals and orders stay hidden (spec G5). */
   readonly rivals: readonly { readonly name: string; readonly kind: string; readonly region: RegionName }[];
   readonly alerts: readonly Alert[];
@@ -340,6 +358,7 @@ export function buildPlayerView(
     })),
     cargo: w.cargo.filter((c) => c.ownerId === playerId).map((c) => ({
       grade: c.grade, qty: c.qty, destination: c.destination, status: c.status, daysAtSea: w.tick - c.dispatchTick,
+      ...whereItHasGot(c),
     })),
     rivals: w.agents.filter((a) => a.agentId !== playerId).map((a) => ({ name: a.name, kind: a.kind, region: a.region })),
     alerts: [...alerts],
@@ -603,6 +622,28 @@ function worldSummary(w: World): WorldRegionView[] {
       inStore: Math.round(x.inStore), companies: x.companies.size, prices,
     };
   });
+}
+
+/**
+ * How far a cargo has got: the lane it is on, how much of that lane is behind it, and which way it
+ * runs. Everything needed is already on the cargo - the route it took, the leg it is crossing and
+ * the ticks left on that leg - so nothing in the engine had to change to draw it (§12C).
+ */
+function whereItHasGot(c: Cargo): { lane: string | null; progress: number; reversed: boolean } {
+  const edgeId = c.route.edges[Math.min(c.leg, c.route.edges.length - 1)];
+  const lane = edgeId === undefined ? undefined : LANE_BY_ID.get(String(edgeId));
+  if (lane === undefined) return { lane: null, progress: 0, reversed: false };
+  // Which way along the lane: walk the route from the origin and see which end it came in by.
+  let here: string = c.origin;
+  let reversed = false;
+  for (let i = 0; i <= Math.min(c.leg, c.route.edges.length - 1); i++) {
+    const step = LANE_BY_ID.get(String(c.route.edges[i]));
+    if (step === undefined) break;
+    reversed = step.a !== here;
+    here = step.a === here ? step.b : step.a;
+  }
+  const transit = Math.max(1, lane.transit);
+  return { lane: lane.id, progress: Math.max(0, Math.min(1, (transit - c.ticksLeft) / transit)), reversed };
 }
 
 function leaseRegister(w: World, playerId: AgentId): RegionLeases[] {

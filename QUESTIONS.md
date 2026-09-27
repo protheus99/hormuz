@@ -432,7 +432,24 @@ Three consequences fall out of those numbers, and each is a decision rather than
   and that is what makes breaking bulk a service worth paying for. Without it, parcels are lumpy but
   a small one is not expensive, and the trader still has nothing to sell.
 
-### Chosen and waiting on the rescale: cargo on the map (owner, 2026-09-26)
+### Answered: the minimum term deal stays as built (owner, 2026-09-27)
+
+The owner's figure was **20,000 barrels a month**; a minimum term deal is 20,000 a *day*, which is
+600,000 a month. Thirty times apart, and the owner's decision is to leave it. The figure was written
+before the rescale was chosen: at the old scale a producer pumped 2,000-9,000 bbl/day and 20,000 a
+month read as a small purchase, where it is now 1.7% of a month from the smallest producer in the
+world. It is also mechanically impossible - deals deliver `qtyPerDay` daily, so 20,000 a month is a
+thirtieth of a lot, which no order can express. The relative size has not moved either: a minimum
+deal was half the smallest producer's output before the rescale and still is.
+
+The owner's *other* figure landed exactly where they wanted: a 30,000 bbl spot minimum was asked for,
+and `LOT_SIZE` is 20,000 - one unit train, which was their own reasoning for the number.
+
+Monthly quoting is still worth having eventually, since a daily trickle is the 1,000-barrels-across-
+the-Pacific problem in another form. It belongs with "cargo assembled at a quay" rather than as a
+config edit.
+
+### ~~Chosen and waiting on the rescale: cargo on the map~~ - built (2026-09-27)
 
 Option **B** of three, from a working preview on real recorded cargo: the player's own cargo drawn as
 dots that glide between daily positions. Recorded as D63 and specified in §12C; it is built **after**

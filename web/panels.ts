@@ -1,6 +1,6 @@
 // The game screen's panels: the map, the company, markets, deals and cargo, and news.
 
-import { mapLayout, regionName, type Counterparty, type DayLog, type LeaseView, type OfferPlace, type PlayerView, type Point } from '../src/game';
+import { mapLayout, pointAlong, regionName, type Counterparty, type DayLog, type LeaseView, type OfferPlace, type PlayerView, type Point } from '../src/game';
 import { bbl, bblShort, dateOf, html, money, pct, raw, signed, words, type Html } from './dom';
 
 const pts = (s: readonly Point[]) => s.map((p) => p.join(',')).join(' ');
@@ -53,18 +53,31 @@ export function mapPanel(view: PlayerView): Html {
     return html`<rect class="cp ${s}" x="${x - 6}" y="${y - 6}" width="12" height="12" transform="rotate(45 ${x} ${y})"><title>${c.name}: ${words(s)}</title></rect>
       ${s !== 'OPEN' ? html`<text class="label cp-label ${s}" x="${x + 9}" y="${y - 8}">${c.name}: ${STRAIT_WORDS[s] ?? s}</text>` : ''}`;
   });
+  // The player's own cargo, where it has got to. Only their own: what a rival is shipping is the
+  // private half of the world (G5, §12C). Keyed so a dot keeps its element from day to day and the
+  // CSS transition can carry it, which is what makes a day's step read as travel rather than a jump.
+  const ships = view.cargo.flatMap((c, i) => {
+    if (c.lane === null) return [];
+    const at = pointAlong(c.lane, c.progress, c.reversed);
+    if (at === null) return [];
+    const where = `${regionName(c.destination)}, ${c.daysAtSea} ${c.daysAtSea === 1 ? 'day' : 'days'} out`;
+    return [html`<circle class="ship ${c.status}" data-ship="${i}" r="3.5"
+      style="transform: translate(${at[0].toFixed(1)}px, ${at[1].toFixed(1)}px)">
+      <title>${bbl(c.qty)} bbl of ${words(c.grade).toLowerCase()} to ${where}</title></circle>`];
+  });
   return html`
     <div class="map">
       <svg viewBox="0 0 ${m.width} ${m.height}" role="img" aria-label="World map of oil routes">
         <path class="land" d="${m.land}"></path>
         <path class="water" d="${m.water}"></path>
-        ${lanes}${regions}${straits}
+        ${lanes}${regions}${straits}${ships}
       </svg>
       <div class="legend">
         <span><span class="dot" style="background:var(--accent)"></span>Your company</span>
         <span><span class="dot" style="background:#6b9c7a"></span>Strait open</span>
         <span><span class="dot" style="background:#d9a300"></span>Tense</span>
         <span><span class="dot" style="background:#e07b00"></span>Congested</span>
+        ${view.cargo.length > 0 ? html`<span><span class="dot ship-key"></span>Your cargo at sea</span>` : ''}
         <span><span class="dot" style="background:var(--bad)"></span>Closed</span>
         <span>┄ pipeline</span>
       </div>

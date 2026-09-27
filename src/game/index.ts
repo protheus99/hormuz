@@ -9,6 +9,6 @@ export type { Card, CardOption, CardType, Choice, Impact, RiskLevel } from './ca
 export type { Payback } from './cards/payback';
 export type { CardsView } from './view';
 export type { Offer, OfferChoice, OfferPlace } from './offers';
-export { mapLayout, regionName, type MapLayout, type MapLane, type MapRegion, type Point } from './map';
+export { mapLayout, pointAlong, regionName, type MapLayout, type MapLane, type MapRegion, type Point } from './map';
 export type { CampaignView, ConditionStatus } from './campaign';
 export { SCENARIOS, type ScenarioData, type ScenarioId } from '../content/scenarios';

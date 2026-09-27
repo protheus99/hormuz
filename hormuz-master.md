@@ -1869,7 +1869,7 @@ identical to the last decimal — the property the first step was designed to ha
 producer still worked one region, and still true after the second, because the lots that now change
 hands across a border are bought empty. Calibration unchanged.
 
-## 12C. Your Cargo on the Map (chosen, to build — D63)
+## 12C. Your Cargo on the Map (built, 2026-09-27 — D63)
 
 The map shows where everything **is**; it has never shown where anything is **going**. Cargo already
 carries everything needed to draw it — `route.edges`, the `leg` it is crossing and the `ticksLeft` on
@@ -1903,11 +1903,15 @@ what a rival is shipping, and to whom, is exactly the private information the vi
   form — see "a world where shipping is the norm" in QUESTIONS.md — and the clearest argument yet for
   the rescale.
 
-**What it needs:** a `{lane, progress, direction}` field on the cargo view (the view stays free of
-pixels; the map converts to a point), a helper that walks a lane's polyline — which is already split
-at the date line, so a lane that crosses the Pacific edge works without special handling — and a
-`<circle>` per cargo with a transition. Build it **after** the rescale, so it is written against the
-sizes it will keep.
+**As built.** The cargo view carries `{lane, progress, reversed}` — the view stays free of pixels and
+`pointAlong` in the map does the projecting, walking the lane's drawn points so a lane split at the
+Pacific edge needs no special handling. Each cargo is a `<circle>` positioned by `transform`, which
+transitions everywhere that `cx`/`cy` does not, keyed so a dot keeps its element between days and the
+transition can carry it. Colour is the cargo's status: moving, held at a strait, floating on
+demurrage. Nothing in the engine changed.
+
+Verified in a browser as a refiner: eight cargoes drawn and all eight moving to new positions on the
+next day, with three more putting to sea. A producer still sees an empty map, which is correct.
 
 ## 12B. Playing on a Phone (reviewed; deferred, D58)
 

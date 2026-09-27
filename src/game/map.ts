@@ -75,6 +75,42 @@ function segments(points: readonly LonLat[]): Point[][] {
   return out.map((s) => s.map(project));
 }
 
+/**
+ * A point along a lane, `t` of the way from its first end to its last (§12C). The lane's drawn
+ * points are used, so a lane split at the Pacific edge is walked in the order it is drawn and a
+ * cargo crossing the date line appears where the line does.
+ */
+export function pointAlong(laneId: string, t: number, reversed: boolean): Point | null {
+  const lane = mapLayout().lanes.find((l) => l.id === laneId);
+  if (lane === undefined) return null;
+  const pts = lane.segments.flat();
+  if (pts.length === 0) return null;
+  if (pts.length === 1) return pts[0] as Point;
+  const lens: number[] = [];
+  let total = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1] as Point;
+    const b = pts[i] as Point;
+    const d = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    lens.push(d);
+    total += d;
+  }
+  if (total === 0) return pts[0] as Point;
+  const want = (reversed ? 1 - Math.max(0, Math.min(1, t)) : Math.max(0, Math.min(1, t))) * total;
+  let run = 0;
+  for (let i = 0; i < lens.length; i++) {
+    const seg = lens[i] as number;
+    if (run + seg >= want) {
+      const f = seg === 0 ? 0 : (want - run) / seg;
+      const a = pts[i] as Point;
+      const b = pts[i + 1] as Point;
+      return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f];
+    }
+    run += seg;
+  }
+  return pts[pts.length - 1] as Point;
+}
+
 let layout: MapLayout | null = null;
 
 /** The map, built once. */
