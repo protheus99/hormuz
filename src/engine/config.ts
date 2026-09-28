@@ -266,12 +266,39 @@ export interface Config {
     /** The smallest port, in ships a day, for a terminal with no production or refining of its own. */
     readonly MIN_SHIPS: number;
     /**
-     * What a quiet word with the port committee costs, as a share of net worth with a floor, and
-     * what it buys (§12A.6). Small enough to tempt: the point of the card is not the money.
+     * What a quiet word with the port committee costs, as a share of net worth with a floor
+     * (§12A.6). Small enough to tempt: the point of that card is not the money, it is the record.
      */
-    readonly FAVOUR: { readonly SHARE: number; readonly MIN: number; readonly SHIPS: number };
-    /** Days a port must have turned ships away, in the last year, before anybody raises it. */
-    readonly FAVOUR_JAMMED: number;
+    readonly FAVOUR: { readonly SHARE: number; readonly MIN: number };
+  };
+  /**
+   * The regional authority that widens a port, since no company can (D66, D67). It sits once a year
+   * and the three roads to it are deliberately a ladder: do nothing and it rarely moves, ask and it
+   * often does, pay a committee member's brother and it moves for certain, now, with a record.
+   */
+  readonly AUTHORITY: {
+    /** How often an authority sits. A year: a port is a budget line, not a purchase. */
+    readonly REVIEW_DAYS: number;
+    /**
+     * Days a port must have turned ships away, in the trailing year, before it is officially a
+     * problem: below this the authority will not look at it and nobody raises it with the player.
+     */
+    readonly NEED_DAYS: number;
+    /** The chance a jammed port is widened with nobody asking - everybody else's case, in one number. */
+    readonly BASE_ODDS: number;
+    /** What each company's formal submission adds to that chance. */
+    readonly PER_ASK: number;
+    /** However many ask, an authority is never certain - only money is (§12A.6). */
+    readonly MAX_ODDS: number;
+    /** Ships a day a widening adds, whichever road got it there. */
+    readonly SHIPS: number;
+    /**
+     * Days before an authority sits that it takes submissions, and so the whole life of the card.
+     * A week, which is exactly `CARD_DEADLINE`: the card is raised on the first day of the window
+     * and resolves on the day the authority sits, so a company is asked once a year and once only.
+     * Wider, and the deck offered the same submission three times a year to anyone who said no.
+     */
+    readonly WINDOW: number;
   };
   readonly PROJECTION_TICKS: number;
 }
@@ -548,11 +575,19 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
   PORT: {
     HEADROOM: 2.0,
     PER_SHIP: 100_000,
-    FAVOUR: { SHARE: 0.01, MIN: 5_000_000, SHIPS: 2 },
-    FAVOUR_JAMMED: 20,
+    FAVOUR: { SHARE: 0.01, MIN: 5_000_000 },
     // The Red Sea coast pumps and refines nothing: it exists to take the Gulf's bypass pipeline, so
     // it still has to be able to work a ship or two a day.
     MIN_SHIPS: 2,
+  },
+  AUTHORITY: {
+    REVIEW_DAYS: 365,
+    NEED_DAYS: 20,
+    BASE_ODDS: 0.05,
+    PER_ASK: 0.25,
+    MAX_ODDS: 0.75,
+    SHIPS: 2,
+    WINDOW: 7,
   },
   PROJECTION_TICKS: 30,
 });

@@ -53,13 +53,23 @@ function simulate(w: World, agentId: AgentId, actions: readonly Action[]): Run |
   const start = f.tick;
   let supply = supplyUnit(find(f, agentId)) === 'days' ? Infinity : 0;
   let cashDays = Infinity;
-  for (let d = 0; d < f.config.PROJECTION_TICKS; d++) {
-    step(f);
-    const me = find(f, agentId);
-    const now = supplyNow(f, me);
-    supply = supplyUnit(me) === 'days' ? Math.min(supply, now) : Math.max(supply, now);
-    const fixed = dailyFixed(f, me);
-    if (fixed > 0) cashDays = Math.min(cashDays, (me.cash - me.cashReserved + me.creditLimit - me.creditDrawn) / fixed);
+  try {
+    for (let d = 0; d < f.config.PROJECTION_TICKS; d++) {
+      step(f);
+      const me = find(f, agentId);
+      const now = supplyNow(f, me);
+      supply = supplyUnit(me) === 'days' ? Math.min(supply, now) : Math.max(supply, now);
+      const fixed = dailyFixed(f, me);
+      if (fixed > 0) cashDays = Math.min(cashDays, (me.cash - me.cashReserved + me.creditLimit - me.creditDrawn) / fixed);
+    }
+  } catch {
+    // A projection is a hypothetical thirty days, run on a copy, and it is allowed to fail: the
+    // honest answer is then "this option cannot be shown", not the end of somebody's game. Until
+    // 2026-09-27 a broken invariant anywhere in those thirty days took the whole session with it -
+    // which is how a wind-up bug in year four surfaced as a crash while a port card was being drawn.
+    // The engine still throws as loudly as ever on the real day; the tests and the golden replay are
+    // what stand behind §14.6, not a player's run.
+    return null;
   }
   const me = find(f, agentId);
 

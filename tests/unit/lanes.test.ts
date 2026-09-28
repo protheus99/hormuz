@@ -10,7 +10,12 @@ import { EdgeMode } from '../../src/engine/enums';
 import { createWorld, run } from '../../src/engine/world';
 import { GLOBAL_PORTFOLIO } from '../../src/data/portfolios';
 import { DEFAULT_CONFIG } from '../../src/engine/config';
-import { jammedDays, resetPorts, widenPort, type Ports } from '../../src/engine/transport';
+import {
+  askPort, daysToReview, hasAskedPort, jammedDays, resetPorts, reviewDay, reviewPorts, widenPort, type Ports,
+} from '../../src/engine/transport';
+import { withOverrides } from '../../src/engine/config';
+import { rngFor } from '../../src/engine/rng';
+import { asAgentId } from '../../src/engine/model';
 
 const touching = (place: string) => LANES.filter((l) => l.a === place || l.b === place);
 
@@ -112,6 +117,82 @@ describe('lane table (spec §3.5)', () => {
     expect(jammedDays(w.ports, 'Middle_East')).toBe(remembered);
     run(w, 10);
     expect(w.ports.Middle_East?.ships ?? 0).toBe(before + 2);
+  });
+
+  it('sits once a year, one region at a time, and never twice on the same day', () => {
+    // Nineteen authorities, nineteen days apart: the whole map deciding on one morning would make a
+    // year's most consequential news arrive in a single unreadable heap.
+    const days = REGION_NAMES.map((r) => reviewDay(r, DEFAULT_CONFIG));
+    expect(new Set(days).size).toBe(days.length);
+    for (const d of days) expect(d).toBeLessThan(DEFAULT_CONFIG.AUTHORITY.REVIEW_DAYS);
+    // And the countdown is a countdown: it falls by a day at a time and comes round again.
+    const region = REGION_NAMES[0]!;
+    const seen = new Set<number>();
+    for (let tick = 0; tick < DEFAULT_CONFIG.AUTHORITY.REVIEW_DAYS; tick++) seen.add(daysToReview(region, tick, DEFAULT_CONFIG));
+    expect(seen.size).toBe(DEFAULT_CONFIG.AUTHORITY.REVIEW_DAYS);
+  });
+
+  it('will not look at a port nobody is queueing at, however many ask', () => {
+    const ports: Ports = { Middle_East: { ships: 4, used: 0, jammed: [1, 1] } };
+    askPort(ports, 'Middle_East', asAgentId('one'));
+    askPort(ports, 'Middle_East', asAgentId('two'));
+    const rng = rngFor('review', 'ports');
+    // Certain odds, so only the congestion bar can be what stops it.
+    const sure = withOverrides(DEFAULT_CONFIG, { AUTHORITY: { BASE_ODDS: 1 } });
+    expect(reviewPorts(ports, reviewDay('Middle_East', sure), rng, sure)).toEqual([]);
+    expect(ports.Middle_East?.ships).toBe(4);
+  });
+
+  it('is much likelier to widen a port that somebody asked for, and never certain', () => {
+    const jammed = () => [30, 30] as number[];
+    const cfg = withOverrides(DEFAULT_CONFIG, { AUTHORITY: { BASE_ODDS: 0.05, PER_ASK: 0.25, MAX_ODDS: 0.75 } });
+    const day = reviewDay('Middle_East', cfg);
+    const run = (asks: number) => {
+      const rng = rngFor('review', 'ports');
+      let widened = 0;
+      for (let year = 0; year < 400; year++) {
+        const ports: Ports = { Middle_East: { ships: 4, used: 0, jammed: jammed() } };
+        for (let i = 0; i < asks; i++) askPort(ports, 'Middle_East', asAgentId(`firm${String(i)}`));
+        if (reviewPorts(ports, day, rng, cfg)[0]?.widened === true) widened++;
+      }
+      return widened / 400;
+    };
+    // Nobody asking is everybody else's case in one number, and it is thin.
+    expect(run(0)).toBeGreaterThan(0.01);
+    expect(run(0)).toBeLessThan(0.12);
+    // One submission is worth several years of hoping.
+    expect(run(1)).toBeGreaterThan(0.2);
+    // And a crowd cannot buy it outright: only the road with a record on it is certain (§12A.6).
+    expect(run(5)).toBeLessThan(0.85);
+    expect(run(5)).toBeGreaterThan(run(1));
+  });
+
+  it('counts a company once however often it asks, and forgets after it has sat', () => {
+    const ports: Ports = { Middle_East: { ships: 4, used: 0, jammed: [40] } };
+    const me = asAgentId('mine');
+    askPort(ports, 'Middle_East', me);
+    askPort(ports, 'Middle_East', me);
+    expect(hasAskedPort(ports, 'Middle_East', me)).toBe(true);
+    expect(ports.Middle_East?.asked).toHaveLength(1);
+
+    const rng = rngFor('review', 'ports');
+    const cfg = withOverrides(DEFAULT_CONFIG, { AUTHORITY: { BASE_ODDS: 1 } });
+    const [review] = reviewPorts(ports, reviewDay('Middle_East', cfg), rng, cfg);
+    expect(review?.widened).toBe(true);
+    expect(review?.asked).toEqual([me]);
+    expect(ports.Middle_East?.ships).toBe(4 + cfg.AUTHORITY.SHIPS);
+    // The case has to be made again next year.
+    expect(hasAskedPort(ports, 'Middle_East', me)).toBe(false);
+  });
+
+  it('reports a refusal as well as a widening, because a company that asked is owed an answer', () => {
+    const ports: Ports = { Middle_East: { ships: 4, used: 0, jammed: [40] } };
+    const never = withOverrides(DEFAULT_CONFIG, { AUTHORITY: { BASE_ODDS: 0, PER_ASK: 0 } });
+    askPort(ports, 'Middle_East', asAgentId('mine'));
+    const [review] = reviewPorts(ports, reviewDay('Middle_East', never), rngFor('review', 'ports'), never);
+    expect(review?.widened).toBe(false);
+    expect(review?.jammed).toBe(40);
+    expect(ports.Middle_East?.ships).toBe(4);
   });
 
   it('keeps transit and freight positive, and capacity only on pipelines', () => {

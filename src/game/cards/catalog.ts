@@ -18,7 +18,7 @@ import { refinerQuote, type MarketView } from '../../engine/rules';
 import { bandFor, bidAmount, leasableRegions, mayWork, topRivalBid, worthTo } from '../../engine/auction';
 import { describe as describeEntry, escapeCost, escapeOffered, nextEntry, rungOf, type CornerKind, type EscapeKind, type ExposureTarget } from '../../engine/exposure';
 import { bestLeaseToDrill } from '../../engine/leases';
-import { avoidFor, findRoute, jammedDays, LaneRouteProvider } from '../../engine/transport';
+import { avoidFor, daysToReview, findRoute, hasAskedPort, jammedDays, LaneRouteProvider } from '../../engine/transport';
 import { netWorth, type World } from '../../engine/world';
 import { money } from '../../content/cards';
 import type { AdvisorMemory, CardType, OptionEffect } from './types';
@@ -1258,6 +1258,36 @@ export const CATALOG: readonly CardDef[] = [
   },
 
   {
+    // The honest road to a wider port (§3.5, D67), and the one that makes the other a choice rather
+    // than the only way there: the authority is taking submissions, and being in the room raises the
+    // odds without buying them. It is deliberately not a dilemma - it costs nothing, it risks
+    // nothing, and the decision it asks for is whether to bother.
+    //
+    // Raised in the WINDOW before the authority sits, on a port that has actually been a problem,
+    // and only once a year per company, because a case made twice is still one case.
+    type: 'PORT_SUBMISSION', kinds: ALL, raised: true, operating: false,
+    detect: ({ w, me }) => {
+      // From the first day of the window to the day before the authority sits. Not the day itself:
+      // it has already decided by the time cards are drawn, so "sits in 0 days" would be a lie and
+      // the submission would be for next year without saying so.
+      const days = daysToReview(me.region, w.tick, w.config);
+      if (w.ports[me.region] === undefined || days < 1 || days > w.config.AUTHORITY.WINDOW) return null;
+      const jammed = jammedDays(w.ports, me.region);
+      if (jammed < w.config.AUTHORITY.NEED_DAYS) return null;
+      if (hasAskedPort(w.ports, me.region, me.agentId)) return null;
+      return {
+        key: `port-submission:${String(me.region)}`,
+        data: { region: REGIONS[me.region].displayName, regionId: me.region, jammed, days },
+      };
+    },
+    options: (_ctx, s) => ({
+      yes: { actions: [{ kind: 'ASK_PORT', region: s.data.regionId as RegionName }] },
+      maybe: null,
+      no: { actions: [] },
+    }),
+  },
+
+  {
     // A port is public infrastructure: the authority widens it, and a company can only ask, pay
     // towards it, or lean on whoever decides (§3.5, D66). This is the third of those, and it is a
     // dilemma of the usual shape (§12A.6) - what it buys is real and arrives at once, what it costs
@@ -1270,7 +1300,7 @@ export const CATALOG: readonly CardDef[] = [
     detect: ({ w, me, roll }) => {
       const port = w.ports[me.region];
       const jammed = jammedDays(w.ports, me.region);
-      if (port === undefined || jammed < w.config.PORT.FAVOUR_JAMMED) return null;
+      if (port === undefined || jammed < w.config.AUTHORITY.NEED_DAYS) return null;
       if (roll() >= MINISTRY_ODDS) return null;
       const cost = Math.max(w.config.PORT.FAVOUR.MIN, w.config.PORT.FAVOUR.SHARE * netWorth(w, me));
       if (cost > me.cash - me.cashReserved) return null;
@@ -1289,11 +1319,11 @@ export const CATALOG: readonly CardDef[] = [
         yes: {
           actions: [
             { kind: 'PAY', amount: cost, what: 'FAVOUR' },
-            { kind: 'WIDEN_PORT', region, ships: w.config.PORT.FAVOUR.SHIPS },
+            { kind: 'WIDEN_PORT', region, ships: w.config.AUTHORITY.SHIPS },
             // What it is worth is not the fee: it is a port that can work more ships for the rest of
             // the game, for everybody in the region. The record is priced against that, not the
             // lunch - a cheap corner that buys a great deal is the dangerous kind.
-            corner(w, cost * w.config.PORT.FAVOUR.SHIPS, { kind: 'CASH' }, 'PORT_FAVOUR'),
+            corner(w, cost * w.config.AUTHORITY.SHIPS, { kind: 'CASH' }, 'PORT_FAVOUR'),
           ],
         },
         maybe: null,

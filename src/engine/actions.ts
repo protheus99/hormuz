@@ -16,9 +16,9 @@ import { cancelDeal, signDeal, type DealTerms } from './deals';
 import { FeeKind, type Grade, type Side } from './enums';
 import { recordFee } from './economics';
 import {
-  asEdgeId, makeDealId, WellStatus, type Agent, type AgentId, type CharterSize, type ChokepointName, type DealId, type NodeName, type PlantState, type RegionName, type Tick, type Well,
+  asEdgeId, makeDealId, WellStatus, type Agent, type AgentId, type CharterSize, type ChokepointName, type DealId, type NodeName, type PlantState, type RegionName, type Tick, type Well, type WellState,
 } from './model';
-import { setReservation, widenPort } from './transport';
+import { askPort, setReservation, widenPort } from './transport';
 import type { World } from './world';
 import { LANES } from '../data/lanes';
 import { NODE_FOR_GRADE } from '../data/nodes';
@@ -98,6 +98,8 @@ export type Action =
   | { readonly kind: 'RENEW_LEASE'; readonly region: RegionName; readonly days: number }
   /** The authority widens a region's port. A company never does this itself (§3.5, D66). */
   | { readonly kind: 'WIDEN_PORT'; readonly region: RegionName; readonly ships: number }
+  /** Puts the company's name to a submission asking for a region's port to be widened (D67). */
+  | { readonly kind: 'ASK_PORT'; readonly region: RegionName }
   | { readonly kind: 'OPEN_OFFICE'; readonly region: RegionName }
   | { readonly kind: 'SELL_AT_SEA'; readonly share: number }
   | { readonly kind: 'CHARTER'; readonly size: CharterSize; readonly days: number }
@@ -171,6 +173,9 @@ export function actionCost(w: World, agentId: AgentId, action: Action): { readon
     case 'WIDEN_PORT':
       // The widening itself costs the company nothing: the authority pays for the port. What a
       // company spends to bring it about is charged by whatever action does the spending.
+      return { now: 0, total: 0 };
+    case 'ASK_PORT':
+      // Making a case costs nothing but the time of people already on the payroll.
       return { now: 0, total: 0 };
     case 'OPEN_OFFICE':
       return { now: cfg.OFFICE_COST.OPEN, total: cfg.OFFICE_COST.OPEN };
@@ -398,6 +403,10 @@ export function applyAction(w: World, agentId: AgentId, action: Action): void {
     }
     case 'WIDEN_PORT': {
       widenPort(w.ports, action.region, action.ships);
+      return;
+    }
+    case 'ASK_PORT': {
+      askPort(w.ports, action.region, agentId);
       return;
     }
     case 'OPEN_OFFICE': {
@@ -705,6 +714,31 @@ function addStorage(a: Agent, region: RegionName, capacity: number): void {
   }
 }
 
+/**
+ * Crude with no tank left to stand in goes at the day's price less `DISTRESS_DISCOUNT`, wherever it
+ * was standing, and the barrels are counted as a forced sale so §14.6's conservation still adds up.
+ *
+ * This happens whenever a field loses tankage: a rented term running out, or a bust sending blocks
+ * to the hammer (D57). It has to be asked lease by lease, because a block's share of the tank goes
+ * by the rate its wells came in at while the oil sits wherever it was pumped - buy a second block
+ * and the first one's share falls though its tanks are still full - so the field can be inside its
+ * total and a single ground still over its own share.
+ */
+export function sellWhatWillNotFit(w: World, a: Agent, well: WellState): number {
+  let sold = 0;
+  for (const lease of well.leases) {
+    const excess = lease.storage + lease.storageEscrow - tankOf(well, lease);
+    if (excess <= 0) continue;
+    const price = w.nodes[NODE_FOR_GRADE[lease.grade]].markerPrice * (1 - w.config.DISTRESS_DISCOUNT);
+    drawFrom(well, [lease], excess);
+    a.cash += excess * price;
+    w.totals.forceSold += excess;
+    w.totals.forcedSaleRevenue += excess * price;
+    sold += excess;
+  }
+  return sold;
+}
+
 /** A lease ends: the capacity goes, and any crude it held is sold off at a distress price. */
 function endLease(w: World, l: Lease): void {
   const a = w.agents.find((x) => x.agentId === l.agentId);
@@ -729,12 +763,7 @@ function endLease(w: World, l: Lease): void {
     }
   } else if (well) {
     well.storageCapacity -= l.capacity;
-    // Tankage is shared out by the ground each lease works, so losing some of it can overfill any
-    // of them. What will not fit goes at the day's price, wherever it was standing (stage 3b).
-    for (const lease of well.leases) {
-      const excess = lease.storage + lease.storageEscrow - tankOf(well, lease);
-      if (excess > 0) { drawFrom(well, [lease], excess); sell(lease.grade, excess); }
-    }
+    sellWhatWillNotFit(w, a, well);
   } else if (plant) {
     plant.crudeStorageCapacity -= l.capacity;
     let excess = total(plant.crudeStock) - plant.crudeStorageCapacity;

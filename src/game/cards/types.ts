@@ -23,6 +23,8 @@ export type CardType =
   | 'LEASE_EXPIRING'
   // Shipping (spec §7.4)
   | 'CHARTER_TANKER' | 'KEEP_AFLOAT'
+  // The port your region ships through, which only its authority can widen (§3.5, D67)
+  | 'PORT_SUBMISSION'
   // A refiner's late game (D34)
   | 'SECOND_REFINERY'
   // The escapes (§12A.6): what is still on offer depends on how loudly the world is asking

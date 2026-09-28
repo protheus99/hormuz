@@ -5,7 +5,7 @@
 // states — so it saves as JSON and forks with structuredClone (spec G4.5, G9). The only object
 // with behavior, the route provider, is rebuilt at the start of every tick from the lane graph.
 
-import { advanceProjects, chargeLeases, type CapitalProject, type Lease, type ReservationRecord, type StandingOrder } from './actions';
+import { advanceProjects, chargeLeases, sellWhatWillNotFit, type CapitalProject, type Lease, type ReservationRecord, type StandingOrder } from './actions';
 import type { Lease as GroundLease } from './model';
 import { expireCharters } from './charters';
 import { advancePlant, applyDecline, extract, internalTransfer, refine, refreshCapacity } from './agents';
@@ -30,7 +30,7 @@ import { aiBid, award, placeBid, surveyLots, type Auction , receivershipLots } f
 import { exposureDay, type Reckoning } from './exposure';
 import { decideOrders, recordSales, rememberMarkers, updateOutput, updateThrottle, type MarketView } from './rules';
 import { placeOrder, releaseEscrow, settleFills } from './settlement';
-import { advanceStorms, avoidFor, buildLaneGraph, edgeCapacity, LaneRouteProvider, setChokepoint, resetPorts, sizePorts, type LaneGraph, type Ports, type Storm } from './transport';
+import { advanceStorms, avoidFor, buildLaneGraph, edgeCapacity, LaneRouteProvider, reviewPorts, setChokepoint, resetPorts, sizePorts, type PortReview, type LaneGraph, type Ports, type Storm } from './transport';
 import { NODE_NAMES } from '../data/nodes';
 import { REGIONS } from '../data/regions';
 import { PRODUCER_CASH, REFINER_CASH_PER_BBL_DAY, TRADER_CASH, type PlantData, type PortfolioEntry } from '../data/portfolios';
@@ -95,7 +95,7 @@ export interface World {
    */
   ports: Ports;
   sink: RetailSink;
-  rng: { events: Rng; ai: Rng; wells: Rng; climate: Rng; storms: Rng };
+  rng: { events: Rng; ai: Rng; wells: Rng; climate: Rng; storms: Rng; ports: Rng };
   /** Passages shut or slowed by weather conditions today (§3.5). Almost always empty. */
   storms: Storm[];
   /** Cumulative total; entries hold only the current tick's fees. */
@@ -170,6 +170,11 @@ export interface TickReport {
   readonly economicClimate: { readonly was: EconomicClimate; readonly now: EconomicClimate } | null;
   /** Companies wound up today, and how many blocks each sent to the hammer (D57). Almost always empty. */
   readonly wound: readonly { readonly agentId: AgentId; readonly name: string; readonly blocks: number }[];
+  /**
+   * Ports whose regional authority sat today, and what it decided (D67). Refusals are reported as
+   * well as widenings: a company that made its case is owed an answer either way.
+   */
+  readonly reviews: readonly PortReview[];
   readonly fees: number;
 }
 
@@ -199,7 +204,10 @@ export function createWorld(s: WorldSettings): World {
     graph,
     ports,
     sink: createRetailSink(s.seed, config),
-    rng: { events: rngFor(s.seed, 'events'), ai, wells: rngFor(s.seed, 'wells'), climate: rngFor(s.seed, 'climate'), storms: rngFor(s.seed, 'storms') },
+    rng: {
+      events: rngFor(s.seed, 'events'), ai, wells: rngFor(s.seed, 'wells'), climate: rngFor(s.seed, 'climate'),
+      storms: rngFor(s.seed, 'storms'), ports: rngFor(s.seed, 'ports'),
+    },
     storms: [],
     ledger: createLedger(),
     cargo: [],
@@ -267,6 +275,9 @@ export function step(w: World): TickReport {
   const routes = new LaneRouteProvider(w.graph);
   routes.resetTick();
   resetPorts(w.ports, tick);
+  // A regional authority sits once a year and decides whether to widen its port. It happens before
+  // anything ships, so a port widened today works the extra ships from today.
+  const reviews = reviewPorts(w.ports, tick, w.rng.ports, cfg);
 
   // Phase 1: extraction.
   const byAgent: Partial<Record<AgentId, { extracted: number; refined: number; retail: number }>> = {};
@@ -368,6 +379,7 @@ export function step(w: World): TickReport {
     tick, extracted, refined, byAgent, fills, deliveries, logistics, reckonings,
     economicClimate: turned.was === turned.now ? null : turned,
     wound,
+    reviews,
     fees: w.ledger.total - feesBefore,
   };
 }
@@ -824,6 +836,13 @@ export function windUp(w: World, a: Agent, tick: Tick): { readonly name: string;
     w.forSale.push(...rest);
     field.leases = [keep];
     refreshStorage(field);
+    // The tanks went with the blocks, and crude that no longer has one is sold off in the wreck. It
+    // has to be, or a bust would leave a field holding more oil than it has room for: a block's
+    // share of the tank goes by the rate its wells came in at, while the oil stands where it was
+    // pumped, so the ground a company keeps can be holding far more than its own share. Measured
+    // rather than reasoned about: Tarvale Sands came out of a wind-up in year four with 2,100,000
+    // bbl in tanks that now held 1,729,412, and §14.6's physical bound caught it.
+    sellWhatWillNotFit(w, a, field);
     refreshCapacity(field);
   }
   // The debt is written off. No cash moves, so the cash invariant does not see it; what it costs is

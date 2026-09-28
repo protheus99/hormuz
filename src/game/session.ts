@@ -22,11 +22,12 @@ import { offersFor } from './offers';
 import { rungOf } from '../engine/exposure';
 import { epilogueFor, reckoningText } from '../content/hints';
 import { money } from '../content/cards';
-import { WEATHER_NEWS } from '../content/events';
+import { portReview, WEATHER_NEWS } from '../content/events';
 import { ECONOMIC_CLIMATES } from '../engine/economics';
 import { applySetup, campaignDay, campaignView, createCampaign, scenario, scriptedActions, scriptFor, type CampaignState } from './campaign';
 import { detectAlerts, pausesAt, rememberForAlerts, type Alert, type AlertMemory, type Severity } from './alerts';
 import { applyCommand, rejectReason, type Command, type CommandResult, type LoggedCommand } from './commands';
+import { REGIONS } from '../data/regions';
 import { newGameWorld, PLAYER_ID, type GameSettings } from './newgame';
 import { buildPlayerView, dailyPrices, dayLog, worthNow, type DailyPrices, type DayLog, type PlayerView } from './view';
 
@@ -317,6 +318,7 @@ export class GameSession {
     if (s.campaign) campaignDay(s.world, s.campaign, s.advisor, report.fills, report.deliveries);
     const alerts = detectAlerts(s.world, PLAYER_ID, s.memory);
     alerts.push(...this.exposureNews(report));
+    alerts.push(...this.portNews(report));
     if (report.economicClimate !== null) {
       const text = WEATHER_NEWS[report.economicClimate.now];
       if (text !== undefined) {
@@ -339,6 +341,28 @@ export class GameSession {
     s.alerts.push(...alerts);
     if (s.alerts.length > ALERTS_KEPT) s.alerts.splice(0, s.alerts.length - ALERTS_KEPT);
     return { alerts, cards };
+  }
+
+  /**
+   * What a port authority decided today (§3.5, D67). A widening is news wherever it happens, because
+   * it is public money and it helps everyone who ships through there. A refusal is only news to a
+   * company that asked - and it is told, rather than left to work it out, because a decision whose
+   * outcome never arrives is not a decision.
+   */
+  private portNews(report: TickReport): Alert[] {
+    const s = this.state;
+    const tick = s.world.tick;
+    const alerts: Alert[] = [];
+    const me = s.world.agents.find((a) => a.agentId === PLAYER_ID);
+    for (const r of report.reviews) {
+      const asked = r.asked.includes(PLAYER_ID);
+      if (!r.widened && !asked) continue;
+      const text = portReview(REGIONS[r.region].displayName, r.widened, r.ships, r.jammed, r.asked.length);
+      pushNews(s.deck, { tick, ...text });
+      const mine = me !== undefined && (r.region === me.region || (me.kind === 'TRADER' && me.offices.includes(r.region)));
+      if (mine || asked) alerts.push({ tick, severity: r.widened ? 'MEDIUM' : 'INFO', message: `${text.headline}.` });
+    }
+    return alerts;
   }
 
   /**

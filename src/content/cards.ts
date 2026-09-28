@@ -249,6 +249,16 @@ const TEXT: Readonly<Record<string, CardText>> = {
       + 'your crude are standing in it. Space you keep past the term costs double until you empty it.',
     yes: 'Keep it for another 90 days.', maybe: 'Keep it for another 30 days.', no: 'Let it go.',
   },
+  // The honest road to the same place, and deliberately not a dilemma: it costs nothing, and its
+  // job is to say that the bottleneck exists, that somebody else decides, and that being in the room
+  // helps. Saying no is the decision - it leaves the port to whatever the authority does anyway.
+  PORT_SUBMISSION: {
+    title: '{region}’s port authority is taking submissions',
+    situation: 'The authority sits in {days} days to decide where next year’s money goes. {region}’s '
+      + 'port turned ships away on {jammed} days this past year. A submission costs you nothing but the '
+      + 'time, and it will not be the only one on the table.',
+    yes: 'Make the case for the port.', maybe: '', no: 'Leave it to them.',
+  },
   // A port is widened by the authority that owns it, never by a company. What is on offer here is
   // not the port: it is a word with the man who ranks them. The card says what is certain - the
   // congestion, the fee, the committee - and nothing at all about what it puts on the record.

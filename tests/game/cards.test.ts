@@ -17,6 +17,8 @@ import type { Card, CardType } from '../../src/game/cards/types';
 import { CARD_TEXT_TYPES } from '../../src/content/cards';
 import { GameSession } from '../../src/game/session';
 import { newGameWorld, PLAYER_ID, type GameSettings } from '../../src/game/newgame';
+import { daysToReview, hasAskedPort } from '../../src/engine/transport';
+import { REGIONS } from '../../src/data/regions';
 
 const producer: GameSettings = { seed: 'cards-p', playType: 'PRODUCER', region: 'Russia_West', companyName: 'Northwind Oil' };
 const refiner: GameSettings = { seed: 'cards-r', playType: 'REFINER', region: 'Coastal_Asia', companyName: 'Harbour Refining' };
@@ -263,6 +265,57 @@ describe('cards in a game (spec G3, G9)', () => {
     const replayed = await GameSession.replay(refiner, await s.commandLog(), w.tick);
     expect(fingerprint((await replayed.save()).world)).toBe(fingerprint(w));
     expect((await replayed.save()).advisor.resolved).toEqual((await s.save()).advisor.resolved);
+  });
+
+  it('asks for a submission in the week before the authority sits, and once a year either way', () => {
+    const { w, advisor, me } = game(producer);
+    const port = w.ports[me.region];
+    expect(port, me.region).toBeDefined();
+    // A port that has actually been a problem. Without the queue there is nothing to ask for, and a
+    // card offering to fix a problem the player does not have is not a decision (§3.5, D67).
+    const bad = w.config.AUTHORITY.NEED_DAYS + 20;
+    const jam = () => { if (port !== undefined) port.jammed = [bad]; };
+    jam();
+    if (daysToReview(me.region, w.tick, w.config) > w.config.AUTHORITY.WINDOW) {
+      expect(raise(w, advisor, 'PORT_SUBMISSION')).toBeUndefined();
+    }
+    while (daysToReview(me.region, w.tick, w.config) > w.config.AUTHORITY.WINDOW) { step(w); jam(); }
+
+    const card = raise(w, advisor, 'PORT_SUBMISSION') as Card;
+    expect(card.title).toContain(REGIONS[me.region].displayName);
+    expect(card.situation).toContain(String(bad));
+    // Free on both sides: what it asks is whether to bother, not what to spend.
+    expect(card.options.map((o) => o.choice)).toEqual(['YES', 'NO']);
+    for (const o of card.options) expect(o.impact?.cash ?? 0).toBe(0);
+
+    answer(w, advisor, PLAYER_ID, card.id, 'YES');
+    expect(hasAskedPort(w.ports, me.region, PLAYER_ID)).toBe(true);
+    // Not asked again this year: the case is in, and a case made twice is still one case.
+    for (let d = daysToReview(me.region, w.tick, w.config); d > 0; d--) {
+      expect(raise(w, advisor, 'PORT_SUBMISSION')).toBeUndefined();
+      step(w);
+      jam();
+    }
+  });
+
+  it('is offered only once a year to a player who declines it, not every fortnight', () => {
+    const { w, advisor, me } = game(producer);
+    const port = w.ports[me.region];
+    const jam = () => { if (port !== undefined) port.jammed = [w.config.AUTHORITY.NEED_DAYS + 20]; };
+    jam();
+    while (daysToReview(me.region, w.tick, w.config) > w.config.AUTHORITY.WINDOW) { step(w); jam(); }
+    const card = raise(w, advisor, 'PORT_SUBMISSION') as Card;
+    answer(w, advisor, PLAYER_ID, card.id, 'NO');
+    // Saying no leaves no submission behind, and the cooldown outlasts the window — which is what a
+    // one-week window buys. At thirty days the deck asked the same question three times a year.
+    expect(hasAskedPort(w.ports, me.region, PLAYER_ID)).toBe(false);
+    let offers = 0;
+    for (let d = 0; d < w.config.AUTHORITY.WINDOW; d++) {
+      if (raise(w, advisor, 'PORT_SUBMISSION') !== undefined) offers++;
+      step(w);
+      jam();
+    }
+    expect(offers).toBe(0);
   });
 
   it('rejects an answer to a card that is not open', async () => {

@@ -8,7 +8,7 @@ import { GLOBAL_PORTFOLIO } from '../../src/data/portfolios';
 import { baseWorth, receivershipLots } from '../../src/engine/auction';
 import { refreshCapacity } from '../../src/engine/agents';
 import { wellOf } from '../../src/engine/companies';
-import { newLease } from '../../src/engine/leases';
+import { newLease, refreshStorage } from '../../src/engine/leases';
 import { LeaseBand } from '../../src/engine/model';
 import { DEFAULT_CONFIG } from '../../src/engine/config';
 import type { Agent } from '../../src/engine/model';
@@ -68,6 +68,39 @@ describe('what winding up does', () => {
     expect(field.storageCapacity).toBeCloseTo(room - gone, 6);
     // And what the seller keeps is still enough for what it is still holding.
     expect(field.storage + field.storageEscrow).toBeLessThanOrEqual(field.storageCapacity + 1e-6);
+  });
+
+  it('sells the crude that no longer has a tank, so a bust cannot leave a field overfull', () => {
+    const w = world();
+    const a = producer(w);
+    const field = wellOf(a)!;
+    // Oil stands where it was pumped, and a block's share of the tank goes by the rate its wells
+    // came in at — so a company that bought a second block can be holding almost everything on the
+    // first one, which is the block a wind-up keeps. The tanks then leave with the blocks that go.
+    //
+    // A field starts a quarter full, so the state a real run reaches after years of pumping has to
+    // be set up: every barrel on the block that will be kept, and the field full to the brim. The
+    // barrels are booked as extracted, because that is where they came from — otherwise §14.6's
+    // conservation rightly objects to 900,000 of them appearing out of nowhere.
+    const keep = field.leases.reduce((best, l) => (l.reserves > best.reserves ? l : best), field.leases[0]!);
+    const held = field.storage + field.storageEscrow;
+    for (const l of field.leases) { l.storage = 0; l.storageEscrow = 0; }
+    keep.storage = field.storageCapacity;
+    w.totals.extracted += field.storageCapacity - held;
+    w.totals.extractedBy[a.agentId] = (w.totals.extractedBy[a.agentId] ?? 0) + field.storageCapacity - held;
+    refreshStorage(field);
+    const before = w.totals.forceSold;
+
+    windUp(w, a, w.tick);
+
+    // Without this the field came out of the wreck holding 2,100,000 bbl in 1,729,412 of tank, and
+    // the first thing to notice was a projection for an unrelated card crashing the game on day
+    // 1,396 of a real run (found 2026-09-27).
+    expect(field.storage + field.storageEscrow).toBeLessThanOrEqual(field.storageCapacity + 1e-6);
+    // And the barrels are accounted for rather than quietly dropped, which §14.6 would catch.
+    expect(w.totals.forceSold).toBeGreaterThan(before);
+    expect(() => checkInvariants(w)).not.toThrow();
+    expect(() => step(w)).not.toThrow();
   });
 
   it('writes off the debt, puts fresh money in, and counts it', () => {

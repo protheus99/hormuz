@@ -11,7 +11,7 @@
 
 import { CHOKEPOINT_NAMES, stormSeasonOf } from '../data/chokepoints';
 import { LANES, type PlaceName } from '../data/lanes';
-import { REGIONS } from '../data/regions';
+import { REGION_NAMES, REGIONS } from '../data/regions';
 import type { Config } from './config';
 import { CHOKEPOINT_STATUSES, ChokepointStatus, EdgeMode, type RiskSetting } from './enums';
 import { MinHeap } from './heap';
@@ -146,6 +146,12 @@ export interface PortState {
   /** How many have been worked today. Reset every tick. */
   used: number;
   /**
+   * Companies that have formally asked for this port to be widened since its authority last sat.
+   * Names rather than a count, so a company cannot make its case twice in one year. Cleared at every
+   * review, because the case has to be made again for the next one.
+   */
+  asked?: AgentId[];
+  /**
    * Days this port turned a ship away, by month, newest first, covering the past year.
    *
    * A card that offers to get a port widened has to say how bad it has been, and both of the easy
@@ -231,7 +237,73 @@ export function resetPorts(ports: Ports, tick: number): void {
 /** Widens a port for good. Only a regional authority does this; a company can pay towards it. */
 export function widenPort(ports: Ports, region: RegionName, ships: number): void {
   const p = ports[region];
-  if (p !== undefined) ports[region] = { ships: p.ships + ships, used: p.used, jammed: p.jammed ?? [0] };
+  if (p !== undefined) ports[region] = { ships: p.ships + ships, used: p.used, jammed: p.jammed ?? [0], asked: p.asked ?? [] };
+}
+
+/**
+ * The day of the year a region's authority sits, spread out across the calendar so the whole map
+ * does not decide on one morning. Nineteen days apart, which with nineteen ports gives every one of
+ * them a day to itself.
+ */
+export function reviewDay(region: RegionName, config: Config): number {
+  return (REGION_NAMES.indexOf(region) * 19) % config.AUTHORITY.REVIEW_DAYS;
+}
+
+/** Days until this region's authority next sits. */
+export function daysToReview(region: RegionName, tick: number, config: Config): number {
+  const period = config.AUTHORITY.REVIEW_DAYS;
+  return (reviewDay(region, config) - (tick % period) + period) % period;
+}
+
+/** A company puts its name to a submission asking for a port to be widened; twice is once. */
+export function askPort(ports: Ports, region: RegionName, who: AgentId): void {
+  const p = ports[region];
+  if (p === undefined) return;
+  const asked = (p.asked ??= []);
+  if (!asked.includes(who)) asked.push(who);
+}
+
+/** Whether this company has already put its name to the submission the authority will see next. */
+export const hasAskedPort = (ports: Ports, region: RegionName, who: AgentId): boolean =>
+  ports[region]?.asked?.includes(who) ?? false;
+
+/** An authority sat on a port that was over the bar, and what it decided. */
+export interface PortReview {
+  readonly region: RegionName;
+  readonly widened: boolean;
+  /** Ships a day it added, or would have. */
+  readonly ships: number;
+  /** Companies whose submissions were in front of it. */
+  readonly asked: readonly AgentId[];
+  /** Days the port turned a ship away in the year it was judging. */
+  readonly jammed: number;
+}
+
+/**
+ * Every authority that sits today decides whether to widen its port (D67).
+ *
+ * It looks at one thing and listens to another: a port has to have been a real problem - jammed
+ * `NEED_DAYS` in the trailing year - before it is on the table at all, and then the companies that
+ * asked make it likelier. `BASE_ODDS` is everybody else's case in one number: the other users, the
+ * shippers, the region's own plans. Asking adds `PER_ASK`, and it never reaches certainty, because
+ * the only certain road is the one with a record on it.
+ */
+export function reviewPorts(ports: Ports, tick: number, rng: Rng, config: Config): PortReview[] {
+  const reviews: PortReview[] = [];
+  for (const region of Object.keys(ports) as RegionName[]) {
+    const port = ports[region];
+    if (port === undefined || daysToReview(region, tick, config) !== 0) continue;
+    const asked = port.asked ?? [];
+    port.asked = [];
+    const jammed = jammedDays(ports, region);
+    // A port nobody is queueing at is not on the table, so nothing is decided and nothing is said.
+    if (jammed < config.AUTHORITY.NEED_DAYS) continue;
+    const odds = Math.min(config.AUTHORITY.MAX_ODDS, config.AUTHORITY.BASE_ODDS + asked.length * config.AUTHORITY.PER_ASK);
+    const widened = nextFloat(rng) < odds;
+    if (widened) widenPort(ports, region, config.AUTHORITY.SHIPS);
+    reviews.push({ region, widened, ships: config.AUTHORITY.SHIPS, asked, jammed });
+  }
+  return reviews;
 }
 
 export function setChokepoint(

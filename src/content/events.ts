@@ -84,7 +84,7 @@ const STRAIT_NEWS: Readonly<Record<string, StageNews>> = {
     DELAYED: { headline: 'Storms slow the Bosphorus', body: 'Tankers wait for safe passage through the strait.' },
   },
   DANISH_STRAITS: {
-    DELAYED: { headline: 'Ice and storms slow the Danish Straits', body: 'Winter economicClimate delays tankers leaving the Baltic.' },
+    DELAYED: { headline: 'Ice and storms slow the Danish Straits', body: 'Winter weather delays tankers leaving the Baltic.' },
   },
   PANAMA: {
     RUMOR: { headline: 'Water levels fall in the Panama Canal', body: 'Forecasts point to a dry season. Heavy ships may soon face limits.' },
@@ -107,6 +107,30 @@ export function strait(chokepoint: string, name: string, stage: Stage | 'CLEARED
   const key = stage === 'DISRUPTION' ? (status ?? 'CLOSED') : stage;
   const t = STRAIT_NEWS[chokepoint]?.[key] ?? GENERIC[key] ?? { headline: '{name}', body: '' };
   return { headline: t.headline.replace('{name}', name), body: t.body.replace('{name}', name) };
+}
+
+/**
+ * What the news says when a port authority has sat (§3.5, D67). A widening is world news: it is
+ * public money spent on public infrastructure, and it helps everyone who ships through there. A
+ * refusal is only told to a company that made the case, which is why it is written as an answer.
+ *
+ * `asked` is how many submissions were in front of the authority, so a player who was the only one
+ * asking reads something different from one who was in a queue.
+ */
+export function portReview(region: string, widened: boolean, ships: number, jammed: number, asked: number): NewsText {
+  const queue = jammed === 1 ? 'one day last year' : `${String(jammed)} days last year`;
+  if (widened) {
+    return {
+      headline: `${region}'s port is to be widened`,
+      body: `The authority will pay for ${String(ships)} more ships a day, from now. It turned ships away on `
+        + `${queue}, which is what put it at the front of the queue for the money.`,
+    };
+  }
+  return {
+    headline: `${region}'s port will not be widened this year`,
+    body: `The authority has heard the case - the port turned ships away on ${queue} - and has put the `
+      + `money somewhere else. ${asked > 1 ? 'Yours was not the only submission.' : 'It sits again next year.'}`,
+  };
 }
 
 /**

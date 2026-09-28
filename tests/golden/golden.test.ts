@@ -9,7 +9,12 @@
 import { describe, expect, it } from 'vitest';
 import { runGoldenReplay } from './replay';
 
-// S0 through the real tick orchestrator, re-recorded in Node 24 on 2026-09-27: a port now remembers
+// S0 through the real tick orchestrator, re-recorded in Node 24 on 2026-09-27: every region now has
+// a port authority that sits once a year and may widen its port (D67), which adds a `ports` random
+// stream and a list of submissions to each port. Same 1,123 parcels, same 149,085,774 bbl, same fees:
+// in one year no authority widens anything that changes a trade, so this too is a change of shape.
+//
+// Re-recorded the same day: a port now remembers
 // a trailing year of the days it turned a ship away, by month, instead of one lifetime tally, so the
 // shape of the state changes and every fingerprint with it. Nothing the engine does changed: the
 // run still clears 1,123 parcels, refines 149,085,774 bbl and charges the same fees to the barrel,
@@ -24,9 +29,9 @@ import { runGoldenReplay } from './replay';
 // Last verified identical in Chrome 152 (`npm run golden:browser`) on 2026-09-19; re-check in a
 // browser at the end of each phase.
 const GOLDEN = {
-  day1: '76238ffd514e3ea22a9327f64adabe10',
-  day30: '90af8b89ae4ec65e3616638522c8a40b',
-  final: '85d54019baf1376d9b62a0f486fe6f58',
+  day1: '0bbc61f0fed3f39dd77864c81413e4fe',
+  day30: '4ac83e868b14b6204c28adeaa7cbcb5f',
+  final: '1846ff61fcda034dcb536e82dcb189d5',
 };
 
 describe('golden replay', () => {
