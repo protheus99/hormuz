@@ -1539,7 +1539,6 @@ is in its decision (§12), and how it was measured is in the commit that did it.
 | **1** | Leases and wells under the hood | Every one of the 19 producers generated from its present capacity, extraction summing wells, `extractionCapacity` derived, the conservation invariant, a well board. Day-one output unchanged |
 | **2** | Depletion and drilling | The depletion curve replaced `DECLINE_RATE`, which is deleted. Drilling sinks one well at a time with dry holes against `maxWells` |
 | **3** | The auction and the lease register | Lots published 30 days before the award, every producer that could work one bids sealed and once, highest takes it. The player answers **bid strong** (1.3× worth, clears the keenest rival) or **bid steady** (0.75×, wins only against a shy field) — never a typed number. A block is bought empty. Regions carry their leasing class, so no lot is drawn on state-held ground. The bonus leaves the economy as a `LEASE_BONUS` fee; ground stands in net worth at what was paid. Bidding is available from the register as well as the card (D54) |
-| **3b** | Operating in a second region | A lease holds its own oil (`Lease.storage`), `WellState.storage` is their sum, and each lease posts its own ask at its port's reference price with its own tank's fill and its own ground's lifting cost. `mayWork` became `mayBid` |
 | **4** | Hazards, the hint ladder, the escapes, six dilemmas | Wells are serviced, fail, wait for a crew and are paid for. Four rungs of letters, visits and questions, with no number anywhere in them; nothing said in the fortnight after a corner is cut, nothing ever to a clean company. The escapes are priced at 1.2× what the corner saved before anyone has asked, 2.5× once the questions start, 5× with a file open — so cutting corners *planning* to clean up loses obviously — and always leave a fifth on the record |
 | **5** | Standing actions | The eleven purchases (D54) are offers, not cards: always available, no deadline, no meters, no No, each in the panel where the thing lives. `TAKE_OFFER` rebuilds the offer from the world on the day it applies, so a replay buys what the player saw. The Opportunities sheet and its machinery are gone |
 
@@ -1570,7 +1569,8 @@ is in its decision (§12), and how it was measured is in the commit that did it.
 Measured after stage 4: two or three dilemmas a career, and a player who takes every one climbs all
 four rungs and loses a credit line and a lease to it. Stage 3b's golden day 1 and day 30 were
 untouched by the whole stage, and its totals identical to the last decimal.
-   and the D44 band. Split into four, and the first of them was not on the list:
+6. The economics rebalance and company failure (§12A.8), then one retune of every scenario target
+   and the D44 band. Seven steps in the end, and the first of them was not on the list:
 
    a. ✅ **A meter for what you buy.** The lease auction showed **$0 of profit for every option** —
       Yes, Maybe and No alike — because a sealed bid costs nothing today and lots are awarded thirty
