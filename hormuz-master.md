@@ -1193,6 +1193,7 @@ The build proceeds on these. Changing one means updating the sections it names.
 | D25 | Disruptions are staged events (`RUMOR → TENSION → DISRUPTION → RECOVERY`), with a `TENSION` chokepoint status (G7.1) |
 | D35 | Owner decisions 2026-09-19: chokepoint throughput falls in steps with status (a closure stops 100% of the strait but redirection by bypass stays possible, so the bypasses keep their capacity); producers dump at a discount to the reference, not at cash cost; the AI trader arbitrages between regions with tariff-aware spreads, from two offices at lower running cost; starting cash raised and credit lines 10× larger; insolvency is recoverable, because the world has too few companies to lose them |
 | D34 | Refiners grow through processing units, tier upgrades, storage and one second refinery in another refining region (not the Gulf); rival buyouts are out of scope. Chosen over a single site, which left refiners no late game, and over acquisitions, which add valuation and merger rules a teenager should not need |
+| D69 | 2026-09-27, on the owner's instruction to cut to a delivery: **the largest item left in the project was cancelled by measurement, not built.** Stage 6g said a trader's decisions did not matter — six seeds on T3 gave the meter-led bot $-1.18M to $1.18M and the idle bot $-1.11M to $1.03M, the same spread — and the designed answer was minimum trade sizes taken from the thing that carries the oil, which would have reached clearing, deals, transport, charters, portfolios, the payback meter, every scenario target and the calibration band. Re-measured before any of it was written, because the figure predated D64, D65 and D66: **T2 is now 3/3 for the meter bot against 0/3 idle ($24.6M, $42.5M, $20.8M against a $18.0M bar, versus $-10.7M, $0.9M, $0.3M), T3 1/3 against 0/3 ($12.3M, $12.7M, $52.0M versus $0.7M, $-3.2M, $-0.7M), T1 3/3 against 0/3.** Freight a barrel now depends on the size of the parcel it moves in and a port works a fixed number of ships a day whatever each cargo holds, so breaking bulk finally pays — which is what the owner's direction of 2026-09-25 asked for, reached from the physical end rather than by putting floors on order sizes. None of that work was aimed at traders. The rule this is worth remembering for: **a backlog item is a measurement with a date on it, and three stages of building had gone past this one.** Also cut on the same instruction, all recorded in `QUESTIONS.md` as deferred rather than dropped: reserve capacity per product at a port, port card B, refined-product transport, cargo assembled at a port, the daily reporting layer, and stage 4's safety deck. And 4,225 lines of spent scaffolding deleted — nine UI documents and three HTML mock-ups from 2026-09-18, unreferenced by the plan or any build, describing an interface that has since been built and shipped |
 | D68 | 2026-09-27: **the authority that widens a port exists, and asking it is a card.** D67's ladder needed its top rung to be worth something, and with only `PORT_FAVOUR` shipped the only road to a wider port was corruption. Each region's authority now sits once a year on its own day, looks at a port only if it has jammed `NEED_DAYS` in the trailing year, and widens it on `BASE_ODDS` (5%) plus `PER_ASK` (25%) a submission, capped at `MAX_ODDS` (75%) — never certain, because the only certain road is the one with a record on it. **Measured both ways:** with nobody asking, 2–3 of 19 ports widen in a decade, so D66's plot point survives; and on the US Gulf Coast over ten years × six seeds, asking every year ends on 10 ships a day against 5.7 for silence. Refusals are reported as well as widenings. **The window is seven days because thirty nagged:** nothing sets a cooldown when a card is *answered*… except `resolve`, which sets a fortnight — so a 30-day window offered the same submission three times a year to anyone who said no, and a window equal to `CARD_DEADLINE` gives exactly one offer either way. **Two bugs came out of playing it rather than testing it.** A projection for the new card crashed a real game on day 1,396: `windUp` sends a bust producer's spare blocks to the hammer and takes their tankage with them, but left the crude standing in the block it kept, so a field came out of the wreck holding 2,100,000 bbl in 1,729,412 of tank — a lease's share of the tank goes by the rate its wells came in at while the oil sits where it was pumped. It now sells what will not fit, exactly as a lease running out does, through one shared `sellWhatWillNotFit`. And a projection can no longer kill a session: thirty hypothetical days on a copy are allowed to fail, and the honest answer is that the option cannot be shown |
 | D67 | Owner, 2026-09-27, shown a written comparison of three port-widening cards on a measured year of the world: **build the unethical one first.** A company cannot widen a port, so every card here is about getting somebody else to act, and of the three shapes — ask, contribute, lean on them — leaning needs no new machinery: the exposure ladder, the hint rungs, the reckonings and the escapes of §12A.6 are all built, so a quiet word with a port committee is a new corner to cut rather than a new mechanism. It also works everywhere, which the other two do not: **eleven of the nineteen ports have a single company using them**, and the worst-jammed are mostly in that group, so a card built on rivals free-riding or pledging is silent in more than half the map. `PORT_FAVOUR` offers to retain a committee member's brother's consultancy for 1% of net worth (floor $5M); saying yes widens the port by two ships a day **for everyone in the region, permanently**, and puts a record on the ladder priced at twice the fee — against what the widening is worth, not what the lunch cost, because a cheap corner that buys a great deal is the dangerous kind. **A port had to be given a memory for the card to be able to speak.** The first build counted jammed days for the life of the world, and the situation text — "turned ships away on 98 days this past year" — was simply a lie: the tally only climbs, reaching 124 by year five, and a port widened long ago would still be described as choked. It now keeps thirteen monthly buckets, so the number is a real trailing year. That change altered the golden fingerprints and nothing else: the same 1,123 parcels clear, the same 149,085,774 bbl are refined, the same fees are charged. **Verified in a running game rather than a unit test**, which is where the last card's bug was caught: at Campeche the card comes on day 790 quoting 36 jammed days, the player says yes, the port goes 4 ships to 6, and the following year has 11 — below the threshold, so it does not come again. It fires for producers, refiners and traders alike, once or twice in five years, and never in the Middle East, whose port jams 18 days a year and is under the bar. The US Gulf Coast is the other end: 195 days a year even after two widenings took it from 4 ships to 9, which is the plot point D66 promised. Cards A (ask) and B (contribute) come after, in that order, and both wait on the open question underneath all three — what the authority actually weighs |
 | D66 | Owner, 2026-09-27: **a region's port is finite, it does not grow, and no company can build one.** A port is public infrastructure a regional authority widens; a company may ask for it, pay towards it, or lean on the people who decide, but it cannot pour the concrete itself. **A port's limit is a count of ships a day, not a volume** (owner's correction): working a cargo occupies a place for the day whether it holds twenty thousand barrels or two million, which is why a port jams when too many small parcels are sent to it and why putting the same oil in one hull relieves it — so the vessel classes of D65 now pay twice. A second limit, reserve capacity per product in the tanks behind the port, is the other half of the owner's model and is not built yet. A port could load and discharge without limit, so nothing ever queued at a port and a closure backed up only at the strait. Terminal lanes now carry a throughput, which the capacity-aware routing already understood, so no new machinery was needed. **The owner set the rule:** a port is sized to everything its region can pump and refine when the world is made, so nothing queues on day one that did not have to — and then it stays there. Fields are drilled, capacity rises, the port does not, and a region that doubles its production finds its own port is what now holds it back. That is the intended plot point, and the owner asked for a card offering to contribute to widening one. A test holds the fixed part: 200 days of drilling leaves the Gulf's port capacity exactly where they started. **Sizing it took two measurements, and the first was misleading.** Sweeping the headroom 1.0 to 6.0, total trade saturates at 1.5 — but a world total hides who is drowning in it, and at 1.5 Campeche filled its tanks on day 15 with its port at 260,000 of 270,000, because Mexico Gulf both pumps and refines and the refinery's imports crowded out the producer's exports. The barrels it could not sell were sold by somebody else, which is why the aggregate never moved. At 2.0 the first halt is day 62, by storage pressure with the port idle, which is what §10.3 measures. Counting "days a port is full" is a misleading way to size one: more capacity let more trade happen, which then fills them |
@@ -1530,285 +1531,106 @@ it is that good and bad decisions both make money. Losses must stay avoidable by
 
 ### 12A.7 Build order
 
-1. ✅ Leases and wells under the hood: model, generation for all 19 producers from present capacity,
-   extraction summing wells, `extractionCapacity` derived, the conservation invariant, a plain well
-   board. Day-one output unchanged; golden re-recorded.
-2. ✅ Depletion and drilling: the depletion curve replaced `DECLINE_RATE`, which is deleted; drilling
-   sinks one well at a time with dry holes against `maxWells`; the "wells running dry" card names
-   the lease and its free slots, and stays silent when the ground is drilled out, since buying more
-   is stage 3's business. Two consequences worth keeping in mind: a shale lease cannot fade as fast
-   as the old constant made it, because the owner's floor is five years of reserves, so light crude
-   stays plentiful for longer; and Western Canada's producers were given fifteen days of tankage
-   rather than ten (§10.1), being landlocked with rationed takeaway, which is what their $1.80
-   tariff says from the other side. Scenario targets are **not** retuned yet: the auction moves them
-   again in stage 3, and tuning twice is waste. Measured after stage 2, meter-led, three seeds —
-   tutorials 3/3, Medium 7/9, Hard 6/9, finale 1/3, against the D44 band of almost always / ~3 in 4
-   / ~1 in 2 / ~1 in 4. P2 is harder than it was (1/3) and R3 easier (3/3); both are on the list for
-   the stage 3 retune.
-3. ✅ The auction, operating rights and the lease register. Lots are published 30 days before the
-   day they are awarded, every producer that could work one bids sealed and once, and the highest
-   takes it; the player answers a card that offers **bid strong** (1.3× worth, which clears the
-   keenest rival) or **bid steady** (0.75×, which wins only against a shy field), never a typed
-   number. A block is bought empty: no wells, no production, and the drilling still to pay for, and
-   a drilling programme goes to whichever block has room and the most oil left. Regions carry their
-   leasing class, so no lot is ever drawn on state-held ground. The bonus leaves the economy the way
-   a tariff does, recorded as a `LEASE_BONUS` fee. Ground stands in net worth at what was paid.
+Stages 1 to 5 and 3b are built. What each one settled, in one line; the reasoning behind every entry
+is in its decision (§12), and how it was measured is in the commit that did it.
 
-   Bidding is available from the register as well as from the card (D54), and a bid can be changed
-   or withdrawn until the sale.
+| | Built | What it settled |
+|---|---|---|
+| **1** | Leases and wells under the hood | Every one of the 19 producers generated from its present capacity, extraction summing wells, `extractionCapacity` derived, the conservation invariant, a well board. Day-one output unchanged |
+| **2** | Depletion and drilling | The depletion curve replaced `DECLINE_RATE`, which is deleted. Drilling sinks one well at a time with dry holes against `maxWells` |
+| **3** | The auction and the lease register | Lots published 30 days before the award, every producer that could work one bids sealed and once, highest takes it. The player answers **bid strong** (1.3× worth, clears the keenest rival) or **bid steady** (0.75×, wins only against a shy field) — never a typed number. A block is bought empty. Regions carry their leasing class, so no lot is drawn on state-held ground. The bonus leaves the economy as a `LEASE_BONUS` fee; ground stands in net worth at what was paid. Bidding is available from the register as well as the card (D54) |
+| **3b** | Operating in a second region | A lease holds its own oil (`Lease.storage`), `WellState.storage` is their sum, and each lease posts its own ask at its port's reference price with its own tank's fill and its own ground's lifting cost. `mayWork` became `mayBid` |
+| **4** | Hazards, the hint ladder, the escapes, six dilemmas | Wells are serviced, fail, wait for a crew and are paid for. Four rungs of letters, visits and questions, with no number anywhere in them; nothing said in the fortnight after a corner is cut, nothing ever to a clean company. The escapes are priced at 1.2× what the corner saved before anyone has asked, 2.5× once the questions start, 5× with a file open — so cutting corners *planning* to clean up loses obviously — and always leave a fifth on the record |
+| **5** | Standing actions | The eleven purchases (D54) are offers, not cards: always available, no deadline, no meters, no No, each in the panel where the thing lives. `TAKE_OFFER` rebuilds the offer from the world on the day it applies, so a replay buys what the player saw. The Opportunities sheet and its machinery are gone |
 
-   **Not yet, and deliberately: operating in a second region (stage 3b).** A producer sells one
-   grade from one region — `sellableStock` throws for anything else — so a lot is only offered to a
-   company whose own region and grade it matches. Until a lease holds its own oil and posts its own
-   asks, a licence unlocks nothing, and the LICENSED class only marks where a licence *would* be
-   wanted. What the auction does today is let a producer replace the reserves under its own feet,
-   which is the depletion problem stage 2 created.
-4. ✅ Hazards, the hint ladder, the escapes and the first of the deck. Wells are serviced, fail,
-   wait for a crew and are paid for (§12A.3), and the board shows each state.
+**Measured, and not to be undone.** Each of these is a thing that looks wrong until you remember why:
 
-   **The weather.** As a company's record grows, and as trouble raises the odds of it coming due,
-   the world says so — four rungs of letters, visits and questions, told as alerts and news with no
-   number anywhere in them (`content/hints.ts`, `game/hints.ts`). Nothing is said in the fortnight
-   after a corner is cut, and nothing at all is ever said to a company with a clean record. A file
-   being opened is loud enough to stop the clock. The reckoning itself now reaches the player too,
-   naming the lease, the licence or the credit line it took, and a game that ends before one arrives
-   closes with what the years afterwards brought.
+- **A shale lease cannot fade as fast as the old constant made it**, because the owner's floor is five
+  years of reserves — so light crude stays plentiful for longer, by design.
+- **Western Canada's producers have fifteen days of tankage, not ten** (§10.1): landlocked with
+  rationed takeaway, which is what their $1.80 tariff says from the other side.
+- **Tankage is shared by what each lease's wells were drilled to make** — not by what they made today,
+  or a service would cost a lease its tank farm for the morning, and not by slots: sharing by slots
+  cost 3% of the world's refining.
+- **A published survey is a reading, not the ground** — about three lots in ten are a band out, either
+  way — which is the only thing that makes buying a rival's copy worth anything.
+- **Sealed bids are lodged when the lots are published**, not opened on the day, so there is a real
+  number for somebody to tell you about.
+- **A card may give No actions of its own**, and an unanswered card applies them, because not deciding
+  is the answer where the work quietly does not get done.
+- **Raising and asking are different questions.** Raising asks "is this worth mentioning today"; a
+  panel asks "can this be done at all". Three definitions carry a `whenAsked` beside `detect`.
+- **The escapes sit under the News**, because the hint is the window, and the way out belongs beside
+  the letter that told you the window was closing. There is no panel for the record itself, and there
+  must not be.
+- **The AI needed no growth rule of its own.** `answerAsAi` reads `CARD_DEFS` directly and never read
+  the Opportunities sheet, so the catalog stays the one rulebook and both routes read it. This was
+  flagged as the fork that made stage 5 bigger than it looked, and it was not.
 
-   **The escapes.** Put it right, tell them first, or — once a file is open and nothing else is on
-   offer — retain counsel. Priced as multiples of what the corner saved (1.2× before anybody has
-   asked, 2.5× once the questions start, 5× with a file open), so cutting corners *planning* to clean
-   up loses and loses obviously. Something always remains: an escape turns a reckoning in kind into a
-   cost in money and leaves a fifth of it on the record.
-
-   **Six of the deck**, all producer cards: the service you can postpone, the manager's hunch, the
-   wells that came with the block, the reserves report, the survey that was not shot for you, and the
-   number you were not meant to hear. Three things had to change to carry them. A card may now give
-   No actions of its own, and an unanswered card applies them, because not deciding is the answer
-   where the work quietly does not get done. A published survey became a reading rather than the
-   ground — about three lots in ten are a band out, either way — which is the only thing that makes
-   buying a rival's copy worth anything. And sealed bids are lodged when the lots are published
-   rather than opened on the day, so there is a real number for somebody to tell you.
-
-   Measured over three two-year producer runs: two or three dilemmas a career, and a player who takes
-   every one of them climbs all four rungs and loses a credit line and a lease to it. Calibration
-   after all of it: first halt 70–72, utilisation 76–78%, no insolvencies. Two measures stay below
-   band — refining margin contested 3–4% against 5–40%, one producer cutting output against three —
-   and both belong to the stage 6 rebalance.
-
-   **A friend at the ministry** (dilemma 24) landed with stage 3b, since a licence is worth buying
-   only once there is ground behind it a producer could actually work.
-5. ✅ Standing actions. The eleven purchases (D54) are no longer cards: they are offers, always
-   available, with no deadline, no meters and no No, each shown in the panel where the thing lives
-   — tanks under the tanks, refinery work under the refinery, a charter under the cargo, finding a
-   deal beside the deals, a market report under the leaderboard. `TAKE_OFFER` rebuilds the offer
-   from the world on the day it applies, as answering an Opportunity always did, so a replay buys
-   what the player saw at that day's price. The Opportunities sheet, the `opportunity` flag and the
-   whole open/close/refresh machinery are gone.
-
-   **The AI needed no rule of its own.** QUESTIONS.md flagged this as the fork that made stage 5
-   bigger than it looked — rivals grow by answering these very cards, so removing them would stop
-   the campaign. It turned out `answerAsAi` never read the sheet, only the definitions, so the
-   catalog stays as the one rulebook and both routes read it.
-
-   **Raising and asking are different questions**, which the detectors had been answering with one
-   condition. Raising asks "is this worth mentioning today"; a panel asks "can this be done at
-   all". Three definitions now carry a `whenAsked` beside `detect`: more tanks (a producer may want
-   them before they are half full), leased space and a new office. A refinery keeps its net-worth
-   threshold, which is a progression rule rather than topicality, and belongs to stage 6 if it is
-   to move.
-
-   **The escapes moved with them** (§12A.6). They were reachable only from Opportunities, so they
-   would have been stranded; they now sit under the News, which is where the hints arrive. The hint
-   is the window, so the way out belongs beside the letter that told you the window was closing.
-   There is no panel for the record itself, and there must not be.
-6. The economics rebalance and company failure (§12A.8), then one retune of every scenario target
+Measured after stage 4: two or three dilemmas a career, and a player who takes every one climbs all
+four rungs and loses a credit line and a lease to it. Stage 3b's golden day 1 and day 30 were
+untouched by the whole stage, and its totals identical to the last decimal.
    and the D44 band. Split into four, and the first of them was not on the list:
 
-   a. ✅ **A meter for what you buy.** Measured 2026-09-23: the lease auction showed a player **$0
-      of profit for every option** — Yes, Maybe and No alike — because a sealed bid costs nothing
-      today and the lots are awarded thirty days out, which is exactly the projection window.
-      Drilling showed zero or less, a well taking months. So a player deciding by the numbers never
-      grew, and finished the finale mid-pack behind every rival that did.
+   a. ✅ **A meter for what you buy.** The lease auction showed **$0 of profit for every option** —
+      Yes, Maybe and No alike — because a sealed bid costs nothing today and lots are awarded thirty
+      days out, exactly the projection window; drilling showed zero or less. A player deciding by the
+      numbers never grew. A card that buys something now says what it costs to get earning, what it
+      will make, and how long that takes to come back — today's arithmetic, not a forecast. It counts
+      the drilling in the price of ground (a $9M bid is $26.6M to get earning) and it counts dry holes
+      (a programme of four is not four wells); where a thing earns no barrels of its own, it says so in
+      a sentence rather than inventing a number. It took the finale's worst rank from 18th of 20 to 5th
+      without touching the measure. **This was a blocker for the package, not a detail:** the package
+      takes payback from 44 days to 1.5–2 years, after which every growth card would project a loss and
+      nobody reading the meters would invest in anything again.
+   b. ✅ **The economics package.** `DRILL_COST` 2,000 → 15,000 (later 20,000 in e), `FACTORY_COST`
+      4,000 → 20,000, `FIXED_COST_RATE.PRODUCER` 2.00 → 7.00, `THETA` 0.05 → 0.01, and a recession — a
+      quarter off fuel demand, about once in six years, fading at a 69-day half-life, so a bad price is
+      a bad year rather than a bad fortnight. Well payback went 3 months → 28 months, unit payback
+      303 → 1,452 days, producer fixed costs 2.8% → 9.7%, companies that shrank 0.0 → 1.3–4.0 of 31.
 
-      This is a blocker for the package, not a detail: A takes payback from 44 days to 1.5–2 years,
-      after which every growth card would project a loss and nobody reading the meters would ever
-      invest in anything.
+      Four things worth keeping in mind. **The stated constant did not produce the stated effect** —
+      §12A.8 proposed `DRILL_COST` 8,000–10,000 for a 1.5–2 year payback, and 8,000 gives 6.5 months;
+      the effect was the decision and the constant an estimate, so the effect is what was built to.
+      **Lease worth had to be decoupled from `DRILL_COST`**, or raising one raised the other in
+      lockstep: ground is valued at a share of what it will make over its life less what it costs to
+      get out, against a long-run netback rather than today's spot — which is how acreage is really
+      valued, and means a bust does not reprice the ground under your feet overnight. **A harness can
+      measure the wrong barrel:** `DRILL_COST` was first set to 25,000 because `npm run economics`
+      counted capital per *drilled* barrel where the industry's $8–15 is per *delivered* barrel, dry
+      holes included — the card was right and the harness was wrong. And **a player's bid was capped at
+      all their cash where the AI's was capped at half**, so once ground got expensive both bid levels
+      collapsed to "everything I have"; both are capped at half now.
 
-      A card that buys something now says what it costs to get earning, what it will make, and how
-      long that takes to come back — today's arithmetic, not a forecast. It counts the drilling in
-      the price of ground (a $9M bid is $26.6M to get earning) and it counts dry holes (a programme
-      of four is not four wells). Where a thing earns no barrels of its own — tanks, a tier upgrade
-      — it says so in a sentence rather than inventing a number. The meter-led bot reads it too, and
-      will not buy what takes more than two years to come back, which is the judgement A is meant to
-      make hard.
-
-      Measured after it, three seeds: P2 went 0/3 to 1/3 with all three seeds landing on the target
-      instead of scattered far below it ($30.7M, $29.6M, $34.6M against $32.5M, from $25.4M, $7.8M,
-      $5.8M); the finale's worst rank went from 18th of 20 to 5th. **It also settles the finale
-      question** — QUESTIONS.md had the measure punishing growth, but `performance()` divides by
-      capacity recorded at the *start*, so buying ground can only help it. The bot was not being
-      punished for growing; it could not see that growing was worth it.
-
-      What it costs elsewhere: P3 went 1/3 to 0/3. Its goal is profit per barrel of *starting*
-      capacity over twelve months, and a company that now spends on ground has not got those barrels
-      back inside the year. That tension is real and belongs to the retune.
-   b. ✅ **The economics package: A, B and C.** `DRILL_COST` 2,000 → 15,000, `FACTORY_COST` 4,000 →
-      20,000, `FIXED_COST_RATE.PRODUCER` 2.00 → 7.00, `THETA` 0.05 → 0.01, and a recession — a
-      quarter off fuel demand, about once in six years, fading at the new 69-day half-life, so a bad
-      price is a bad year rather than a bad fortnight. Measured one letter at a time:
-
-      | | before | A | A+C | A+B+C |
-      |---|---|---|---|---|
-      | Well payback, on the card | 3 months | | | **28 months** (1.5–3 years) |
-      | Unit payback | 303 d | 1,515 d | | **1,452 d** (3–7 years) |
-      | Producer fixed costs | 2.8% | 2.8% | **9.7%** | 9.7% (8–10%) |
-      | Shock half-life | 14 d | 14 d | 14 d | **69 d** |
-      | Companies that shrank, of 31 | **0.0** | 1.7 | 2.7 | 1.3–4.0 |
-
-      **The stated constant did not produce the stated effect.** §12A.8 proposed `DRILL_COST`
-      8,000–10,000 for a 1.5–2 year payback; 8,000 gives 6.5 months. The effect was the decision,
-      the constant an estimate, so the effect is what was built to.
-
-      **Lease worth had to be decoupled from `DRILL_COST`**, as §12A.8 foresaw: worth was derived
-      from drilling cost, so raising one raised the other in lockstep. Ground is now valued at a
-      share of what it will make over its life less what it costs to get out, against a long-run
-      netback rather than today's spot — which is how acreage is actually valued, and means a bust
-      does not reprice the ground under your feet overnight.
-
-      **One correction on the way.** `DRILL_COST` was first set to 25,000 from the new `npm run
-      economics` harness, and then a card read 46 months where the harness said 23. The harness was
-      measuring capital per *drilled* barrel; the industry's $8–15 is per *delivered* barrel, dry
-      holes included. The card was right. 15,000 is the number that makes the card read true, and
-      the harness now counts dry holes.
-
-      **Two bugs fell out of it**, both about when a fee is charged against when the day is written
-      up. A card resolving unanswered charged after the day book was written, and a player's own
-      answer charged before `step` cleared the ledger — so $39,049 of well services left a company
-      with no line anywhere saying where it went. The ledger now keeps entries stamped for the tick
-      being run, and a card expires at the *start* of the day beside the answers that were given,
-      which is also the more defensible rule: a No that does something is a decision taking effect.
-
-      **And one the package exposed.** A player's bid was capped at all their cash where the AI's was
-      capped at half, so once ground got expensive both bid levels collapsed to "everything I have".
-      Both are capped at half now, and the auction card is not raised for ground a strong bid could
-      not win.
-   c. ✅ **The credit line becomes buying power.** Ground now costs more than a producer holds, and
-      the owner's answer to how it gets bought was credit. Measured first, with `npm run credit`:
-
-      | | before | after |
-      |---|---|---|
-      | The line, as a multiple of net worth | 3.7× (up to 5.0×) | **1.1×** (0.6–1.5×, trader 2.1×) |
-      | Days any company spent on the line, in a year | **0 of 365** | up to 119 |
-      | Lots that drew no bid at all | 8 of 18 | **1 of 18** |
-      | Winners who needed the line to pay | — | 11 of 17 |
-
-      Two findings behind those numbers. **Nobody had ever drawn a dollar.** Across 31 companies,
-      three seeds and a year, the line was never touched and no interest was ever paid: the only
-      thing that drew on it was the emergency top-up when cash fell below five days of costs, and
-      nothing ever fell that far. A line that is never reachable is not in the game. **And it was
-      far too big to make reachable as it stood** — five times capital assets came to 3.7 times net
-      worth, which no lender gives; at that size every block is affordable and the auction stops
-      being a decision. 1.5 × assets puts the median producer's cap within a few percent of the
-      median block's asking price, so small ground is comfortable, a medium block is a stretch that
-      costs you the line, and only a major can take a big one.
-
-      The player could already borrow for growth and the AI could not — `answerAsAi` paid for growth
-      cards from cash in hand. Both use `buyingPower` now, which is the one definition of the
-      question.
-
-      **The trader scenarios were tuned on one seed**, and it was the kindest of six. A trader who
-      answers nothing makes $-0.07M to $0.79M on T2, and the bar sat at $0.75M — inside that range,
-      so on the acceptance seed doing nothing won. T2's bar is $1.0M, and the D44 band is now checked
-      against the majority of three seeds rather than one game: a single game is a single draw. The
-      deeper finding is parked for c — on T3 the meter-led bot does *worse* than the idle one, which
-      means trader cards do not yet make a trader better.
-   d. ◑ **One retune of every scenario target and the D44 band.** Measured with both bots on three
-      seeds each. Six of the ten are now where they should be:
-
-      | | was | is | meter bot | idle bot |
-      |---|---|---|---|---|
-      | P1, R1, T1 (tutorials) | | unchanged | 3/3 | 0/3 |
-      | R2 last-quarter profit | $1.0M | **$3.0M** | 3/3 | 0/3 |
-      | R3 net worth | ×1.0 | **×1.15** | 2/3 | 0/3 |
-      | T2 profit | $1.0M | **$0.9M** | 1/3 | 0/3 |
-      | P2 net worth (after e) | ×3.15 | **×1.15** | 3/6 | 0/6 |
-
-      R3's old target was free — the idle bot managed ×1.00, ×1.02 and ×1.03 without answering a
-      card, so only the stockout condition was ever doing any work.
-
-      **Four are blocked, and three of them by the same thing: drilling cannot pay.** A lease's
-      reserves are fixed at `capacity × 365 × BAND_YEARS` when it is created, and `reshare` divides
-      that fixed pot equally among its live wells. So a drilling programme buys rate and no oil:
-
-      ```
-      six wells    reserves 5,475,000   rate 3,000 bbl/day   each well holds 912,500 bbl
-      nine wells   reserves 5,475,000   rate 4,500 bbl/day   each well holds 608,333 bbl
-      ```
-
-      $16.9M for the same block, pumped half as fast again, and every existing well now declines
-      faster because its own share shrank. The payback meter prices the new well as 500 bbl/day of
-      *new* barrels and says 22 months, which is not true of anything. In the finale the meter-led
-      bot spent $45.23M on eight programmes and finished on $21.09M of net worth against the idle
-      bot's $73.04M — ranks 18, 18 and 13 against 6, 7 and 6.
-
-      **P2 was unblocked by e. The finale was unblocked on 2026-09-25**, by diagnosing why growing
-      made the meter-led bot *worse*. Over three years it grew capacity 42% and lifted 44% more oil
-      and still finished behind:
-
-      ```
-      CAPITAL over three years   $50.14M
-      holes sunk                 6, of which 3 found oil (50%)
-      spent on dry holes         ~$25M   <- buys nothing, ever
-      ```
-
-      Half the drilling money was destroyed and the barrels the other half produced just replaced
-      it. Growth was break-even *by construction*: a well pays back in about 600 days, the finale
-      ran 1,095, and a well drilled at the midpoint never paid back at all.
-
-      Two changes, measured one at a time:
-
-      | | meter bot | idle bot |
-      |---|---|---|
-      | three years, dry-hole floor 0.45 | 6, 7, 13 | 9, 8, 6 |
-      | three years, floor **0.75** | 5, 18, 17 | 13, 13, 10 |
-      | **five years, floor 0.75** | **7, 13, 8** | 14, 14, 11 |
-
-      The floor alone did not do it — better odds help the rivals drill too, so relative rank barely
-      moved. **Length did**: the meter-led bot now beats the idle one on every seed, which had never
-      been true. Neither reaches the top three, so the band still holds.
-
-      The floor was the honest half of it anyway: 0.45 is a wildcat's odds, and a producer hits the
-      floor drilling its own established lease. Infill on proven, producing acreage succeeds about
-      nine times in ten; it is exploration that comes in at 10–40%.
-
-      **P3 was unblocked by the same change, and the note about it was wrong** (measured 2026-09-25).
-      It is **2/3 for the meter bot against 0/3 for the idle one**, not 1/3 — the dry-hole floor helped
-      here too — and for a Hard scenario against a band of about one in two, that is inside it. The
-      note had said its measure punished a company for buying ground. It does not, and the measure was
-      never what lost it:
-
-      ```
-      meter bot   ahead of the rival on all three seeds   won 2; the third drilled itself insolvent
-      idle bot    exports 10%, 0%, 0% of output           lost 3, every one on the export share
-      ```
-
-      The export condition does all the separating and the profit comparison almost none. So the
-      owner's ask to judge it on operating profit was **not built** — a second measure for a problem
-      that is not there — and the wording was fixed instead, since the goal said "earn more per barrel
-      of capacity" for a number that measures growth in net worth (D60). The comparison is now against
-      the typical producer rather than a named one, because one idle run turned on $11 per bbl/day out
-      of $8,300. **T3 stays blocked on g.**
+      Two ledger bugs fell out of it, both about when a fee is charged against when the day is written
+      up: $39,049 of well services left a company with no line anywhere saying where it went. The
+      ledger keeps entries stamped for the tick being run, and **a card expires at the start of the day
+      beside the answers that were given** — the more defensible rule anyway, since a No that does
+      something is a decision taking effect.
+   c. ✅ **The credit line becomes buying power.** Ground costs more than a producer holds, so every
+      affordability question now asks cash *plus the undrawn line*, and the line was resized from 3.7×
+      net worth to 1.1× so that being able to borrow is not the same as being able to afford anything.
+      Lots that drew no bid went from 8 of 18 to 1 of 18, and eleven of seventeen winners needed the
+      line to pay. `AUCTION.WORTH_SHARE` was left alone: ground is not too dear, buyers were too poor.
+      On the way it turned up that **nobody had ever drawn a dollar of credit** in 31 companies × 3
+      seeds × a year — the line was on every balance sheet and no rule ever reached it. The player
+      could borrow for growth and the AI could not; both use `buyingPower` now.
+   d. ◑ **One retune of every scenario target and the D44 band.** **Overtaken by measurement, 2026-09-27
+      — see the note after this list.** The bars that were set: R2's last-quarter profit $1.0M → $3.0M,
+      R3's net worth ×1.0 → ×1.15 (its old target was free — the idle bot managed ×1.00, ×1.02 and
+      ×1.03 without answering a card, so only the stockout condition was ever doing any work), T2 to
+      $0.9M and later $18M, P2 ×3.15 → ×1.15. **The trader scenarios had been tuned on one seed, and it
+      was the kindest of six**, so the D44 band is checked against a majority of three seeds rather
+      than one game: a single game is a single draw.
    e. ✅ **A well holds oil of its own.** A lease's reserves were fixed when it was created and
       `reshare` divided that one pot equally among however many wells were on it, so a drilling
-      programme bought rate and no barrels: $16.9M for the same block pumped half as fast again,
-      with every well already there declining faster because its own share had just shrunk. Drilling
-      could not pay, and the 6a payback meter said it could.
-
-      Now each well carries `initialRate × 365 × BAND_YEARS[band]` of its own — the rule `newLease`'s
-      comment already stated — and a block holds as much again for every slot nothing has been sunk
-      into. `unreached` is what a free slot is worth; a well is capped by it, so the last slots on a
-      picked-over block are worth less than the first, and `reshare` is gone. Nothing is minted: the
-      conservation invariant is untouched and a block still holds exactly what it holds.
+      programme bought rate and no barrels — $16.9M for the same block pumped half as fast again, with
+      every well already there declining faster because its own share had just shrunk. Drilling could
+      not pay, and 6a's payback meter said so. Each well now carries `initialRate × 365 ×
+      BAND_YEARS[band]` of its own — the rule `newLease`'s comment already stated — and a block holds
+      as much again for every slot nothing has been sunk into. `unreached` is what a free slot is worth
+      and a well is capped by it, so the last slots on a picked-over block are worth less than the
+      first. `reshare` is gone, nothing is minted, and the conservation invariant is untouched.
 
       | | before | after |
       |---|---|---|
@@ -1816,20 +1638,18 @@ it is that good and bad decisions both make money. Losses must stay avoidable by
       | The finale, meter bot | 18th, 18th, 13th of 20 | **11th, 14th, 6th** |
       | Well pays back in | 501 days | **668 days** (industry 1.5–3 years) |
       | Capital per barrel | $6.45 | **$8.60** (shale $8–15) |
-      | Companies that shrank, of 31 | 1.3 | **2.3** |
 
-      `DRILL_COST` went 15,000 → 20,000 with it: a well now delivers its own full share rather than a
-      diminishing slice, so the same price per bbl/day of capacity came to $6.45 a barrel, under the
-      band. The golden replay's totals are untouched by the reserves change alone — fills, barrels
-      refined and fees to the last decimal — because nothing in its thirty days drills.
+      `DRILL_COST` went 15,000 → 20,000 and the **dry-hole floor 0.45 → 0.75**, which was the honest
+      half of it: 0.45 is a wildcat's odds, and a producer hits the floor drilling its own established
+      lease, where infill on proven acreage succeeds about nine times in ten. The floor alone did not
+      fix the finale — better odds help rivals drill too — **length did**: at five years the meter-led
+      bot beats the idle one on every seed, which had never been true.
 
-      **And a bug in the bot that stands for a competent player.** Its rule was "never buy what will
-      not pay for itself", and that was the comment rather than the code: when neither answer paid
-      back inside two years both scored Infinity, the tie went to whichever looked less risky, and
-      the bot bid $35M on ground its own card said would take 56 months. Twice it drilled a company
-      to negative net worth. An option the meter prices as never paying for itself now loses to any
-      cheaper one, and where the meter does not apply at all — tanks, a tier upgrade, which earn no
-      barrels of their own — it stays out of the comparison instead of condemning the purchase.
+      And **a bug in the bot that stands for a competent player**: its rule was "never buy what will
+      not pay for itself", and that was the comment rather than the code. When neither answer paid back
+      inside two years both scored Infinity, the tie went to whichever looked less risky, and the bot
+      bid $35M on ground its own card said would take 56 months — twice drilling a company to negative
+      net worth. An option the meter prices as never paying for itself now loses to any cheaper one.
    f. ◑ **The economic climate, and then company failure.** Measured before building: nothing in this
       world could fail. Three years × three seeds gave **0 distressed company-days and 0 insolvencies**,
       and the lowest buying power anyone reached was $15M. Adding the borrowing-base redetermination
@@ -1900,36 +1720,41 @@ it is that good and bad decisions both make money. Losses must stay avoidable by
       need per-region demand the model does not have. Its feedback loop — startups lifting a city's
       economy, closures dragging it down — is worth having and pairs exactly with the winding-up
       above, so it waits for it.
-   g. **A trader's profit must need decisions.** Over six seeds on T3 the meter-led bot ends on
-      $-1.18M to $1.18M and the bot that answers nothing on $-1.11M to $1.03M — the same spread.
-      Profit comes from holding crude while the price drifts, which takes no decision at all. It is
-      §12A.8's complaint again, unfixed for traders, and no scenario bar can separate a competent
-      trader from an idle one until it is fixed. Its own step by the owner's decision (2026-09-24).
+   g. ✅ **A trader's profit must need decisions — answered by the shipping work, not by tuning
+      (measured 2026-09-27).** The complaint was real when it was made on 2026-09-24: over six seeds on
+      T3 the meter-led bot ended on $-1.18M to $1.18M and the bot that answers nothing on $-1.11M to
+      $1.03M, the same spread, because a trader's profit came from holding crude while the price drifted
+      and that takes no decision at all. The fix was going to be minimum trade sizes taken from the
+      thing that carries the oil, and it was the largest item in the project.
 
-**Stage 3b ✅ (2026-09-23): operating in a second region.** Built in two steps, on the same
-derived-aggregate pattern that let leases land without touching a card or a panel.
+      It did not need building. Re-measured after the ×20 rescale (D64), vessel classes (D65) and ports
+      (D66) — none of which was aimed at this — the gap is enormous:
 
-- **A lease holds its own oil.** `Lease.storage` and `Lease.storageEscrow`, with `WellState.storage`
-  as their sum, so every rule that reads a field's tank still reads one number. Extraction fills the
-  tank at the lease that lifted it; selling, deals and an integrated major's internal transfer draw
-  only from tanks that could actually load the crude. An invariant holds the field to the sum of its
-  ground, and saves from before carry their barrels down to the lease they came from.
-- **Tankage is shared by what each lease's wells were drilled to make** — not by what they made
-  today, or a service would cost a lease its tank farm for the morning, and not by slots, or ground
-  bought empty at auction would take half the tanks off the field pumping into them. That second one
-  was found by measurement: sharing by slots cost 3% of the world's refining.
-- **A lease posts its own ask**, at its port's reference price, with its own tank farm's fill setting
-  the discount and its own ground's lifting cost setting the floor. Deals are held back from the port
-  they load at, not from the company at large. Extraction charges each lease's base cost at its own
-  region's wages.
-- **`mayWork` became `mayBid`** (plus the grade a producer is set up for). A licence now unlocks what
-  the LICENSED class always marked, the leaderboard's *Multiple* can mark a producer, and dilemma 24
-  became a card worth answering.
+      | Three seeds | meter-led bot | answers nothing |
+      |---|---|---|
+      | T1, offices of 2 | 3 of 2 every time, **3/3 won** | 1 of 2 every time, 0/3 |
+      | T2, profit against $18.0M | $24.6M, $42.5M, $20.8M, **3/3 won** | $-10.7M, $0.9M, $0.3M, 0/3 |
+      | T3, profit against $20.0M | $12.3M, $12.7M, $52.0M, **1/3 won** | $0.7M, $-3.2M, $-0.7M, 0/3 |
 
-Measured: day 1 and day 30 of the golden replay are untouched by the whole stage, and its totals are
-identical to the last decimal — the property the first step was designed to have while every
-producer still worked one region, and still true after the second, because the lots that now change
-hands across a border are bought empty. Calibration unchanged.
+      **Why it worked:** freight a barrel now depends on the size of the parcel it moves in, and a port
+      works a fixed number of ships a day whatever each cargo holds. Breaking bulk is a trader's whole
+      business, and until D65 the world had no way to price it — so the lever existed and paid nothing.
+      Buying big and selling small is now the trade, which is what the owner's direction of 2026-09-25
+      said it should be, reached from the physical end rather than by putting floors on order sizes.
+
+      **What this leaves:** the minimum-trade-size model is no longer needed for traders to have a game,
+      and is deferred rather than dropped. T3 at 1/3 is inside the D44 band for a Hard scenario (about
+      one in two) but at its edge, and two of the three seeds miss a $20M bar with $12.3M and $12.7M —
+      a bar worth one more look in d, not a design problem.
+
+**Stage 3b ✅ (2026-09-23): operating in a second region.** A lease holds its own oil, shares the
+field's tankage by what its wells were drilled to make, posts its own ask at its port's reference
+price, and `mayWork` became `mayBid` — so a licence unlocks what the LICENSED class always marked and
+dilemma 24 became a card worth answering. Saves from before carry their barrels down to the lease they
+came from. Measured: day 1 and day 30 of the golden replay were untouched by the whole stage and its
+totals identical to the last decimal, because the lots that now change hands across a border are
+bought empty. The reasons behind the tankage rule and the second step are in §12A.7's
+"measured, and not to be undone" list above.
 
 ## 12C. Your Cargo on the Map (built, 2026-09-27 — D63)
 
