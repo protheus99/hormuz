@@ -265,6 +265,13 @@ export interface Config {
     readonly PER_SHIP: number;
     /** The smallest port, in ships a day, for a terminal with no production or refining of its own. */
     readonly MIN_SHIPS: number;
+    /**
+     * What a quiet word with the port committee costs, as a share of net worth with a floor, and
+     * what it buys (§12A.6). Small enough to tempt: the point of the card is not the money.
+     */
+    readonly FAVOUR: { readonly SHARE: number; readonly MIN: number; readonly SHIPS: number };
+    /** Days a port must have turned ships away, in the last year, before anybody raises it. */
+    readonly FAVOUR_JAMMED: number;
   };
   readonly PROJECTION_TICKS: number;
 }
@@ -541,6 +548,8 @@ export const DEFAULT_CONFIG: Config = deepFreeze({
   PORT: {
     HEADROOM: 2.0,
     PER_SHIP: 100_000,
+    FAVOUR: { SHARE: 0.01, MIN: 5_000_000, SHIPS: 2 },
+    FAVOUR_JAMMED: 20,
     // The Red Sea coast pumps and refines nothing: it exists to take the Gulf's bypass pipeline, so
     // it still has to be able to work a ship or two a day.
     MIN_SHIPS: 2,

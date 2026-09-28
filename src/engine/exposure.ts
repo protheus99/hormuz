@@ -40,7 +40,8 @@ export type CornerKind =
   | 'RESERVES_RESTATED'   // last year's reserves figure published again over the engineer's
   | 'LICENCE_FEE'         // a consultancy fee that moved a licence to the front of the queue
   | 'SURVEY_BOUGHT'       // a copy of a survey shot for somebody else
-  | 'BID_OVERHEARD';      // a sealed bid nobody was meant to repeat
+  | 'BID_OVERHEARD'       // a sealed bid nobody was meant to repeat
+  | 'PORT_FAVOUR';        // a consultancy fee that moved a port up the authority's list
 
 /** One entry on the record. Engine-only: no part of this ever reaches a player until it lands. */
 export interface ExposureItem {

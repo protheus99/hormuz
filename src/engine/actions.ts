@@ -18,7 +18,7 @@ import { recordFee } from './economics';
 import {
   asEdgeId, makeDealId, WellStatus, type Agent, type AgentId, type CharterSize, type ChokepointName, type DealId, type NodeName, type PlantState, type RegionName, type Tick, type Well,
 } from './model';
-import { setReservation } from './transport';
+import { setReservation, widenPort } from './transport';
 import type { World } from './world';
 import { LANES } from '../data/lanes';
 import { NODE_FOR_GRADE } from '../data/nodes';
@@ -96,6 +96,8 @@ export type Action =
   | { readonly kind: 'LEASE'; readonly region: RegionName; readonly capacity: number; readonly days: number }
   /** Keeps space already leased in a region for longer, rather than renting a second lot of it. */
   | { readonly kind: 'RENEW_LEASE'; readonly region: RegionName; readonly days: number }
+  /** The authority widens a region's port. A company never does this itself (§3.5, D66). */
+  | { readonly kind: 'WIDEN_PORT'; readonly region: RegionName; readonly ships: number }
   | { readonly kind: 'OPEN_OFFICE'; readonly region: RegionName }
   | { readonly kind: 'SELL_AT_SEA'; readonly share: number }
   | { readonly kind: 'CHARTER'; readonly size: CharterSize; readonly days: number }
@@ -166,6 +168,10 @@ export function actionCost(w: World, agentId: AgentId, action: Action): { readon
       const soonest = endingSoonest(w, agentId, action.region);
       return { now: 0, total: soonest === undefined ? 0 : leaseRate(w, action.region) * soonest.capacity * action.days };
     }
+    case 'WIDEN_PORT':
+      // The widening itself costs the company nothing: the authority pays for the port. What a
+      // company spends to bring it about is charged by whatever action does the spending.
+      return { now: 0, total: 0 };
     case 'OPEN_OFFICE':
       return { now: cfg.OFFICE_COST.OPEN, total: cfg.OFFICE_COST.OPEN };
     case 'CHARTER':
@@ -388,6 +394,10 @@ export function applyAction(w: World, agentId: AgentId, action: Action): void {
       w.leases = w.leases.map((l) => (l === soonest
         ? { ...l, rate, grace: false, untilTick: (l.grace === true ? tick + days - 1 : l.untilTick + days) as Tick }
         : l));
+      return;
+    }
+    case 'WIDEN_PORT': {
+      widenPort(w.ports, action.region, action.ships);
       return;
     }
     case 'OPEN_OFFICE': {

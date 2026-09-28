@@ -111,6 +111,7 @@ const FOUND: Readonly<Record<CornerKind, string>> = {
   LICENCE_FEE: 'The fee you paid to move a licence up the queue has come out.',
   SURVEY_BOUGHT: 'It has come out that you bought a copy of a survey shot for somebody else.',
   BID_OVERHEARD: 'It has come out that you were told a sealed bid, and bid against it.',
+  PORT_FAVOUR: 'The consultancy you retained while the port committee was ranking the ports has been looked into.',
 };
 
 /**

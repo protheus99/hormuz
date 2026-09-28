@@ -266,7 +266,7 @@ export function step(w: World): TickReport {
   runAuction(w, tick);
   const routes = new LaneRouteProvider(w.graph);
   routes.resetTick();
-  resetPorts(w.ports);
+  resetPorts(w.ports, tick);
 
   // Phase 1: extraction.
   const byAgent: Partial<Record<AgentId, { extracted: number; refined: number; retail: number }>> = {};

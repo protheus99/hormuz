@@ -18,7 +18,7 @@ import { refinerQuote, type MarketView } from '../../engine/rules';
 import { bandFor, bidAmount, leasableRegions, mayWork, topRivalBid, worthTo } from '../../engine/auction';
 import { describe as describeEntry, escapeCost, escapeOffered, nextEntry, rungOf, type CornerKind, type EscapeKind, type ExposureTarget } from '../../engine/exposure';
 import { bestLeaseToDrill } from '../../engine/leases';
-import { avoidFor, findRoute, LaneRouteProvider } from '../../engine/transport';
+import { avoidFor, findRoute, jammedDays, LaneRouteProvider } from '../../engine/transport';
 import { netWorth, type World } from '../../engine/world';
 import { money } from '../../content/cards';
 import type { AdvisorMemory, CardType, OptionEffect } from './types';
@@ -1253,6 +1253,51 @@ export const CATALOG: readonly CardDef[] = [
           ],
         },
         maybe: null,
+      };
+    },
+  },
+
+  {
+    // A port is public infrastructure: the authority widens it, and a company can only ask, pay
+    // towards it, or lean on whoever decides (§3.5, D66). This is the third of those, and it is a
+    // dilemma of the usual shape (§12A.6) - what it buys is real and arrives at once, what it costs
+    // is a line on a record the player is never shown.
+    //
+    // Raised only where the congestion is real: a port that has turned ships away on FAVOUR_JAMMED
+    // days of the past year. A card offering to fix a problem the player does not have is not a
+    // decision, and one that arrives before they have felt the queue means nothing.
+    type: 'PORT_FAVOUR', kinds: ALL, raised: true, operating: false, dilemma: true,
+    detect: ({ w, me, roll }) => {
+      const port = w.ports[me.region];
+      const jammed = jammedDays(w.ports, me.region);
+      if (port === undefined || jammed < w.config.PORT.FAVOUR_JAMMED) return null;
+      if (roll() >= MINISTRY_ODDS) return null;
+      const cost = Math.max(w.config.PORT.FAVOUR.MIN, w.config.PORT.FAVOUR.SHARE * netWorth(w, me));
+      if (cost > me.cash - me.cashReserved) return null;
+      return {
+        key: `port-favour:${String(me.region)}`,
+        data: {
+          region: REGIONS[me.region].displayName, regionId: me.region,
+          jammed, cost: money(cost), costNum: cost,
+        },
+      };
+    },
+    options: ({ w }, s) => {
+      const cost = Number(s.data.costNum);
+      const region = s.data.regionId as RegionName;
+      return {
+        yes: {
+          actions: [
+            { kind: 'PAY', amount: cost, what: 'FAVOUR' },
+            { kind: 'WIDEN_PORT', region, ships: w.config.PORT.FAVOUR.SHIPS },
+            // What it is worth is not the fee: it is a port that can work more ships for the rest of
+            // the game, for everybody in the region. The record is priced against that, not the
+            // lunch - a cheap corner that buys a great deal is the dangerous kind.
+            corner(w, cost * w.config.PORT.FAVOUR.SHIPS, { kind: 'CASH' }, 'PORT_FAVOUR'),
+          ],
+        },
+        maybe: null,
+        no: { actions: [] },
       };
     },
   },

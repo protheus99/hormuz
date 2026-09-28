@@ -10,6 +10,7 @@ import { EdgeMode } from '../../src/engine/enums';
 import { createWorld, run } from '../../src/engine/world';
 import { GLOBAL_PORTFOLIO } from '../../src/data/portfolios';
 import { DEFAULT_CONFIG } from '../../src/engine/config';
+import { jammedDays, resetPorts, widenPort, type Ports } from '../../src/engine/transport';
 
 const touching = (place: string) => LANES.filter((l) => l.a === place || l.b === place);
 
@@ -69,6 +70,48 @@ describe('lane table (spec §3.5)', () => {
       // Never more ships worked than the port can take, on any day it has run.
       expect(port?.used ?? 0, region).toBeLessThanOrEqual(port?.ships ?? 0);
     }
+  });
+
+  it('remembers a trailing year of jammed days, not a lifetime tally', () => {
+    // A card that offers to get a port widened quotes this number to the player, so it has to mean
+    // what the words say. A lifetime count only climbs: a port widened years ago would still be
+    // described as turning ships away, and the sentence would be a lie.
+    const ports: Ports = { Middle_East: { ships: 1, used: 0 } };
+    // Two years of a permanently full port: every day jams, but the memory is only ever a year's.
+    for (let tick = 1; tick <= 730; tick++) {
+      const p = ports.Middle_East;
+      if (p !== undefined) p.used = 1;
+      resetPorts(ports, tick);
+    }
+    // A year at least, and not much more: everything older than that has fallen off the end.
+    expect(jammedDays(ports, 'Middle_East')).toBeGreaterThanOrEqual(365);
+    expect(jammedDays(ports, 'Middle_East')).toBeLessThan(400);
+
+    // And it forgets: a year of room to spare and the port has nothing to complain about.
+    for (let tick = 731; tick <= 1125; tick++) resetPorts(ports, tick);
+    expect(jammedDays(ports, 'Middle_East')).toBe(0);
+  });
+
+  it('counts a jam only when a port actually ran out of places', () => {
+    const ports: Ports = { Middle_East: { ships: 3, used: 0 } };
+    for (const used of [0, 1, 2]) {
+      const p = ports.Middle_East;
+      if (p !== undefined) p.used = used;
+      resetPorts(ports, 1);
+    }
+    expect(jammedDays(ports, 'Middle_East')).toBe(0);
+  });
+
+  it('widens a port for good and keeps what it remembers', () => {
+    const w = createWorld({ seed: 'ports', portfolio: GLOBAL_PORTFOLIO, config: DEFAULT_CONFIG });
+    run(w, 40);
+    const before = w.ports.Middle_East?.ships ?? 0;
+    const remembered = jammedDays(w.ports, 'Middle_East');
+    widenPort(w.ports, 'Middle_East', 2);
+    expect(w.ports.Middle_East?.ships ?? 0).toBe(before + 2);
+    expect(jammedDays(w.ports, 'Middle_East')).toBe(remembered);
+    run(w, 10);
+    expect(w.ports.Middle_East?.ships ?? 0).toBe(before + 2);
   });
 
   it('keeps transit and freight positive, and capacity only on pipelines', () => {

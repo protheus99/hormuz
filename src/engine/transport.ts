@@ -145,7 +145,25 @@ export interface PortState {
   readonly ships: number;
   /** How many have been worked today. Reset every tick. */
   used: number;
+  /**
+   * Days this port turned a ship away, by month, newest first, covering the past year.
+   *
+   * A card that offers to get a port widened has to say how bad it has been, and both of the easy
+   * numbers are the wrong one: "full today" is nothing, because a port is full for an afternoon all
+   * the time, and a lifetime tally only ever grows, so it would still be quoting a bad decade to a
+   * port that was widened years ago. A trailing year is the number a committee would use. Absent in
+   * saves written before ports remembered.
+   */
+  jammed?: number[];
 }
+
+/**
+ * Months of jam history a port keeps, and how long a month is for that purpose. Thirteen, not
+ * twelve: the newest bucket is the month in progress, so twelve would be eleven whole months plus
+ * however far into this one we are, and the card would be quoting less than the year it claims.
+ */
+const JAM_MONTHS = 13;
+const JAM_MONTH = 30;
 
 export type Ports = Partial<Record<RegionName, PortState>>;
 
@@ -184,9 +202,36 @@ export function usePort(ports: Ports, region: RegionName): void {
   if (p !== undefined) p.used += 1;
 }
 
-/** A new day, and every port is clear again (spec §5 phase 0). */
-export function resetPorts(ports: Ports): void {
-  for (const p of Object.values(ports)) if (p !== undefined) p.used = 0;
+/** Days this port turned a ship away in the last twelve months. */
+export function jammedDays(ports: Ports, region: RegionName): number {
+  let days = 0;
+  for (const month of ports[region]?.jammed ?? []) days += month;
+  return days;
+}
+
+/**
+ * A new day, and every port is clear again (spec §5 phase 0). Yesterday is counted on the way past:
+ * a port that ran out of places is a day a company could not ship, and that is what a widening card
+ * is allowed to talk about. The oldest month falls off the end, so the count is always a year's.
+ */
+export function resetPorts(ports: Ports, tick: number): void {
+  const newMonth = tick % JAM_MONTH === 0;
+  for (const p of Object.values(ports)) {
+    if (p === undefined) continue;
+    const jam = (p.jammed ??= [0]);
+    if (newMonth) {
+      jam.unshift(0);
+      if (jam.length > JAM_MONTHS) jam.length = JAM_MONTHS;
+    }
+    if (p.used >= p.ships) jam[0] = (jam[0] ?? 0) + 1;
+    p.used = 0;
+  }
+}
+
+/** Widens a port for good. Only a regional authority does this; a company can pay towards it. */
+export function widenPort(ports: Ports, region: RegionName, ships: number): void {
+  const p = ports[region];
+  if (p !== undefined) ports[region] = { ships: p.ships + ships, used: p.used, jammed: p.jammed ?? [0] };
 }
 
 export function setChokepoint(

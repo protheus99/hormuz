@@ -9,19 +9,24 @@
 import { describe, expect, it } from 'vitest';
 import { runGoldenReplay } from './replay';
 
-// S0 through the real tick orchestrator, re-recorded in Node 24 on 2026-09-27: a port's limit is now
-// a count of ships a day rather than a volume (§3.5, D66), so which trades clear on a busy day
-// changes and the run differs throughout. Working a cargo takes a place whether it is twenty
-// thousand barrels or two million, which is why a port jams on many small parcels and why putting
-// the same oil in one hull relieves it.
+// S0 through the real tick orchestrator, re-recorded in Node 24 on 2026-09-27: a port now remembers
+// a trailing year of the days it turned a ship away, by month, instead of one lifetime tally, so the
+// shape of the state changes and every fingerprint with it. Nothing the engine does changed: the
+// run still clears 1,123 parcels, refines 149,085,774 bbl and charges the same fees to the barrel,
+// which is what makes this bookkeeping rather than behaviour.
+//
+// Recorded the same day for the ports themselves: a port's limit is a count of ships a day rather
+// than a volume (§3.5, D66), so which trades clear on a busy day changed. Working a cargo takes a
+// place whether it is twenty thousand barrels or two million, which is why a port jams on many small
+// parcels and why putting the same oil in one hull relieves it.
 //
 // Recorded earlier for vessel classes (§7.4, D65), the ×20 rescale, and weather at sea.
 // Last verified identical in Chrome 152 (`npm run golden:browser`) on 2026-09-19; re-check in a
 // browser at the end of each phase.
 const GOLDEN = {
-  day1: 'f2908ce485380c176e65b15f370e791c',
-  day30: 'e236ccec2917cf1d537048c290160891',
-  final: '1ce0dd8566ff6062061aab3bfc816b0e',
+  day1: '76238ffd514e3ea22a9327f64adabe10',
+  day30: '90af8b89ae4ec65e3616638522c8a40b',
+  final: '85d54019baf1376d9b62a0f486fe6f58',
 };
 
 describe('golden replay', () => {

@@ -249,6 +249,16 @@ const TEXT: Readonly<Record<string, CardText>> = {
       + 'your crude are standing in it. Space you keep past the term costs double until you empty it.',
     yes: 'Keep it for another 90 days.', maybe: 'Keep it for another 30 days.', no: 'Let it go.',
   },
+  // A port is widened by the authority that owns it, never by a company. What is on offer here is
+  // not the port: it is a word with the man who ranks them. The card says what is certain - the
+  // congestion, the fee, the committee - and nothing at all about what it puts on the record.
+  PORT_FAVOUR: {
+    title: 'A man from the ministry suggests lunch',
+    situation: '{region}’s port turned ships away on {jammed} days this past year, and the committee '
+      + 'that ranks the ports is sitting again. He does not ask you for anything. He mentions, twice, a '
+      + 'consultancy his brother runs, and what it costs.',
+    yes: 'Retain the consultancy for {cost}.', maybe: '', no: 'Pay for lunch and nothing else.',
+  },
   SECOND_REFINERY: {
     title: 'Build a second refinery',
     situation: 'A {capacity}-barrel-a-day refinery in {region} would give you a second market to sell into and a second source of crude. It takes {ticks} days to build.',
