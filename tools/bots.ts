@@ -1,21 +1,37 @@
 // Scripted bots for the campaign checks (spec G4.7): each answers every card the same way.
 
 import { GameSession, PLAYER_ID, SCENARIOS, type ScenarioId } from '../src/game';
+import { CARD_DEFS } from '../src/game/cards/catalog';
+import type { CardType } from '../src/game/cards/types';
 
 /**
- * How a bot answers: always Yes, always No, or by the meters — the option with the best projected
- * profit, preferring the safer one when two are close. The meter bot stands in for a competent
- * player, so "decisions matter" can be told apart from "saying yes to everything".
+ * How a bot answers: always Yes, always No, by the meters, or by the meters while declining every
+ * dilemma. `METER` takes the option with the best projected profit, preferring the safer one when
+ * two are close, so "decisions matter" can be told apart from "saying yes to everything".
  *
  * It also reads a payback (§12A.8). It has to: thirty days of profit is blank on everything a
  * company buys, so a bot with only those meters never drilled and never bid, and finished the
  * finale mid-pack behind every rival that did. A thing that pays for itself inside
  * `WORTH_BUYING_MONTHS` is worth buying; past that it is not, which is the judgement the economics
  * package is meant to make hard.
+ *
+ * **`HONEST` exists because `METER` stopped standing for a competent player** (measured 2026-09-27).
+ * A dilemma hides its cost from the meters on purpose — the card shows what the corner buys and never
+ * what it puts on the record (§12A.6) — so a bot that reads only meters cuts *every* corner in a deck
+ * that has grown to seven of them, climbs all four rungs and pays for it. On P2 that was worth about
+ * $850M: `METER` won 0 of 3 seeds on $316M, $364M and $1,163M, and `HONEST` won 2 of 3 on $1,167M,
+ * $1,236M and $1,211M against the same $1,197M bar. So the D44 band is judged on `HONEST`, which is a
+ * competent player who does not cut corners, and `METER` now measures what cutting them costs — a
+ * useful number in its own right, and the only one that shows the reckonings working.
  */
-export type BotPolicy = 'YES' | 'NO' | 'METER';
+export type BotPolicy = 'YES' | 'NO' | 'METER' | 'HONEST';
 
 const RISK_RANK = { LOW: 0, MEDIUM: 1, HIGH: 2 } as const;
+
+interface BotCard {
+  readonly type: CardType;
+  readonly options: readonly BotOption[];
+}
 
 interface BotOption {
   readonly choice: 'YES' | 'NO' | 'MAYBE';
@@ -30,8 +46,10 @@ const THIN_SUPPLY_DAYS = 4;
 /** How long a company will wait for something it buys to pay for itself. Two years. */
 const WORTH_BUYING_MONTHS = 24;
 
-export function answerFor(card: { readonly options: readonly BotOption[] }, policy: BotPolicy): 'YES' | 'NO' | 'MAYBE' {
-  if (policy !== 'METER') return card.options.find((o) => o.choice === policy && o.affordable)?.choice ?? 'NO';
+export function answerFor(card: BotCard, policy: BotPolicy): 'YES' | 'NO' | 'MAYBE' {
+  // A corner is never cut by an honest player, whatever the meters make of it.
+  if (policy === 'HONEST' && CARD_DEFS.get(card.type)?.dilemma === true) return 'NO';
+  if (policy !== 'METER' && policy !== 'HONEST') return card.options.find((o) => o.choice === policy && o.affordable)?.choice ?? 'NO';
   const usable = card.options.filter((o) => o.affordable);
   const days = (o: BotOption) => (o.impact?.supply.unit === 'days' ? o.impact.supply.value : Infinity);
   const thin = usable.some((o) => days(o) < THIN_SUPPLY_DAYS);

@@ -43,11 +43,41 @@ portfolios, the payback meter, every scenario target and the calibration band. F
 was the piece that made the rest mean anything and is built; storage comes before minimums, because
 minimums without tanks halt every small producer in the world.
 
-**Four of ten campaign scenarios are outside the D44 band**, and one retune is owed (stage 6d). The
-finale's band now also has to be set against a deliberately reckless AI: rivals buy ground and drill
-on fixed per-look odds whatever it costs, a player reading the meters declines a three-year payback,
-and the owner's decision (2026-09-27) is to leave the AI as it is and set the band against that. This
-retune has to follow the trader measurement above, because a trader's economics move T2 and T3.
+**The campaign is two goals away, not a rebalance away** (measured 2026-09-28, three seeds each,
+`npm run campaign -- HONEST NO`). Nine of the ten scenarios separate a competent player from one who
+decides nothing — the idle bot wins **0 of 3 on every scenario in the game** — and eight are inside the
+D44 band:
+
+| | honest player | idle | band | |
+|---|---|---|---|---|
+| P1, R1, T1 tutorials | 3/3 | 0/3 | almost always | ✅ |
+| P2 medium | 2/3 ($1,167M, $1,236M, $1,211M of $1,197M) | 0/3 | ~3 in 4 | ✅ |
+| R2 medium | 2/3 | 0/3 | ~3 in 4 | ✅ |
+| T2 medium | 3/3 ($24.6M, $42.5M, $20.8M of $18.0M) | 0/3 | ~3 in 4 | ✅ generous |
+| R3 hard | 2/3 | 0/3 | ~1 in 2 | ✅ |
+| T3 hard | 1/3 ($12.3M, $12.7M, $52.0M of $20.0M) | 0/3 | ~1 in 2 | ✅ at the edge |
+| **P3 hard** | **0/3** | 0/3 | ~1 in 2 | ❌ one condition |
+| **Finale** | **0/3** (rank 17, 13, 13 of 20) | 0/3 (14, 13, 12) | ~1 in 4 | ❌ |
+
+**P3 is blocked by a single condition that nobody has ever met.** "Export at least 50% of your output
+while the strait is closed" reads **0% of output in all four policies** — always Yes, always No, meter-led
+and honest alike. The closure is precisely what carried those exports, and if the bypass cannot take
+them then no decision reaches the goal. The intended lever is presumably reserving bypass capacity
+before the strait shuts; either it is not offered as a decision, or it cannot move the number. Nothing
+else in P3 is wrong: growth per barrel of capacity is $-26, $2,052 and $7,176 against a typical
+producer's $4,885, $6,404 and $6,519, which is a fair fight.
+
+**The finale asks for the top 3 of 20 and a careful player lands 13th to 17th.** The owner's decision of
+2026-09-27 stands — rivals are left unable to read a payback, and are therefore structurally more
+reckless — so the bar has to be set against that rather than the AI taught to behave. Either the rank
+needed comes down, or the measure changes from rank to something a company can control.
+
+**The meter-led bot stopped standing for a competent player, and the harness now says so.**
+A dilemma hides its cost from the meters on purpose, so a bot reading only meters cuts every
+corner in a deck that has grown to seven of them. On P2 that was worth about $850M: `METER` won
+0 of 3 on $316M, $364M and $1,163M where `HONEST` won 2 of 3 on $1,167M, $1,236M and $1,211M.
+`npm run campaign -- HONEST` is what the band is judged on; the gap between the two policies is
+what corner-cutting costs, and the only measurement that shows the reckonings working.
 
 **The refiner tutorial has to explain FOB** (owner, 2026-09-21). A producer is paid the day its crude
 is loaded and never thinks about the voyage, which is why the producer scenarios can leave it unsaid.
