@@ -115,9 +115,21 @@ export const SCENARIOS: readonly ScenarioData[] = [
   {
     id: 'P3', title: 'Gulf Giant', tutorial: false, level: 'HARD', playType: 'PRODUCER', region: 'Middle_East', lengthDays: 365, difficulty: 'NORMAL', randomEvents: false,
     blurb: 'You pump crude in the Persian Gulf. Trouble is brewing in the Strait of Hormuz.',
+    // The Oman line is down altogether and the Red Sea line runs at a third, which leaves 40,000 bbl a
+    // day around Hormuz for the whole Gulf - enough to keep half of one company's output moving if it
+    // reserves space, and nowhere near enough for everybody.
+    //
+    // **Two bugs lived in these two numbers.** They stayed at 1,500 and 500 through the ×20 rescale
+    // (D64), which left each line at about 1% of itself rather than a fraction, so nothing could leave
+    // the Gulf while Hormuz was shut and the goal below read 0% of output under every policy. And the
+    // fix alone was not enough: a company may reserve `MAX_RESERVATION_SHARE` (half) of a line and
+    // orders are whole 20,000 bbl lots, so half of 30,000 floored to nothing and `EXPORT_CLOSURE_RISK`
+    // - the card that reserves the space this scenario is built around - could never be raised at all.
+    // One line at 40,000 and the other at nothing keeps the same 40,000 a day and makes half of it
+    // exactly one lot, so the decision the scenario teaches exists again (found 2026-09-29).
     script: [
-      { tick: 5, engine: { tick: 5, kind: 'PIPELINE_CAPACITY', edgeId: 'bypass_red_sea', capacity: 1_500 }, news: { headline: 'Repairs cut flows on the pipelines around Hormuz', body: 'Both bypass pipelines run at a fraction of their capacity this year.' } },
-      { tick: 5, engine: { tick: 5, kind: 'PIPELINE_CAPACITY', edgeId: 'bypass_oman', capacity: 500 } },
+      { tick: 5, engine: { tick: 5, kind: 'PIPELINE_CAPACITY', edgeId: 'bypass_red_sea', capacity: 40_000 }, news: { headline: 'Repairs cut flows on the pipelines around Hormuz', body: 'The Oman line is shut for the year and the Red Sea line runs at a third of its capacity.' } },
+      { tick: 5, engine: { tick: 5, kind: 'PIPELINE_CAPACITY', edgeId: 'bypass_oman', capacity: 0 } },
       hormuzCycle(40, 35),
     ],
     goalText: 'Keep at least half your output flowing while Hormuz is closed, and grow your company by more, for its size, than most Gulf producers.',

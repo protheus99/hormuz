@@ -59,13 +59,20 @@ D44 band:
 | **P3 hard** | **0/3** | 0/3 | ~1 in 2 | ❌ one condition |
 | **Finale** | **0/3** (rank 17, 13, 13 of 20) | 0/3 (14, 13, 12) | ~1 in 4 | ❌ |
 
-**P3 is blocked by a single condition that nobody has ever met.** "Export at least 50% of your output
-while the strait is closed" reads **0% of output in all four policies** — always Yes, always No, meter-led
-and honest alike. The closure is precisely what carried those exports, and if the bypass cannot take
-them then no decision reaches the goal. The intended lever is presumably reserving bypass capacity
-before the strait shuts; either it is not offered as a decision, or it cannot move the number. Nothing
-else in P3 is wrong: growth per barrel of capacity is $-26, $2,052 and $7,176 against a typical
-producer's $4,885, $6,404 and $6,519, which is a fair fight.
+**P3 is fixed** (2026-09-29). Two bugs lived in two numbers. The scripted bypass capacities stayed at
+1,500 and 500 through the ×20 rescale — about 1% of each line instead of a fraction — so with a lot at
+20,000 bbl nothing could leave the Gulf while Hormuz was shut, and the goal read 0% of output under
+every policy. Rescaling them was not enough on its own: a company may reserve half a line and orders
+are whole lots, so half of 30,000 floored to nothing and `EXPORT_CLOSURE_RISK` — the card that reserves
+the space the whole scenario is built around — could never be raised. One line at 40,000 and the other
+shut keeps the same 40,000 bbl a day around Hormuz and makes half of it exactly one lot.
+
+Measured over six seeds afterwards: a careful player wins **2/6** with exports of 50%, 53%, 33%, 51%,
+51% and 3%, an idle one **0/6** on 0–9%, and one who says yes to everything **0/6** on 20–49% with
+growth down to $-39,788 per bbl/day. Four seeds now clear the export bar and two of those lose on
+growth instead — reserving space keeps you flowing and costs you the year, which is the trade-off the
+scenario was always meant to pose. At 2 of 6 it sits at the hard edge of the ~1-in-2 band; the bars were
+left alone rather than tuned to six samples.
 
 **The finale's rank came down, 3 to 8** (owner, 2026-09-29; D71), and the number was measured: over six
 seeds a careful player finishes 4th, 8th, 13th, 13th, 14th and 17th against an idle one's 9th, 12th,
