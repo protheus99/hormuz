@@ -109,10 +109,11 @@ the moment either moves: either honour a per-card deadline or delete the field.
 
 ## Deferred by decision, not forgotten
 
-**Reserve capacity per product at a port** — the second half of the owner's port model (D66). A port's
-ships-a-day limit is built; how much of each product can *stand* at a port is not. It creates
-back-pressure into producer tanks, and it is the largest remaining change to where oil lives, so it
-touches the conservation invariant.
+**Reserve capacity per product at a port — cut by the owner, 2026-09-29.** The second half of the
+port model of D66: a port's ships-a-day limit is built, and how much of each product can *stand* at a
+port is not, and now will not be. It was the largest remaining change to where oil lives, so it
+touched the conservation invariant, and the ships-a-day limit already produces the congestion the
+owner asked for. Not a deferral — a cut. If it ever comes back it starts from D66's note, not here.
 
 **Port card B, contributing to a widening** — the third of the three port cards (D67). Needs a pledge
 held and refunded on a deadline, the one new mechanism among them, and it is silent in the eleven
