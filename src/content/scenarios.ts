@@ -236,8 +236,15 @@ export const SCENARIOS: readonly ScenarioData[] = [
     id: 'FINALE', title: 'The Strait', tutorial: false, level: 'HARD', playType: null, region: null, lengthDays: 1825, difficulty: 'NORMAL', randomEvents: true,
     blurb: 'Five years. A full Hormuz crisis, another strait in trouble without warning, and everything else the market throws at you.',
     script: [hormuzCycle(400, 40)],
-    goalText: 'Finish in the top three of your type, by profit per barrel of capacity (traders: by growth).',
-    goal: [{ kind: 'RANK_TOP', places: 3 }],
+    // Eight, not three, and the number was measured rather than chosen (owner, 2026-09-29; D71). Over
+    // six seeds a competent player who does not cut corners finishes 4th, 8th, 13th, 13th, 14th and
+    // 17th of twenty, and one who answers nothing finishes 9th, 12th, 12th, 13th, 13th and 14th - so
+    // the two are barely a place apart on average, because rivals grow by drilling whatever it costs
+    // and a player reading a payback declines the same ground. Eight is the most places that still
+    // leaves the idle bot winning none of six, while a careful one takes two: about one game in four,
+    // which is the D44 band for the finale.
+    goalText: 'Finish in the top eight of your type, by profit per barrel of capacity (traders: by growth).',
+    goal: [{ kind: 'RANK_TOP', places: 8 }],
     milestones: [
       { label: 'Stay solvent for five years', condition: { kind: 'SOLVENT' }, reward: { report: true } },
       { label: 'Double your net worth', condition: { kind: 'NET_WORTH', times: 2 }, reward: { cash: 20_000_000 } },

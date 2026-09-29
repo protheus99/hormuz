@@ -67,10 +67,18 @@ before the strait shuts; either it is not offered as a decision, or it cannot mo
 else in P3 is wrong: growth per barrel of capacity is $-26, $2,052 and $7,176 against a typical
 producer's $4,885, $6,404 and $6,519, which is a fair fight.
 
-**The finale asks for the top 3 of 20 and a careful player lands 13th to 17th.** The owner's decision of
-2026-09-27 stands — rivals are left unable to read a payback, and are therefore structurally more
-reckless — so the bar has to be set against that rather than the AI taught to behave. Either the rank
-needed comes down, or the measure changes from rank to something a company can control.
+**The finale's rank came down, 3 to 8** (owner, 2026-09-29; D71), and the number was measured: over six
+seeds a careful player finishes 4th, 8th, 13th, 13th, 14th and 17th against an idle one's 9th, 12th,
+12th, 13th, 13th and 14th, and 8 is the most places that leaves the idle bot winning none of six while
+a careful one takes two — about one in four, which is the band. The always-Yes bot finishes 20th of 20
+on every seed.
+
+**Still true, and not fixed:** a careful player is only about two thirds of a place ahead of an idle one
+on average in the finale (11.5 against 12.2), so the bar separates them through the tail rather than
+through a margin. The cause is the AI, which buys ground and drills whatever it costs while a player
+reading a payback declines the same ground — left that way by decision (2026-09-27). If the finale
+should reward deciding rather than merely punish recklessness, that is the thing to change, and it is
+not a bar.
 
 **The meter-led bot stopped standing for a competent player, and the harness now says so.**
 A dilemma hides its cost from the meters on purpose, so a bot reading only meters cuts every
