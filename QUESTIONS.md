@@ -161,8 +161,14 @@ lost — and on any day the tank is the binding constraint, losing a well costs 
 safety dilemma is to bite, the cost has to come from the workover bill and the catastrophe rather than
 from the production missed.
 
-**Playing on a phone** (§12B, D58) — reviewed and deferred; the desktop layout does not fit a phone
-and a portrait interface is a rebuild.
+**Playing on a phone, and controls where the numbers are** (§12B, §12B.1, §12B.2) — **designed
+2026-09-29, not built.** Two changes that pull the same way: move every control that already exists onto
+the line that reports its data, and give a phone four tabs of its own rather than the desktop squeezed.
+Drawn at 390×844. The rule settled: where an action exists it moves to its number; where the only lever
+is a card the line points at the card rather than growing a button, because thirty-four actions exist
+and a control for each turns a CEO into a manager. Needs nothing from the engine — `web/` only. Waiting
+on the owner. The question underneath it is about the game rather than the screen: the desktop premise
+is that you see the world and your company at once, and a phone breaks that by construction.
 
 **Release stages 3–5** (§14.8): web portals, Steam, mobile app stores. Each waits on feedback from
 the one before it.

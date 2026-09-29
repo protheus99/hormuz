@@ -1809,7 +1809,7 @@ demurrage. Nothing in the engine changed.
 Verified in a browser as a refiner: eight cargoes drawn and all eight moving to new positions on the
 next day, with three more putting to sea. A producer still sees an empty map, which is correct.
 
-## 12B. Playing on a Phone (reviewed; deferred, D58)
+## 12B. Playing on a Phone, and Controls Where the Numbers Are (reviewed; deferred, D58)
 
 Stage 1 went live on 2026-09-25 (§14.9) and the first thing anyone did was open it on a phone. It
 does not work there. This section is what is actually wrong, measured on the deployed build, and
@@ -1884,6 +1884,65 @@ CSS only; the shell stops being a three-row grid under the breakpoint so the not
 Verified at 375, 768, 1023, 1024 and 1440: the notice appears at 1023 and not at 1024, nothing
 scrolls sideways at any of them, and the desktop layout is untouched (left column 1,004 px, right
 400 px, top bar 50 px).
+
+### 12B.1 Controls where the numbers are (reviewed 2026-09-29)
+
+**The panels report a problem and the lever for it is somewhere else.** Read off the live build, the
+company panel states six facts a player would want to act on, and only two of them can be acted on
+where they are stated:
+
+| The panel says | To act on it you | |
+|---|---|---|
+| "Field: down 34% from its best. *Fields decline: drilling is what brings them back.*" | wait for the wells-declining card | the text names the lever and there is no lever |
+| "Rented space: **past its term**, double rate, gone in 6 days" | wait for the lease-expiring card | a deadline you cannot answer |
+| "Wells pump 0 of 1,400,000 bbl/day **(stopped: tanks full)**" | scroll to the settings block at the foot | the lever exists, far from the line |
+| "Since maintenance: 238 days" | wait for the maintenance card | by design, but nothing says so |
+| "In store: 1,640,000 of 2,100,000 bbl (78% full)" | press **Build more tanks**, underneath | already right |
+| A lot in the register | press **Bid strong** in its row | already right |
+
+**The rule, and the line not to cross.** Where an action already exists — an offer, a bid, a setting —
+it moves onto the line that reports its data. Nothing new becomes possible; it stops being hidden.
+What must **not** happen is a button per action: thirty-four actions exist in `actions.ts`, and a
+control for each turns a CEO answering cards into a manager clicking machinery, which is the thing
+this game is defined against (G1, D54). So operating decisions stay cards.
+
+**A fact whose only lever is a card gets a pointer, not a button.** The line that reports the problem
+carries a link to the decision already waiting, or says plainly that one is coming. "Fields decline:
+drilling is what brings them back" becomes a line you can press, and it goes to the card. That keeps
+the CEO premise and removes the dead end.
+
+**One piece of dead code found on the way:** `OfferPlace` declares a `GROUND` place, nothing is ever
+put there, and no panel renders it. Left over from when the eleven purchases became offers.
+
+### 12B.2 The phone, answered (reviewed 2026-09-29)
+
+Three screens were drawn at 390×844 — decisions, company, world — and they answer §12B's five open
+questions:
+
+- **Is a phone first class?** Yes, and the deck settles it: a producer sees a card every 14–17 days and
+  a career runs two or three dilemmas. That is a game checked twice a week, which is what a phone is
+  good at. The map, register and leaderboard want width, so on a phone they become reading surfaces,
+  one at a time, and the decisions take the home tab.
+- **One screen at a time, or a scroll?** Four tabs across the bottom — Decisions, Company, World, News.
+  **Seven desktop tabs become four**; Activity, Leases and Leaderboard drop one level, reached from the
+  surface they belong to.
+- **The news strip goes.** Thirty pixels of crawling text is most of a phone's top edge and cannot be
+  read on a train. Its three states become a headline card at the top of News, and for the state that
+  stops the clock, the red band that already exists.
+- **Touch targets are 48 px throughout.** Today the clock buttons are 40 px wide and 32 px tall and a
+  card option is a text row with 8 px of padding — all under the 44 px minimum. The clock itself is cut
+  to what a phone needs: **Next decision, pause, one speed**, because ×1 to ×8 is five buttons for a
+  choice nobody makes twice.
+- **It needs nothing from the engine**, confirmed again: the engine, session and save are all in the
+  browser, the map already draws from `game/map.ts` and the cards from the same view object. A phone
+  build is a second set of layout files over one session, not a fork — which is why it can be built
+  without touching a test.
+
+**The question underneath it, which is about the game rather than the screen.** The desktop layout
+exists on the premise that a player sees the world and their company at once, and a phone breaks that
+premise by construction. If the game is better when they are seen together, the phone is a lesser way
+to play and should say so; if it is not, the desktop has a column it does not need. Building the phone
+answers it.
 
 ## 13. Out of Scope & Deferred
 
